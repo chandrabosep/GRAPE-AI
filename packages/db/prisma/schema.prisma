@@ -1,0 +1,697 @@
+// AI Attention Marketplace — data model
+//
+// Design rules enforced here:
+//  1. No table stores a prompt, source code or an assistant reply. AiIntentRecord
+//     keeps taxonomy values and a hash, nothing reconstructable.
+//  2. Money is BigInt micro-USD (1_000_000 = $1.00). Never Float.
+//  3. CreditTransaction is append-only; balance is derived, never patched in place.
+//  4. Advertisers read aggregates only. No model here links a campaign to a user
+//     identity that an advertiser-scoped query can reach.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  runtime      = "nodejs"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- identity
+
+model User {
+  id        String  @id @default(uuid(7))
+  privyDid  String  @unique @map("privy_did")
+  email     String?
+  displayName String? @map("display_name")
+  countryCode String? @map("country_code") @db.Char(2)
+
+  roles         String[] @default(["user"])
+  worldVerified Boolean  @default(false) @map("world_verified")
+
+  /// 0..1 deterministic abuse score. Above the threshold, ads still serve but rewards stop.
+  fraudScore Decimal @default(0) @map("fraud_score") @db.Decimal(4, 3)
+
+  /// Cached mirror of the credit ledger tail. Written only inside the same
+  /// transaction that appends a CreditTransaction.
+  creditBalanceMicro BigInt @default(0) @map("credit_balance_micro")
+
+  lastSeenAt DateTime? @map("last_seen_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  profile       UserProfile?
+  wallets       Wallet[]
+  sessions      ApiSession[]
+  authCodes     VsCodeAuthCode[]
+  subscriptions Subscription[]
+  aiSessions    AiSession[]
+  aiUsage       AiUsage[]
+  intents       AiIntentRecord[]
+  impressions   AdImpression[]
+  rewards       Reward[]
+  creditTxs     CreditTransaction[]
+  payments      Payment[]
+  onchainSignals OnchainSignal[]
+  ownedOrgs     Organization[]      @relation("OrgOwner")
+  advertisers   Advertiser[]
+
+  @@index([createdAt])
+  @@map("users")
+}
+
+model UserProfile {
+  id     String @id @default(uuid(7))
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  persona      String?
+  interests    String[] @default([])
+  technologies String[] @default([])
+
+  adsOptOut          Boolean @default(false) @map("ads_opt_out")
+  includeCodeContext Boolean @default(true) @map("include_code_context")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_profiles")
+}
+
+enum ChainType {
+  evm
+  hedera
+}
+
+enum WalletKind {
+  privy_embedded
+  linked_external
+  server
+}
+
+model Wallet {
+  id     String @id @default(uuid(7))
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  address   String
+  chainType ChainType  @map("chain_type")
+  kind      WalletKind
+
+  /// The wallet whose onchain history feeds targeting. Embedded wallets are new
+  /// and have no history, so this is normally a linked external mainnet wallet.
+  isPrimarySignalSource Boolean   @default(false) @map("is_primary_signal_source")
+  verifiedAt            DateTime? @map("verified_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  signals  OnchainSignal[]
+  orgs     Organization[]  @relation("OrgTreasury")
+
+  @@unique([address, chainType])
+  @@index([userId])
+  @@map("wallets")
+}
+
+model Plan {
+  id                  String   @id @default(uuid(7))
+  code                String   @unique
+  name                String
+  dailyTokenAllowance Int      @map("daily_token_allowance")
+  allowedModels       String[] @default([]) @map("allowed_models")
+  adsEnabled          Boolean  @default(true) @map("ads_enabled")
+  priceMicro          BigInt   @default(0) @map("price_micro")
+  maxContextChars     Int      @default(8000) @map("max_context_chars")
+  features            Json     @default("{}")
+  sortOrder           Int      @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+}
+
+enum SubscriptionSource {
+  default
+  credits
+  payment
+}
+
+model Subscription {
+  id     String @id @default(uuid(7))
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId String @map("plan_id")
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  status   SubscriptionStatus @default(active)
+  source   SubscriptionSource @default(default)
+  startsAt DateTime           @default(now()) @map("starts_at")
+  endsAt   DateTime?          @map("ends_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+enum ClientKind {
+  web
+  vscode
+  x402
+  agent
+}
+
+model ApiSession {
+  id     String @id @default(uuid(7))
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  client           ClientKind
+  refreshTokenHash String     @unique @map("refresh_token_hash")
+  expiresAt        DateTime   @map("expires_at")
+  revokedAt        DateTime?  @map("revoked_at")
+  userAgent        String?    @map("user_agent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("api_sessions")
+}
+
+/// Single-use handoff code for the browser -> VS Code login. Short TTL, hashed at rest.
+model VsCodeAuthCode {
+  id       String @id @default(uuid(7))
+  codeHash String @unique @map("code_hash")
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  state     String
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("vscode_auth_codes")
+}
+
+// ------------------------------------------------------------- advertising
+
+model Organization {
+  id          String  @id @default(uuid(7))
+  name        String
+  ownerUserId String  @map("owner_user_id")
+  owner       User    @relation("OrgOwner", fields: [ownerUserId], references: [id])
+
+  treasuryWalletId String? @map("treasury_wallet_id")
+  treasuryWallet   Wallet? @relation("OrgTreasury", fields: [treasuryWalletId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  advertisers Advertiser[]
+
+  @@map("organizations")
+}
+
+enum AdvertiserStatus {
+  active
+  suspended
+}
+
+model Advertiser {
+  id     String       @id @default(uuid(7))
+  orgId  String       @map("org_id")
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId String       @map("user_id")
+  user   User         @relation(fields: [userId], references: [id])
+
+  name    String
+  website String?
+  status  AdvertiserStatus @default(active)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  campaigns Campaign[]
+
+  @@index([orgId])
+  @@map("advertisers")
+}
+
+enum CampaignStatus {
+  draft
+  awaiting_funding
+  active
+  paused
+  exhausted
+  ended
+}
+
+model Campaign {
+  id           String     @id @default(uuid(7))
+  advertiserId String     @map("advertiser_id")
+  advertiser   Advertiser @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+
+  name   String
+  status CampaignStatus @default(draft)
+
+  budgetMicro BigInt @map("budget_micro")
+  spentMicro  BigInt @default(0) @map("spent_micro")
+  /// Price the advertiser pays for one qualified impression.
+  bidMicro    BigInt @map("bid_micro")
+
+  clickMultiplier    Decimal @default(3) @map("click_multiplier") @db.Decimal(6, 2)
+  dailySpendCapMicro BigInt? @map("daily_spend_cap_micro")
+
+  /// Allocation snapshot taken at activation, so editing economics.json never
+  /// rewrites the split of a campaign that is already running.
+  allocation    Json
+  frequencyCap  Json @default("{\"perUserPerHour\":1,\"perUserPerDay\":3}") @map("frequency_cap")
+
+  startsAt DateTime @map("starts_at")
+  endsAt   DateTime @map("ends_at")
+
+  /// bytes32 key used by CampaignVault onchain.
+  vaultKey         String? @unique @map("vault_key")
+  fundingPaymentId String? @map("funding_payment_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  targeting   CampaignTargeting?
+  creatives   AdCreative[]
+  impressions AdImpression[]
+  rewards     Reward[]
+  payments    Payment[]
+  settlements Settlement[]
+  dailyStats  CampaignDailyStat[]
+
+  @@index([status, startsAt, endsAt])
+  @@index([advertiserId])
+  @@map("campaigns")
+}
+
+enum OnchainMode {
+  off
+  boost
+  require
+}
+
+model CampaignTargeting {
+  id         String   @id @default(uuid(7))
+  campaignId String   @unique @map("campaign_id")
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  countries        String[] @default([])
+  personas         String[] @default([])
+  interests        String[] @default([])
+  technologies     String[] @default([])
+  intentCategories String[] @default([]) @map("intent_categories")
+  aiIntents        String[] @default([]) @map("ai_intents")
+  models           String[] @default([])
+
+  minCommercialIntent String @default("low") @map("min_commercial_intent")
+
+  onchainCriteria Json        @default("{}") @map("onchain_criteria")
+  onchainMode     OnchainMode @default(off) @map("onchain_mode")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("campaign_targeting")
+}
+
+enum CreativeStatus {
+  active
+  paused
+}
+
+model AdCreative {
+  id         String   @id @default(uuid(7))
+  campaignId String   @map("campaign_id")
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  headline String
+  body     String
+  ctaText  String  @map("cta_text")
+  ctaUrl   String  @map("cta_url")
+  imageUrl String? @map("image_url")
+
+  status CreativeStatus @default(active)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  impressions AdImpression[]
+
+  @@index([campaignId])
+  @@map("ad_creatives")
+}
+
+model AdImpression {
+  id     String @id @default(uuid(7))
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  campaignId String     @map("campaign_id")
+  campaign   Campaign   @relation(fields: [campaignId], references: [id])
+  creativeId String     @map("creative_id")
+  creative   AdCreative @relation(fields: [creativeId], references: [id])
+
+  requestId String  @map("request_id")
+  intentId  String? @map("intent_id")
+
+  scoreTotal     Decimal @map("score_total") @db.Decimal(6, 4)
+  scoreBreakdown Json    @map("score_breakdown")
+  /// Categorical signals only, e.g. ["solidity","lending_activity_30d"].
+  signalsUsed    Json    @map("signals_used")
+
+  /// Set once the client confirms the card was actually on screen.
+  qualified        Boolean   @default(false)
+  disqualifyReason String?   @map("disqualify_reason")
+  viewedAt         DateTime? @map("viewed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  engagements AdEngagement[]
+  rewards     Reward[]
+
+  @@index([userId, campaignId, createdAt])
+  @@index([campaignId, createdAt])
+  @@index([requestId])
+  @@map("ad_impressions")
+}
+
+enum EngagementType {
+  view_confirmed
+  click
+  dismiss
+  why_opened
+}
+
+model AdEngagement {
+  id           String       @id @default(uuid(7))
+  impressionId String       @map("impression_id")
+  impression   AdImpression @relation(fields: [impressionId], references: [id], onDelete: Cascade)
+
+  type     EngagementType
+  metadata Json           @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  rewards Reward[]
+
+  @@index([impressionId, type])
+  @@map("ad_engagements")
+}
+
+// ------------------------------------------------------------ ai & signals
+
+model AiSession {
+  id     String  @id @default(uuid(7))
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  client ClientKind
+  model  String
+
+  startedAt      DateTime @default(now()) @map("started_at")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+
+  usage AiUsage[]
+
+  @@index([userId, startedAt])
+  @@map("ai_sessions")
+}
+
+enum FundingSource {
+  allowance
+  credits
+  x402
+}
+
+model AiUsage {
+  id        String     @id @default(uuid(7))
+  userId    String?    @map("user_id")
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId String?    @map("session_id")
+  session   AiSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  requestId String @unique @map("request_id")
+
+  provider String
+  model    String
+
+  inputTokens  Int @map("input_tokens")
+  outputTokens Int @map("output_tokens")
+  totalTokens  Int @map("total_tokens")
+
+  /// What the inference cost us, and what we charged the user. They differ when
+  /// an ad subsidised the call.
+  costMicro    BigInt @map("cost_micro")
+  chargedMicro BigInt @map("charged_micro")
+
+  fundingSource FundingSource @map("funding_source")
+  latencyMs     Int?          @map("latency_ms")
+  stopReason    String?       @map("stop_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("ai_usage")
+}
+
+/// Derived intent only. There is deliberately no column that can hold prompt text.
+model AiIntentRecord {
+  id        String  @id @default(uuid(7))
+  requestId String  @map("request_id")
+  userId    String? @map("user_id")
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  category         String
+  intent           String
+  technologies     String[] @default([])
+  persona          String?
+  commercialIntent String   @map("commercial_intent")
+
+  confidence Decimal @db.Decimal(4, 3)
+  classifier String
+
+  /// sha256 of the normalised prompt. Used for duplicate-abuse detection only;
+  /// it is one-way and never returned by any endpoint.
+  promptHash String  @map("prompt_hash")
+  languageId String? @map("language_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([promptHash, createdAt])
+  @@index([requestId])
+  @@map("ai_intents")
+}
+
+model OnchainSignal {
+  id       String @id @default(uuid(7))
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walletId String @unique @map("wallet_id")
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  signals Json
+  /// Which Graph product answered which field, for the README and the demo.
+  sources Json
+
+  computedAt DateTime @map("computed_at")
+  expiresAt  DateTime @map("expires_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("onchain_signals")
+}
+
+// -------------------------------------------------------------------- money
+
+enum RewardKind {
+  impression
+  engagement
+}
+
+enum RewardStatus {
+  granted
+  reversed
+}
+
+model Reward {
+  id     String @id @default(uuid(7))
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  impressionId String        @map("impression_id")
+  impression   AdImpression  @relation(fields: [impressionId], references: [id], onDelete: Cascade)
+  engagementId String?       @map("engagement_id")
+  engagement   AdEngagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+  campaignId   String        @map("campaign_id")
+  campaign     Campaign      @relation(fields: [campaignId], references: [id])
+
+  kind RewardKind
+
+  /// What the campaign was charged, then how it split.
+  chargeMicro   BigInt @map("charge_micro")
+  amountMicro   BigInt @map("amount_micro")
+  platformMicro BigInt @map("platform_micro")
+  treasuryMicro BigInt @map("treasury_micro")
+
+  status      RewardStatus @default(granted)
+  creditTxId  String?      @unique @map("credit_tx_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  creditTx CreditTransaction? @relation(fields: [creditTxId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([campaignId, createdAt])
+  @@map("rewards")
+}
+
+enum CreditTxType {
+  reward_earned
+  inference_spent
+  plan_purchase
+  purchase
+  refund
+  payout_debit
+  promo
+  adjustment
+}
+
+/// Append-only. A database trigger blocks UPDATE and DELETE; the balance is the
+/// tail of this table, never an independently mutated number.
+model CreditTransaction {
+  id     String @id @default(uuid(7))
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type   CreditTxType
+  /// Signed: positive credits the user, negative debits.
+  amountMicro       BigInt @map("amount_micro")
+  balanceAfterMicro BigInt @map("balance_after_micro")
+
+  refType String? @map("ref_type")
+  refId   String? @map("ref_id")
+
+  /// Makes reward grants and spend debits safe to retry.
+  idempotencyKey String @unique @map("idempotency_key")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reward Reward?
+
+  @@index([userId, createdAt])
+  @@map("credit_transactions")
+}
+
+enum PaymentKind {
+  campaign_funding
+  x402_inference
+  reward_payout
+  plan_purchase
+}
+
+enum PaymentStatus {
+  pending
+  confirmed
+  failed
+}
+
+model Payment {
+  id   String      @id @default(uuid(7))
+  kind PaymentKind
+
+  /// CAIP-2 style, e.g. "eip155:296" or "hedera:testnet".
+  network String
+  txId    String @unique @map("tx_id")
+
+  fromAddress String  @map("from_address")
+  toAddress   String  @map("to_address")
+  asset       String
+  amountRaw   Decimal @map("amount_raw") @db.Decimal(78, 0)
+  amountMicro BigInt? @map("amount_micro")
+
+  status PaymentStatus @default(pending)
+
+  campaignId String?   @map("campaign_id")
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  userId     String?   @map("user_id")
+  user       User?     @relation(fields: [userId], references: [id])
+  requestId  String?   @map("request_id")
+
+  facilitator String?
+  raw         Json    @default("{}")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  confirmedAt DateTime? @map("confirmed_at")
+
+  @@index([kind, status])
+  @@index([campaignId])
+  @@map("payments")
+}
+
+enum SettlementStatus {
+  pending
+  submitted
+  confirmed
+  failed
+}
+
+model Settlement {
+  id         String   @id @default(uuid(7))
+  campaignId String   @map("campaign_id")
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+
+  spendMicro    BigInt @map("spend_micro")
+  rewardMicro   BigInt @map("reward_micro")
+  platformMicro BigInt @map("platform_micro")
+  treasuryMicro BigInt @map("treasury_micro")
+
+  txId   String?          @map("tx_id")
+  status SettlementStatus @default(pending)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([campaignId, periodEnd])
+  @@map("settlements")
+}
+
+/// Rollup so advertiser dashboards never scan the impression table.
+model CampaignDailyStat {
+  id         String   @id @default(uuid(7))
+  campaignId String   @map("campaign_id")
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  day DateTime @db.Date
+
+  impressions Int    @default(0)
+  qualified   Int    @default(0)
+  clicks      Int    @default(0)
+  spendMicro  BigInt @default(0) @map("spend_micro")
+  rewardMicro BigInt @default(0) @map("reward_micro")
+
+  avgScore Decimal @default(0) @map("avg_score") @db.Decimal(6, 4)
+
+  intentBreakdown  Json @default("{}") @map("intent_breakdown")
+  onchainBreakdown Json @default("{}") @map("onchain_breakdown")
+
+  @@unique([campaignId, day])
+  @@map("campaign_daily_stats")
+}
