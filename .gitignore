@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+out/
+build/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# generated
+packages/db/generated/
+**/generated/prisma/
+
+# env
+.env
+.env.*
+!.env.example
+
+# test / coverage
+coverage/
+.vitest/
+
+# editors & os
+.DS_Store
+.idea/
+*.log
+
+# vscode extension
+*.vsix
+apps/vscode-extension/.vscode-test/
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/

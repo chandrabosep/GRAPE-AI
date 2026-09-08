@@ -1,0 +1,33 @@
+{
+  "name": "ai-attention-marketplace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ads that pay for your AI — an AI attention marketplace for developers. ETHOnline 2026.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
+    "db:generate": "pnpm --filter @aam/db db:generate",
+    "db:migrate": "pnpm --filter @aam/db db:migrate",
+    "db:push": "pnpm --filter @aam/db db:push",
+    "db:seed": "pnpm --filter @aam/db db:seed",
+    "db:studio": "pnpm --filter @aam/db db:studio"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.13",
+    "turbo": "^2.10.12",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}

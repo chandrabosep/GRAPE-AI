@@ -1,0 +1,10 @@
+node_modules
+.next
+.turbo
+dist
+out
+coverage
+pnpm-lock.yaml
+packages/db/generated
+contracts/lib
+contracts/out

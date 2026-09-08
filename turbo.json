@@ -1,0 +1,58 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalEnv": ["NODE_ENV"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "JWT_SECRET",
+    "ADMIN_TOKEN",
+    "AWS_REGION",
+    "AWS_PROFILE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "BEDROCK_CHAT_MODEL",
+    "BEDROCK_CLASSIFIER_MODEL",
+    "PRIVY_APP_ID",
+    "PRIVY_APP_SECRET",
+    "PRIVY_JWT_VERIFICATION_KEY",
+    "GRAPH_GATEWAY_API_KEY",
+    "PINAX_API_JWT",
+    "CHAIN_ID",
+    "RPC_URL",
+    "CAMPAIGN_VAULT_ADDRESS",
+    "REWARD_POOL_ADDRESS",
+    "MOCK_USDC_ADDRESS",
+    "OPERATOR_PRIVATE_KEY",
+    "HEDERA_SERVICE_ACCOUNT_ID",
+    "HEDERA_SERVICE_PRIVATE_KEY",
+    "HEDERA_AGENT_ACCOUNT_ID",
+    "HEDERA_AGENT_PRIVATE_KEY",
+    "X402_FACILITATOR_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_PRIVY_APP_ID",
+    "NEXT_PUBLIC_CHAIN_ID"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build", "db:generate"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "dev": {
+      "dependsOn": ["db:generate"],
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build", "db:generate"]
+    },
+    "test": {
+      "dependsOn": ["db:generate"],
+      "outputs": ["coverage/**"]
+    },
+    "lint": {}
+  }
+}

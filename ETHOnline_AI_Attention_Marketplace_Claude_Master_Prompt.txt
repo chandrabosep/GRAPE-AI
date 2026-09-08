@@ -1,0 +1,1400 @@
+ETHONLINE 2026 — AI ATTENTION MARKETPLACE
+MASTER BUILD PROMPT FOR CLAUDE
+
+You are the lead architect and senior full-stack engineer for an ETHGlobal hackathon project.
+
+We are building a production-quality hackathon MVP called AI Attention Marketplace.
+
+CORE IDEA
+
+AI users get access to AI inference for free or at a subsidized cost by allowing relevant, privacy-preserving advertisements to be shown during AI interactions. Advertisers pay for high-intent AI attention. A portion of advertising revenue is returned to users as AI credits/rewards. Users can use those rewards to purchase additional AI usage. Ethereum/Web3 provides the payment, attribution and identity layer.
+
+The product should NOT feel like "ChatGPT with annoying ads".
+
+Core thesis:
+
+"Ads should subsidize AI instead of interrupting it."
+
+Second thesis:
+
+"AI intent is valuable advertising inventory."
+
+A developer asking an AI assistant:
+"How do I deploy my Solidity contract?"
+is much more valuable to an Ethereum infrastructure advertiser than generic demographic targeting.
+
+The system should combine:
+
+1. AI interaction intent
+2. Onchain activity / Web3 interests
+3. Advertiser campaign targeting
+4. Relevant advertisements
+5. User rewards
+6. AI credits
+7. Machine-payable AI APIs using x402
+
+
+SPONSOR STRATEGY
+
+Do NOT integrate every sponsor.
+
+The goal is to build one coherent product with a strong chance of becoming an ETHGlobal finalist.
+
+PRIMARY — THE GRAPH
+
+Use The Graph as a load-bearing component of the advertising targeting engine.
+
+Use live Graph data to derive useful onchain audience signals.
+
+Potential signals:
+- Ethereum activity
+- DeFi protocol interaction
+- interaction with specific protocols
+- recent onchain activity
+- Web3-related activity where technically reasonable
+
+The Graph must contribute meaningfully to advertising decisions.
+
+Do NOT simply query a Subgraph and display the result.
+
+Targeting flow:
+
+AI intent
++
+onchain audience signals from The Graph
++
+advertiser campaign criteria
+=
+targeting/relevance score
+=
+best advertisement
+
+If possible, use a suitable standardized/composable Graph product so the integration aligns strongly with the Graph AI Use Case prize.
+
+Research current Graph APIs/docs before implementation and select the simplest qualifying integration.
+
+PRIMARY — HEDERA + x402
+
+Use Hedera as the payment rail for a real x402-gated AI service.
+
+Create an actual AI inference API such as:
+
+POST /api/v1/inference
+
+Flow:
+
+Client requests AI inference.
+Server responds with HTTP 402 Payment Required.
+Client/agent pays through x402 on Hedera.
+Server verifies payment.
+Server performs inference using AWS Bedrock.
+Server returns AI response.
+
+Important demo:
+
+AI agent/client
+→ x402 payment
+→ Hedera
+→ AI inference
+→ response
+
+This must be a REAL working testnet flow, not mocked.
+
+Use the official Hedera x402 / Blocky402 flow where appropriate.
+
+SECONDARY — PRIVY
+
+Use Privy for frictionless user authentication and embedded wallets.
+
+The user should NOT need to understand blockchain wallets to use the product.
+
+Preferred UX:
+
+Sign in with Google/GitHub/etc.
+→ Privy creates/loads embedded wallet
+→ user has an AI wallet
+→ rewards accumulate
+→ user can use rewards for AI credits
+→ user can optionally withdraw/transfer assets
+
+Privy must be a meaningful part of the user financial flow.
+
+OPTIONAL — WORLD
+
+Only integrate World if it naturally improves the product and can be implemented without compromising the core MVP.
+
+Potential use case:
+Sybil/fraud prevention.
+
+Possible model:
+Unverified user → normal rewards/limits
+Verified human → higher reward eligibility/trust score
+
+Do NOT add World just for the bounty.
+
+Do NOT implement ENS, Uniswap, 1inch, Chainlink, Ledger or Arc unless a genuinely necessary product use case emerges.
+
+
+PRODUCT ARCHITECTURE
+
+We need TWO user-facing surfaces.
+
+1. VS CODE EXTENSION
+
+Primary AI experience for developers.
+
+Features:
+- AI chat
+- code generation
+- code explanation
+- debugging
+- contextual coding assistance
+- model selection where practical
+- streaming responses
+- token/usage information
+- sponsored ad placement
+- reward information
+
+Example:
+
+User asks:
+"How do I deploy this Solidity contract using Foundry?"
+
+Extension sends request to backend.
+
+Backend:
+1. authenticates user
+2. checks plan/credit balance
+3. determines AI intent
+4. determines relevant advertiser audience
+5. queries campaign engine
+6. optionally uses Graph-derived onchain signals
+7. selects relevant advertisement
+8. performs AI inference through Bedrock
+9. returns AI response + sponsored content
+10. records qualified impression
+11. calculates user reward
+
+Advertisement must be visually separated from the AI response.
+
+Example UI:
+
+AI RESPONSE
+
+Here is how you can deploy...
+
+----------------------------
+
+SPONSORED
+Relevant to your development task
+
+"Deploy your Ethereum applications faster with XYZ"
+
+Learn more →
+
+You earned +0.002 AI credits
+
+The ad must never masquerade as an AI-generated recommendation.
+
+2. WEB APPLICATION
+
+Build a modern web application for:
+
+END USERS:
+- login
+- profile
+- AI wallet
+- AI credit balance
+- reward history
+- usage statistics
+- AI plan
+- token usage
+- transaction history
+- withdraw/redeem where supported
+- upgrade plan
+- wallet
+- optional human verification
+
+ADVERTISERS:
+- advertiser registration/login
+- wallet
+- deposit campaign budget
+- create campaign
+- campaign status
+- targeting configuration
+- budget
+- spend
+- impressions
+- qualified impressions
+- clicks/interactions
+- estimated audience
+- campaign performance
+- remaining budget
+- reward allocation
+- platform fee
+
+Example campaign:
+
+Campaign:
+Ethereum Developer Launch
+
+Budget:
+$100
+
+Audience:
+Persona: Developer
+Interests: Ethereum, Solidity, DeFi
+AI Intent: Smart contract development, Deployment, Debugging
+Countries: India, USA
+Onchain signals: Recently interacted with selected Ethereum/DeFi protocols
+Activity window: Last 30 days
+
+Targeting system must be extensible.
+
+
+ADVERTISING ENGINE
+
+Create an actual ad marketplace rather than a hardcoded ad.
+
+Core entities:
+User
+Advertiser
+Campaign
+Creative
+AudienceRule
+AIIntent
+OnchainSignal
+Impression
+Engagement
+Reward
+Wallet
+CreditTransaction
+AIUsage
+
+Campaign example:
+
+{
+  campaignId,
+  advertiserId,
+  budget,
+  bid,
+  countries,
+  personas,
+  interests,
+  aiIntents,
+  models,
+  onchainCriteria,
+  startDate,
+  endDate,
+  status
+}
+
+Create an ad matching engine.
+
+Input:
+user context
+
+Output:
+ranked campaigns
+
+Ranking should consider:
+- campaign eligibility
+- AI intent relevance
+- user persona
+- country
+- onchain audience match
+- bid
+- campaign budget
+- frequency caps
+- quality/fraud score
+
+Conceptual formula:
+
+relevanceScore =
+intentMatch
++ audienceMatch
++ onchainMatch
++ bidWeight
+- frequencyPenalty
+- fraudPenalty
+
+Do not over-engineer into machine learning for MVP. Use a deterministic scoring engine that can later be replaced by ML.
+
+
+AI INTENT ENGINE
+
+The platform needs to understand what the user is trying to accomplish.
+
+Example:
+
+Prompt:
+"How do I deploy a Solidity contract?"
+
+Output:
+
+{
+  category: "development",
+  technologies: ["Solidity", "Ethereum"],
+  intent: "smart_contract_deployment",
+  persona: "web3_developer",
+  commercialIntent: "medium"
+}
+
+Another example:
+
+Prompt:
+"Compare Ethereum RPC providers for my dApp."
+
+Output:
+
+{
+  category: "development",
+  technologies: ["Ethereum"],
+  intent: "infrastructure_evaluation",
+  persona: "web3_developer",
+  commercialIntent: "high"
+}
+
+Do NOT store or expose raw private prompts to advertisers.
+
+Advertisers only receive derived/aggregate eligibility information.
+
+
+PRIVACY
+
+This is important for the product narrative.
+
+Advertisers must NEVER receive:
+- raw user prompts
+- private source code
+- conversation history
+- user identity
+- wallet address unless explicitly required
+- personal information
+
+Instead, advertising engine receives derived signals such as:
+
+developer
+Ethereum
+Solidity
+smart-contract deployment
+high-intent
+
+For MVP, document that intent classification can later move to local/on-device inference for stronger privacy.
+
+Be technically honest. Do not claim the current system is fully private if prompts are sent to the backend.
+
+
+USER REWARD ECONOMY
+
+Create a reward engine.
+
+Illustrative campaign:
+
+Advertiser deposits $100.
+
+Example configurable allocation:
+70% → user rewards
+20% → platform
+10% → treasury/ecosystem
+
+These are example economics only and must be configurable.
+
+Reward should depend on qualified advertising activity rather than simply showing an ad.
+
+Potential scoring:
+impression → small reward
+meaningful engagement → larger reward
+fraudulent/repeated activity → no reward
+
+Do not incentivize artificial ad clicking.
+
+Include:
+- frequency limits
+- session limits
+- duplicate detection
+- suspicious activity score
+- daily reward cap
+
+For MVP, implement simple anti-abuse rules rather than an elaborate ML fraud system.
+
+
+AI CREDIT SYSTEM
+
+Users should be able to use earned rewards to obtain additional AI usage.
+
+Example:
+
+FREE:
+- daily token limit
+- sponsored ads
+- standard model
+
+EARN:
+- higher effective usage based on rewards
+- sponsored ads
+
+PRO:
+- much higher token allowance
+- premium models
+- reduced/no ads
+
+Create a proper ledger for:
+- credit earned
+- credit spent
+- credit purchased
+- credit refunded/expired if needed
+
+Do NOT directly mutate a single balance without transaction history.
+
+Use an immutable credit transaction ledger.
+
+
+AI PLAN SYSTEM
+
+Implement configurable plans.
+
+FREE:
+- limited daily tokens
+- sponsored ads
+- standard AI model
+
+EARN:
+- higher usage based on rewards
+- sponsored ads
+
+PRO:
+- higher token allowance
+- premium models
+- reduced/no ads
+
+Do not hardcode costs into business logic.
+
+
+AWS / BEDROCK
+
+Use AWS Bedrock for AI inference.
+
+Create an AI provider abstraction:
+
+AIProvider
+ ├── BedrockProvider
+ └── future providers
+
+Do not tightly couple the entire application to Bedrock.
+
+API should support:
+- model
+- messages
+- context
+- maxTokens
+- temperature where supported
+
+Implement streaming responses if practical.
+
+Track:
+- input tokens
+- output tokens
+- total tokens
+- model
+- request ID
+- user
+- timestamp
+- cost estimate if available
+
+Never expose AWS credentials to the VS Code extension.
+
+
+TOKEN ECONOMICS / USAGE GATEWAY
+
+The VS Code extension must NEVER be trusted to enforce token limits.
+
+Correct flow:
+
+VS Code
+→ authenticated API
+→ backend checks subscription/credits
+→ backend checks usage
+→ backend calls Bedrock
+→ backend records usage
+→ returns response
+
+Implement server-side rate limiting and usage enforcement.
+
+
+VS CODE AUTHENTICATION
+
+Do NOT assume wallet connection inside VS Code is the primary authentication method.
+
+Preferred architecture:
+
+User opens web application.
+
+User signs in with Privy.
+
+Backend creates account.
+
+VS Code extension:
+"Sign in to AI Marketplace"
+
+→ opens browser
+
+→ user authenticates
+
+→ browser redirects/callbacks to extension
+
+→ extension receives short-lived authentication credential/session
+
+→ extension calls backend.
+
+Use secure OAuth/device-style authentication rather than asking users to paste private keys or API keys.
+
+Wallet operations should primarily be handled through web application/Privy.
+
+Extension can display:
+- AI credits
+- reward balance
+- plan
+- usage
+
+but does not need to become a full crypto wallet UI.
+
+Research current VS Code extension authentication patterns before implementation.
+
+
+WEB APP PAGES
+
+LANDING PAGE
+
+Hero:
+"Ads that pay for your AI."
+
+Subtitle:
+"An AI marketplace where relevant advertising subsidizes inference and users earn credits from their attention."
+
+Show three actors:
+Users
+Advertisers
+AI Agents
+
+CTAs:
+Start using AI
+Advertise to AI users
+
+USER DASHBOARD
+
+Cards:
+AI Credits
+Reward balance
+Today's usage
+Tokens used
+Current plan
+Rewards earned
+Recent activity
+AI usage chart
+Reward history
+Wallet
+
+ADVERTISER DASHBOARD
+
+Cards:
+Campaign spend
+Impressions
+Qualified impressions
+Average relevance
+Users reached
+Remaining budget
+Campaign ROI-style metrics
+Campaign list
+
+CREATE CAMPAIGN
+
+Sections:
+Budget
+Audience
+Location
+Persona
+Interests
+AI intent
+Technology
+Onchain activity
+Schedule
+Bid
+Creative
+Preview
+Launch campaign
+
+CAMPAIGN DETAIL
+
+Show:
+budget
+spent
+remaining
+impressions
+qualified impressions
+engagement
+reward distribution
+platform fee
+audience breakdown
+AI intent breakdown
+onchain audience breakdown
+
+
+WALLET / PAYMENTS
+
+Use Privy for embedded wallet UX.
+
+Desired flows:
+
+Advertiser:
+fund campaign
+
+User:
+receive reward
+
+User:
+use reward for AI credits
+
+User:
+optionally withdraw if implemented
+
+For MVP, prioritize working end-to-end testnet payment flow over production fiat/onramp functionality.
+
+Use testnet assets.
+
+
+HEDERA + x402 ARCHITECTURE
+
+Build a dedicated AI API that is x402-gated.
+
+Example:
+POST /api/x402/inference
+
+Flow:
+
+Client
+→ request inference
+
+Server
+→ HTTP 402
+
+Client/agent
+→ pays through x402 on Hedera
+
+Payment facilitator
+→ verifies payment
+
+Server
+→ executes Bedrock inference
+
+Server
+→ returns response
+
+Record:
+payment ID
+request ID
+amount
+service
+timestamp
+network
+
+Build this so it can be demonstrated independently from the VS Code user flow.
+
+
+AGENTIC USE CASE
+
+Create a simple AI-agent/client demonstration.
+
+Example:
+
+Agent needs an AI completion.
+
+It calls:
+ /api/x402/inference
+
+Receives:
+402 Payment Required
+
+Automatically performs payment.
+
+Retries.
+
+AI service responds.
+
+Demo must clearly show:
+Agent
+→ discovers/uses service
+→ payment
+→ AI inference
+→ result
+
+
+THE GRAPH INTEGRATION
+
+Do not fake Graph data.
+
+Use live data from a Graph provider.
+
+Build:
+GraphAudienceService
+
+Responsibilities:
+- query relevant onchain activity
+- normalize it
+- produce audience signals
+- feed them into ad targeting
+
+Example normalized output:
+
+{
+  walletActivity: true,
+  ethereumActivity: true,
+  defiActivity: true,
+  protocols: ["..."],
+  recentActivity: true
+}
+
+The exact Graph queries should be selected based on currently available APIs/subgraphs and what can reliably be demonstrated.
+
+Make The Graph visibly load-bearing.
+
+Example:
+Advertiser chooses:
+"Target users who have interacted with DeFi protocols in the last 30 days."
+
+Ad matching engine calls GraphAudienceService.
+
+That result directly changes which advertisement is selected.
+
+
+DATABASE
+
+Use PostgreSQL.
+
+Core tables/entities:
+
+users
+profiles
+organizations
+advertisers
+campaigns
+ad_creatives
+campaign_targeting
+ai_sessions
+ai_usage
+ai_intents
+onchain_signals
+ad_impressions
+ad_engagements
+rewards
+reward_transactions
+wallets
+credit_transactions
+payments
+plans
+subscriptions
+
+Avoid storing unnecessary raw prompts.
+
+Use appropriate indexes.
+
+Do not store raw prompts unless strictly required for functionality.
+
+
+BACKEND
+
+Preferred stack:
+
+Node.js
+TypeScript
+Fastify or Express
+
+Clean modular architecture.
+
+Suggested modules:
+
+auth
+users
+ai
+usage
+billing
+credits
+advertisers
+campaigns
+targeting
+ads
+rewards
+graph
+payments
+x402
+wallet
+fraud
+analytics
+
+Expose REST APIs initially.
+
+Use OpenAPI where practical.
+
+Implement:
+- validation
+- error handling
+- authentication
+- authorization
+- rate limiting
+- logging
+- configuration management
+
+
+FRONTEND
+
+Use:
+React
+TypeScript
+Vite or Next.js
+Tailwind CSS
+
+Create polished modern SaaS UI.
+
+Avoid generic bootstrap-looking pages.
+
+Design language:
+- clean
+- developer-focused
+- modern AI infrastructure
+- Web3 without excessive crypto aesthetics
+- serious startup quality
+
+
+VS CODE EXTENSION
+
+Build a real extension using TypeScript.
+
+Features:
+- login
+- AI chat
+- streaming response
+- code context
+- send prompt
+- sponsored ad card
+- reward earned indicator
+- usage indicator
+- plan indicator
+
+Example UI:
+
+┌───────────────────────────────┐
+│ AI Marketplace                │
+│                               │
+│ You                         │
+│ How do I deploy this...       │
+│                               │
+│ AI                            │
+│ Here's how...                 │
+│                               │
+│ ────────────────────────────  │
+│ SPONSORED                     │
+│ Relevant to your task         │
+│                               │
+│ Deploy your dApp faster       │
+│ [Learn more]                  │
+│                               │
+│ +0.002 AI credits             │
+└───────────────────────────────┘
+
+Do not inject advertisements into source code/editor automatically.
+
+Keep ad clearly separate from AI response.
+
+
+SECURITY
+
+Implement:
+- no secrets in extension
+- no AWS keys in frontend
+- server-side token enforcement
+- JWT/session security
+- rate limiting
+- campaign budget enforcement
+- reward caps
+- payment verification
+- webhook verification if applicable
+- input validation
+- authorization checks
+
+Never trust client-reported token counts or rewards.
+
+
+SYSTEM DESIGN DOCUMENTATION
+
+Before major implementation, create:
+
+docs/architecture.md
+docs/product.md
+docs/economics.md
+docs/privacy.md
+docs/hackathon.md
+
+Architecture documentation should include:
+
+1. Product overview
+2. System architecture
+3. Component diagram
+4. Request lifecycle
+5. AI inference flow
+6. Advertisement matching flow
+7. The Graph data flow
+8. x402 payment flow
+9. Reward flow
+10. Privy wallet/auth flow
+11. VS Code authentication flow
+12. Database architecture
+13. Security model
+14. Privacy model
+15. Fraud prevention
+16. AI token accounting
+17. Deployment architecture
+18. Future scalability
+
+Use Mermaid diagrams where useful.
+
+High-level architecture:
+
+VS Code Extension
+        |
+        v
+API Gateway
+        |
+        +--------------------+
+        |                    |
+        v                    v
+ AI Gateway             Ad Engine
+        |                    |
+        v                    +----> Intent Engine
+ AWS Bedrock                   |
+                               +----> Graph Audience Service
+                               |
+                               +----> Campaign DB
+        |
+        v
+ Usage / Credits
+        |
+        v
+ Reward Engine
+        |
+        v
+ Privy / Payment Layer
+
+Separate x402:
+
+AI Agent
+   |
+   v
+x402 AI API
+   |
+   v
+Hedera
+   |
+   v
+Bedrock
+
+
+SMART CONTRACTS
+
+Keep blockchain contracts minimal.
+
+Potential contracts:
+
+CampaignVault
+RewardPool
+
+Responsibilities:
+
+Advertiser deposits campaign funds.
+
+Funds are allocated according to campaign configuration.
+
+Rewards can be claimed/allocated.
+
+Do NOT put every AI interaction onchain.
+
+Individual impressions/rewards should primarily be tracked offchain and settled in batches where practical.
+
+Use blockchain for:
+- payment
+- settlement
+- ownership
+- verifiable accounting where valuable
+
+Use backend/database for:
+- high-volume events
+- AI usage
+- ad matching
+- analytics
+
+
+DEMO DATA
+
+Create realistic seeded data.
+
+Example advertisers:
+- Ethereum infrastructure provider
+- developer tooling company
+- cloud provider
+- Web3 analytics platform
+
+Create campaigns with different targeting criteria.
+
+Create sample users with different intents and onchain audience signals.
+
+Clearly label simulated/seeded users.
+
+Live blockchain data must be used for Graph integration.
+
+
+HACKATHON DEMO
+
+Design product around a 2–4 minute compelling demo.
+
+Ideal flow:
+
+1. Open web dashboard.
+
+2. Show advertiser creating a campaign:
+Target: Ethereum developers
+Solidity
+DeFi
+High-intent development
+Budget: $100 testnet funds
+
+3. Launch campaign.
+
+4. Show Graph-derived audience criteria being used.
+
+5. Open VS Code.
+
+6. Ask:
+"How do I deploy this Solidity contract?"
+
+7. AI starts responding.
+
+8. Relevant advertisement appears.
+
+9. User earns AI credits.
+
+10. Open user dashboard.
+
+11. Show reward balance increasing.
+
+12. Show user spending earned credits on additional AI usage.
+
+13. Show x402 agent demo:
+Agent requests AI API.
+API returns 402.
+Agent pays on Hedera.
+Agent retries.
+AI response is returned.
+
+Final message:
+"Ads don't interrupt the AI. They pay for it."
+
+
+PRODUCT PRINCIPLES
+
+1. Do not overbuild.
+2. Do not add blockchain where it doesn't make sense.
+3. Do not add sponsor integrations just to claim bounty eligibility.
+4. The Graph must affect ad targeting.
+5. Hedera/x402 must demonstrate a real paid AI API request.
+6. Privy must simplify wallet/financial experience.
+7. User privacy must be a core design principle.
+8. AI responses must remain trustworthy and clearly separated from sponsored content.
+9. Do not expose raw user prompts to advertisers.
+10. Do not pretend simulated payments or mocked Graph data are real.
+11. Build functional end-to-end product before optional features.
+12. Prioritize demo quality and product coherence over feature count.
+
+
+IMPLEMENTATION STRATEGY
+
+PHASE 0 — RESEARCH
+
+Before coding:
+- inspect current official documentation for The Graph
+- inspect current Hedera x402 implementation
+- inspect current Privy SDK
+- inspect current VS Code extension authentication capabilities
+- inspect current AWS Bedrock APIs
+
+Do not rely on outdated assumptions.
+
+Document important integration decisions.
+
+PHASE 1 — ARCHITECTURE
+
+Create:
+docs/architecture.md
+docs/product.md
+docs/economics.md
+docs/privacy.md
+docs/hackathon.md
+
+Define:
+- database schema
+- API contracts
+- authentication
+- payment architecture
+- reward architecture
+- extension architecture
+
+Do not start with random frontend screens.
+
+PHASE 2 — BACKEND FOUNDATION
+
+Implement:
+- authentication
+- users
+- plans
+- usage
+- credits
+- AI gateway
+- Bedrock provider
+- database
+- rate limiting
+
+Get this working first:
+
+VS Code → backend → Bedrock → streaming response
+
+PHASE 3 — ADVERTISEMENT ENGINE
+
+Implement:
+- campaigns
+- advertisers
+- targeting
+- AI intent
+- ad matching
+- impression tracking
+- reward calculation
+
+Get this working:
+
+AI request
+→ intent
+→ matching ad
+→ AI response + ad
+→ reward
+
+PHASE 4 — THE GRAPH
+
+Implement:
+GraphAudienceService
+
+Use live Graph data.
+
+Connect:
+
+onchain signals
+→ targeting engine
+→ ad selection
+
+Demonstrate that changing onchain criteria changes campaign eligibility/ranking.
+
+PHASE 5 — PRIVY
+
+Implement:
+- web login
+- embedded wallet
+- user wallet display
+- advertiser wallet
+- campaign funding/payment flow where feasible
+
+Keep wallet complexity hidden.
+
+PHASE 6 — HEDERA x402
+
+Implement:
+- x402-gated inference endpoint
+- Hedera testnet settlement
+- real payment verification
+- Bedrock inference after payment
+
+Create simple agent/client to demonstrate the flow.
+
+PHASE 7 — VS CODE EXTENSION
+
+Implement:
+- login
+- AI chat
+- streaming
+- ads
+- rewards
+- usage
+- plan
+
+Make extension polished.
+
+PHASE 8 — FINAL POLISH
+
+Add:
+- analytics
+- loading states
+- empty states
+- error handling
+- responsive web dashboard
+- dark mode if practical
+- demo seed data
+- documentation
+- architecture diagrams
+
+
+REPOSITORY STRUCTURE
+
+Prefer monorepo:
+
+/apps
+  /web
+  /vscode-extension
+  /api
+
+/packages
+  /shared
+  /types
+  /config
+
+/contracts
+
+/docs
+
+/scripts
+
+Use shared TypeScript types where useful.
+
+
+ENVIRONMENT
+
+Create:
+.env.example
+
+Never commit real credentials.
+
+Clearly document:
+- AWS configuration
+- Bedrock configuration
+- PostgreSQL
+- Privy
+- The Graph
+- Hedera
+- x402
+- frontend
+- extension
+
+
+TESTING
+
+At minimum, backend unit tests for:
+- AI usage limits
+- credit accounting
+- reward calculation
+- ad matching
+- campaign budget
+- authorization
+
+Integration tests for:
+- AI request
+- campaign matching
+- reward generation
+- x402 payment verification
+
+Add basic extension tests where practical.
+
+
+ACCEPTANCE CRITERIA
+
+USER:
+- Can sign in.
+- Can use AI from VS Code.
+- Can see a relevant sponsored ad.
+- Can see reward generated from qualified ad activity.
+- Can see AI credit balance.
+- Can use credits for additional AI usage.
+
+ADVERTISER:
+- Can sign in.
+- Can create campaign.
+- Can configure targeting.
+- Can fund campaign using supported testnet payment flow.
+- Can see campaign metrics.
+
+THE GRAPH:
+- Live Graph data is consumed.
+- Graph-derived data influences targeting.
+- This is demonstrable.
+
+HEDERA:
+- Real x402-gated service exists.
+- Real testnet payment occurs.
+- Payment is verified.
+- AI inference happens after payment.
+
+PRIVY:
+- Real Privy wallet/authentication flow exists.
+- It is part of the user financial experience.
+
+VS CODE:
+- Extension works.
+- Authentication works.
+- AI streaming works.
+- Sponsored content renders cleanly.
+- Rewards/usage are visible.
+
+
+FINAL INSTRUCTION
+
+Do not simply generate a huge amount of code immediately.
+
+First inspect the repository and existing files.
+
+Then create a concise implementation plan.
+
+Then create architecture documentation.
+
+Then implement incrementally.
+
+After every major phase, verify that the feature actually works.
+
+If an integration is technically difficult or an SDK/API has changed, research CURRENT official documentation and adapt the architecture rather than creating a fake/mock implementation.
+
+If a feature is not required for the core product or finalist-quality demo, mark it optional and do not let it delay the core flow.
+
+The final product must feel like a coherent startup:
+
+AI Attention Marketplace
+
+Users get subsidized AI.
+Advertisers get high-intent AI audiences.
+AI agents get machine-payable inference.
+
+The Graph provides onchain audience intelligence.
+Hedera/x402 provides machine-native payments.
+Privy provides frictionless wallets.
+
+Core loop:
+
+Advertiser
+→ pays for attention
+→ relevant ad shown during AI interaction
+→ user earns rewards
+→ rewards fund more AI usage
+→ more AI usage creates more valuable intent
+→ advertisers get better targeting
+→ marketplace grows.
+
+Core tagline:
+
+"Ads that pay for your AI."
+
+IMPORTANT WORKFLOW RULE:
+
+Stop after Phase 1 and show me the proposed architecture, database schema, API design, integration decisions, and implementation plan before implementing Phase 2.
+
+Do not proceed with large-scale implementation until the architecture has been reviewed.
