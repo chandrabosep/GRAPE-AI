@@ -1,5 +1,5 @@
 {
-  "name": "@aam/shared",
+  "name": "@aam/economics",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,21 +7,16 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./taxonomy": "./src/taxonomy.ts",
-    "./intent": "./src/intent.ts",
-    "./onchain": "./src/onchain.ts",
-    "./sse": "./src/sse.ts",
-    "./api": "./src/api.ts",
-    "./economics": "./src/economics.ts",
-    "./errors": "./src/errors.ts",
-    "./money": "./src/money.ts"
+    "./scoring": "./src/scoring.ts",
+    "./rewards": "./src/rewards.ts",
+    "./pricing": "./src/pricing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "^4.5.4"
+    "@aam/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

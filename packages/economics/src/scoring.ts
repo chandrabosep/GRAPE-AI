@@ -1,0 +1,326 @@
+import {
+  COMMERCIAL_INTENT_RANK,
+  INTENT_TO_CATEGORY,
+  type OnchainCriteria,
+  type OnchainSignals,
+  type ScoringWeights,
+} from '@aam/shared';
+import type {
+  AdRequestContext,
+  CandidateCampaign,
+  EligibilityResult,
+  RankedCandidate,
+  ScoreBreakdown,
+} from './types.js';
+
+/**
+ * Deterministic ad ranking.
+ *
+ * Every input is a number we can point at in a demo and every output is
+ * explainable, which matters more here than accuracy: an advertiser has to be
+ * able to see why they won or lost an auction, and a user has to be able to see
+ * why they were shown something. The signature is the seam where an ML ranker
+ * would drop in later.
+ */
+
+function intersection(a: readonly string[], b: readonly string[]): string[] {
+  if (a.length === 0 || b.length === 0) return [];
+  const set = new Set(b);
+  return a.filter((x) => set.has(x));
+}
+
+/**
+ * Overlap as a fraction of the campaign's requirement, not of the user's breadth.
+ * Returns null when the campaign asked for nothing, so the caller can treat that
+ * dimension as neutral instead of as a failed match.
+ */
+function overlapRatio(
+  userValues: readonly string[],
+  campaignValues: readonly string[],
+): number | null {
+  if (campaignValues.length === 0) return null;
+  return intersection(campaignValues, userValues).length / campaignValues.length;
+}
+
+/**
+ * Averages only the dimensions a campaign actually specified.
+ *
+ * A campaign that leaves audience targeting blank is saying "anyone", not
+ * "nobody". Scoring the blank dimensions as zero would punish broad campaigns
+ * for being broad and let a narrowly-targeted campaign win on the arithmetic
+ * alone, so unspecified dimensions drop out and a fully-unspecified audience
+ * lands on a neutral baseline.
+ */
+const NEUTRAL_AUDIENCE = 0.5;
+
+function averageSpecified(values: (number | null)[]): number {
+  const present = values.filter((v): v is number => v !== null);
+  if (present.length === 0) return NEUTRAL_AUDIENCE;
+  return present.reduce((a, b) => a + b, 0) / present.length;
+}
+
+function jaccard(a: readonly string[], b: readonly string[]): number {
+  if (a.length === 0 && b.length === 0) return 0;
+  const union = new Set([...a, ...b]);
+  if (union.size === 0) return 0;
+  return intersection(a, b).length / union.size;
+}
+
+/** Counts satisfied criteria and how many were asked for. */
+export function evaluateOnchainCriteria(
+  criteria: OnchainCriteria,
+  signals: OnchainSignals | null,
+): { satisfied: number; total: number; matched: string[] } {
+  const checks: { required: boolean; ok: boolean; label: string }[] = [
+    {
+      required: criteria.requireWalletActivity,
+      ok: signals?.walletActivity === true,
+      label: 'wallet_activity',
+    },
+    {
+      required: criteria.requireEnsHolder,
+      ok: signals?.ensHolder === true,
+      label: 'ens_holder',
+    },
+    {
+      required: criteria.requireStablecoinHolder,
+      ok: signals?.stablecoinHolder === true,
+      label: 'stablecoin_holder',
+    },
+    {
+      required: criteria.requireNftHolder,
+      ok: signals?.nftHolder === true,
+      label: 'nft_holder',
+    },
+  ];
+
+  for (const type of criteria.protocolTypes) {
+    checks.push({
+      required: true,
+      ok: signals?.protocolTypes.includes(type) === true,
+      label: `${type}_activity_${criteria.activityWindowDays}d`,
+    });
+  }
+
+  // Named protocols are an OR: interacting with any one of them satisfies the ask.
+  if (criteria.protocols.length > 0) {
+    const hit = intersection(criteria.protocols, signals?.protocols ?? []);
+    checks.push({
+      required: true,
+      ok: hit.length > 0,
+      label: hit.length > 0 ? `protocol_${hit[0]}` : 'protocol_match',
+    });
+  }
+
+  const active = checks.filter((c) => c.required);
+  return {
+    satisfied: active.filter((c) => c.ok).length,
+    total: active.length,
+    matched: active.filter((c) => c.ok).map((c) => c.label),
+  };
+}
+
+/** Hard filters. Anything that fails here never enters the auction. */
+export function checkEligibility(
+  campaign: CandidateCampaign,
+  ctx: AdRequestContext,
+  maxAdsPerSession: number,
+): EligibilityResult {
+  if (!ctx.adsEnabled) return { eligible: false, reason: 'ads_disabled_for_plan' };
+  if (ctx.adsOptOut) return { eligible: false, reason: 'user_opted_out' };
+  if (ctx.sessionAdCount >= maxAdsPerSession) {
+    return { eligible: false, reason: 'session_ad_limit' };
+  }
+
+  if (ctx.now < campaign.startsAt) return { eligible: false, reason: 'not_started' };
+  if (ctx.now > campaign.endsAt) return { eligible: false, reason: 'ended' };
+
+  if (campaign.budgetRemainingMicro < campaign.bidMicro) {
+    return { eligible: false, reason: 'budget_exhausted' };
+  }
+  if (
+    campaign.dailySpendRemainingMicro !== null &&
+    campaign.dailySpendRemainingMicro < campaign.bidMicro
+  ) {
+    return { eligible: false, reason: 'daily_cap_reached' };
+  }
+
+  const t = campaign.targeting;
+
+  if (t.countries.length > 0) {
+    if (!ctx.user.countryCode || !t.countries.includes(ctx.user.countryCode)) {
+      return { eligible: false, reason: 'country_excluded' };
+    }
+  }
+  if (t.personas.length > 0) {
+    const persona = ctx.intent.persona ?? ctx.user.persona;
+    if (!persona || !t.personas.includes(persona)) {
+      return { eligible: false, reason: 'persona_excluded' };
+    }
+  }
+  if (t.models.length > 0 && !t.models.includes(ctx.model)) {
+    return { eligible: false, reason: 'model_excluded' };
+  }
+  if (
+    COMMERCIAL_INTENT_RANK[ctx.intent.commercialIntent] <
+    COMMERCIAL_INTENT_RANK[t.minCommercialIntent]
+  ) {
+    return { eligible: false, reason: 'commercial_intent_too_low' };
+  }
+
+  const hourCount = ctx.impressionsLastHour[campaign.campaignId] ?? 0;
+  if (hourCount >= campaign.frequencyCap.perUserPerHour) {
+    return { eligible: false, reason: 'frequency_cap_hour' };
+  }
+  const dayCount = ctx.impressionsLast24h[campaign.campaignId] ?? 0;
+  if (dayCount >= campaign.frequencyCap.perUserPerDay) {
+    return { eligible: false, reason: 'frequency_cap_day' };
+  }
+
+  if (t.onchainMode === 'require') {
+    const { satisfied, total } = evaluateOnchainCriteria(t.onchainCriteria, ctx.onchain);
+    if (total > 0 && ctx.onchain === null) {
+      return { eligible: false, reason: 'onchain_signals_missing' };
+    }
+    if (satisfied < total) {
+      return { eligible: false, reason: 'onchain_criteria_unmet' };
+    }
+  }
+
+  return { eligible: true };
+}
+
+/** Scores one eligible campaign. `maxBidMicro` normalises the bid term across the auction. */
+export function scoreCandidate(
+  campaign: CandidateCampaign,
+  ctx: AdRequestContext,
+  weights: ScoringWeights,
+  maxBidMicro: bigint,
+): { score: ScoreBreakdown; reasons: string[] } {
+  const t = campaign.targeting;
+  const reasons: string[] = [];
+
+  // Intent: an exact task match dominates, a category match is worth half,
+  // and shared technologies fill in the rest.
+  let intentBase = 0;
+  if (t.aiIntents.includes(ctx.intent.intent)) {
+    intentBase = 1;
+    reasons.push(ctx.intent.intent);
+  } else if (
+    t.intentCategories.includes(ctx.intent.category) ||
+    t.intentCategories.includes(INTENT_TO_CATEGORY[ctx.intent.intent])
+  ) {
+    intentBase = 0.5;
+    reasons.push(ctx.intent.category);
+  }
+
+  // The live request and the stated profile both count as evidence of what the
+  // developer works with.
+  const userTech = [...new Set([...ctx.intent.technologies, ...ctx.user.technologies])];
+  const techMatch = jaccard(userTech, t.technologies);
+  for (const tech of intersection(t.technologies, userTech)) reasons.push(tech);
+
+  // Weight the whole intent term by classifier confidence: a guess should not
+  // win an auction as convincingly as a confident classification.
+  const intentMatch = (intentBase * 0.6 + techMatch * 0.4) * (0.5 + 0.5 * ctx.intent.confidence);
+
+  const personaValue = ctx.intent.persona ?? ctx.user.persona;
+  const personaMatch =
+    t.personas.length === 0 ? null : personaValue && t.personas.includes(personaValue) ? 1 : 0;
+  const countryMatch =
+    t.countries.length === 0
+      ? null
+      : ctx.user.countryCode && t.countries.includes(ctx.user.countryCode)
+        ? 1
+        : 0;
+  const audienceMatch = averageSpecified([
+    overlapRatio(ctx.user.interests, t.interests),
+    personaMatch,
+    countryMatch,
+  ]);
+  if (personaMatch === 1 && personaValue) reasons.push(personaValue);
+
+  let onchainMatch = 0;
+  if (t.onchainMode !== 'off') {
+    const { satisfied, total, matched } = evaluateOnchainCriteria(t.onchainCriteria, ctx.onchain);
+    onchainMatch = total === 0 ? 0 : satisfied / total;
+    reasons.push(...matched);
+  }
+
+  const bidWeight = maxBidMicro === 0n ? 0 : Number(campaign.bidMicro) / Number(maxBidMicro);
+
+  const dayCount = ctx.impressionsLast24h[campaign.campaignId] ?? 0;
+  const frequencyPenalty =
+    campaign.frequencyCap.perUserPerDay === 0
+      ? 0
+      : Math.min(1, dayCount / campaign.frequencyCap.perUserPerDay);
+
+  const fraudPenalty = Math.min(1, Math.max(0, ctx.user.fraudScore));
+
+  const total =
+    weights.intent * intentMatch +
+    weights.audience * audienceMatch +
+    weights.onchain * onchainMatch +
+    weights.bid * bidWeight -
+    weights.frequency * frequencyPenalty -
+    weights.fraud * fraudPenalty;
+
+  return {
+    score: {
+      intentMatch,
+      audienceMatch,
+      onchainMatch,
+      bidWeight,
+      frequencyPenalty,
+      fraudPenalty,
+      total: Math.max(0, total),
+    },
+    reasons: [...new Set(reasons)].slice(0, 8),
+  };
+}
+
+/**
+ * Full auction: filter, score, order.
+ *
+ * Returns an empty list when nothing clears `minScore`. Showing no ad is a
+ * valid, intended outcome — an irrelevant ad costs more trust than it earns.
+ */
+export function rankCandidates(
+  candidates: CandidateCampaign[],
+  ctx: AdRequestContext,
+  weights: ScoringWeights,
+  maxAdsPerSession: number,
+): RankedCandidate[] {
+  const eligible = candidates.filter(
+    (c) => checkEligibility(c, ctx, maxAdsPerSession).eligible,
+  );
+  if (eligible.length === 0) return [];
+
+  const maxBid = eligible.reduce((m, c) => (c.bidMicro > m ? c.bidMicro : m), 0n);
+
+  return eligible
+    .map((campaign) => {
+      const { score, reasons } = scoreCandidate(campaign, ctx, weights, maxBid);
+      return { campaign, score, reasons };
+    })
+    .filter((r) => r.score.total >= weights.minScore)
+    .sort((a, b) => {
+      if (b.score.total !== a.score.total) return b.score.total - a.score.total;
+      // Ties go to the higher bid, then to a stable id order so the same request
+      // always produces the same winner.
+      if (b.campaign.bidMicro !== a.campaign.bidMicro) {
+        return b.campaign.bidMicro > a.campaign.bidMicro ? 1 : -1;
+      }
+      return a.campaign.campaignId.localeCompare(b.campaign.campaignId);
+    });
+}
+
+/** Convenience for the ad module: the winner, or null when nothing is relevant enough. */
+export function selectWinner(
+  candidates: CandidateCampaign[],
+  ctx: AdRequestContext,
+  weights: ScoringWeights,
+  maxAdsPerSession: number,
+): RankedCandidate | null {
+  return rankCandidates(candidates, ctx, weights, maxAdsPerSession)[0] ?? null;
+}
