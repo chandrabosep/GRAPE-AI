@@ -2,12 +2,24 @@
 
 **Ads that pay for your AI.**
 
-An AI coding assistant for developers, delivered through a VS Code extension, where
-relevant sponsored content subsidises inference instead of interrupting it. Advertisers
-buy high-intent developer attention. Users earn AI credits from qualified ad activity and
-spend them on more inference. AI agents pay for the same inference per call over x402.
+A Cursor-style AI coding assistant in VS Code, denominated in credits, where relevant
+sponsored content subsidises inference instead of interrupting it.
+
+1. A developer buys credits, or gets a starter grant on signup.
+2. Credits pay for AI inference, priced per token.
+3. Between responses, a relevant sponsored card appears, clearly separated from the answer.
+4. The advertiser funds a campaign; qualified attention pays the developer their share.
+5. Those earnings are credits, which buy more inference.
+
+The loop closes because usage is what creates the inventory. A developer asking how to
+deploy a Solidity contract is worth more to an Ethereum infrastructure advertiser than any
+demographic segment, and that value exists only at the moment they ask. At current settings
+**roughly one relevant sponsored card funds one AI response**.
+
+A third actor pays for the same gateway: autonomous agents, per call, over x402 on Hedera.
 
 Built for [ETHOnline 2026](https://ethglobal.com/events/ethonline2026).
+Full model and worked numbers: [`docs/economics.md`](docs/economics.md).
 
 ## Why it is not "ChatGPT with ads"
 
@@ -104,10 +116,15 @@ update would silently break the balance chain that the entire reward economy res
 
 ## Economics
 
-Every number that decides a payout lives in
-[`apps/web/src/server/config/economics.json`](apps/web/src/server/config/economics.json),
+Credits are the only currency. They enter by purchase, ad reward or starter grant, and
+leave by paying for inference or being withdrawn. Every number that decides a payout lives
+in [`apps/web/src/server/config/economics.json`](apps/web/src/server/config/economics.json),
 never in business logic. Campaigns snapshot the allocation split when they activate, so
 editing that file never rewrites the economics of a campaign that is already running.
+
+Rewards are gated on evidence, not on an ad being shown: confirmed on-screen time,
+duplicate-prompt rejection, minimum spacing, frequency caps and a daily ceiling. A user can
+never be paid more than an advertiser was charged. See [`docs/economics.md`](docs/economics.md).
 
 ## Licence
 

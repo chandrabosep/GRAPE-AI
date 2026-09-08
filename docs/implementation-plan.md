@@ -1,8 +1,29 @@
 # AI Attention Marketplace — Implementation Plan (ETHOnline 2026)
 
-**Status:** proposal for review. No code has been written.
+**Status:** architecture approved; foundation built. See the README for what is implemented.
 **Date:** 2026-09-09
 **Tagline:** "Ads that pay for your AI."
+
+## Product model (confirmed with the team, 2026-09-09)
+
+A Cursor-style AI coding assistant in VS Code, denominated in **credits**.
+
+1. A developer buys credits, or receives a starter grant on signup.
+2. Credits pay for AI inference, priced per token.
+3. Between responses, a relevant sponsored card appears, clearly separated from the answer.
+4. The advertiser funds a campaign; qualified attention pays the developer their share.
+5. Those earnings are credits, which buy more inference.
+
+The loop closes because usage is what creates the inventory: a developer asking how to
+deploy a Solidity contract is worth more to an Ethereum infrastructure advertiser than any
+demographic segment, and that value exists only at the moment they ask. Roughly one relevant
+sponsored card funds one AI response at current settings.
+
+A third actor pays for the same gateway: autonomous agents, per call, over x402 on Hedera.
+
+Full economics, worked numbers and the anti-abuse rationale: **[docs/economics.md](economics.md)**.
+
+---
 
 This plan follows the master prompt in the repo root and is grounded in research against the *current* official docs of every integration (Sept 9, 2026). Section 0 lists the findings that changed the design. Everything after that is the plan itself.
 
@@ -499,31 +520,60 @@ Per-call metering (Hedera bonus): two routes with different `maxTokens` caps and
 
 ---
 
-## 13. Reward + AI credit system
+## 13. Credit economy (rewards + AI credits)
 
-**Units:** micro-USD everywhere. Credits are displayed as `$0.0070` or `7,000 µ` in the UI; the extension shows `+0.007 credits`.
+Full model, worked numbers and the anti-abuse rationale: **[docs/economics.md](economics.md)**.
+This section covers only the implementation.
 
-**Configuration (`economics.json`, loaded and validated at boot, exposed via `/config/public`):**
-```json
-{
-  "allocation": { "reward": 0.70, "platform": 0.20, "treasury": 0.10 },
-  "engagement": { "clickMultiplier": 3, "maxClickRewardsPerCampaignPerDay": 1 },
-  "caps": { "userDailyRewardMicro": 200000, "userDailyRewardMicroVerified": 500000, "maxAdsPerSession": 10, "minSecondsBetweenRewardedImpressions": 60 },
-  "weights": { "intent": 0.40, "audience": 0.15, "onchain": 0.20, "bid": 0.15, "freq": 0.05, "fraud": 0.05, "minScore": 0.35 },
-  "models": { "us.anthropic.claude-sonnet-5": { "inputMicroPerToken": 3, "outputMicroPerToken": 15 }, "us.anthropic.claude-haiku-4-5-20251001-v1:0": { "inputMicroPerToken": 1, "outputMicroPerToken": 5 } },
-  "signalCacheHours": 6
-}
-```
+**Product shape (confirmed 2026-09-09):** the VS Code extension is a Cursor-style assistant
+whose usage is denominated in **credits**. Credits are the single currency, with one thing
+to spend them on. This supersedes the earlier tiered daily-token-allowance design.
 
-**Reward flow:** impression created (unrewarded) → client `ack` after 1 s visible → fraud rules pass → `qualified = true` → campaign charged `bid` → split by the campaign's **snapshotted** allocation → `rewards` row + `credit_transactions{reward_earned, +amount}` in one DB transaction → SSE/poll `reward` event. Click → additional charge `bid × clickMultiplier` (if budget allows and not already clicked) → second reward.
+**Credits in:** `purchase` (developer buys them), `reward_earned` (qualified ad attention),
+`promo` (one-time starter grant on signup).
+**Credits out:** `inference_spent` (priced from the provider's reported tokens),
+`payout_debit` (withdrawal of earned rewards to a wallet).
 
-**Anti-abuse rules (fraud module, all deterministic):** duplicate `prompt_hash` within 10 min → no reward; `minSecondsBetweenRewardedImpressions`; per-campaign frequency caps; daily reward cap (higher for World-verified users, optional); click without prior `view_confirmed` → ignored; >20 prompts / 5 min raises `fraud_score` (decays daily); fraud_score > 0.8 → ads still served, rewards suspended.
+**Cold start:** ads only appear while using AI, using AI costs credits, and earning credits
+requires seeing ads. A new user with a zero balance would be stuck, so signup grants a
+starter credit balance. This is the reason the free tier exists at all; it is not a plan.
 
-**Credits spend:** usage gateway computes `cost_micro` from `models` table × exact tokens. Order of funding: daily plan allowance (tokens) → credits (if plan allows and `useCredits` on) → reject with `402`-style `{error:"insufficient_credits"}` (HTTP 402 is reserved for the x402 service; the user API returns 403 `quota_exceeded`). Reservation: before calling Bedrock, ensure `allowanceRemaining + creditBalance ≥ estimate(maxTokens)`; after the stream, debit actual.
+**Plans, reduced:** with credits as the single currency there is no daily token allowance to
+grant. A plan now only gates which models are reachable and whether ads are shown. For the
+hackathon this can be two rows (`FREE`, `PRO`) or a pair of flags on the user; the `plans`
+and `subscriptions` tables already in the schema support either without change.
 
-**Plans (seeded rows, not code):** FREE 50k tokens/day, standard model, ads on. EARN = FREE + credits usable past allowance. PRO 1M tokens/day, Sonnet + Opus, ads off, `price_micro` 10_000_000/month payable with credits (`plan_purchase` ledger entry).
+**Units:** micro-USD everywhere (`1_000_000` = `$1.00`). The extension renders
+`+0.007 credits`; the dashboard renders `$0.0070`.
 
-**Payout:** `/app/wallet` "Withdraw rewards" → `payout_debit` ledger entry → operator calls `RewardPool.payout(user, amount)` (MockUSDC) → `payments{reward_payout}`. Minimum payout configurable.
+**Configuration:** [`apps/web/src/server/config/economics.json`](../apps/web/src/server/config/economics.json),
+validated at boot against `economicsConfigSchema` and exposed read-only at
+`GET /api/v1/config/public` so no client hardcodes an economics number.
+
+**Reward flow:** impression created (unrewarded) → client `ack` once the card has been on
+screen for the dwell time → fraud rules pass → `qualified = true` → campaign charged `bid`
+→ split by the campaign's **snapshotted** allocation → `rewards` row +
+`credit_transactions{reward_earned, +amount}` in one transaction → `reward` SSE event. A
+click charges `bid × clickMultiplier` and pays a second reward, budget permitting.
+
+**Spend flow:** the gateway prices the request from the provider's final `metadata.usage`
+event, never from an estimate or anything the client reports. Before streaming it reserves
+`reservationMicro(model, promptChars, maxTokens)` against the balance; after the stream it
+debits the actual cost. An insufficient balance is rejected with `403 insufficient_credits`
+— HTTP 402 stays reserved for the x402 service so the two payment paths never blur.
+
+> **Code impact:** `planSpend()` in `packages/economics/src/pricing.ts` currently implements
+> the superseded allowance-then-credits order. It collapses to a single credit check under
+> this model and should be simplified when the `usage` module is built.
+
+**Anti-abuse (deterministic, server-side):** duplicate `prompt_hash` inside the window earns
+nothing; minimum interval between rewarded impressions; per-campaign hourly and daily
+frequency caps; daily reward ceiling per user, higher when World-verified; a click without a
+prior `view_confirmed` is ignored; sustained prompt velocity raises `fraud_score`, and above
+the threshold ads still serve but rewards stop.
+
+**Payout:** wallet page → `payout_debit` ledger entry → operator calls
+`RewardPool.payout(user, amount)` → `payments{reward_payout}` row. Minimum payout configurable.
 
 ---
 
@@ -633,7 +683,7 @@ interface AIProvider {
 1. **Landing** (10 s): "Ads that pay for your AI." three actors.
 2. **Advertiser** (60 s): sign in with Privy (Google) → embedded wallet appears → create campaign "Ethereum Developer Launch": persona developer; technologies Solidity/Ethereum; intents deployment/development; countries IN/US; **onchain: interacted with any lending protocol or DEX in last 30 days (require)** → live audience estimate updates from Graph data (show the same query fanning out across Aave, Compound, Spark, Uniswap, Sushi) → mint test USDC → fund $100 from the Privy wallet → tx confirmed → campaign active.
 3. **User in VS Code** (60 s): sign in (browser handoff) → ask "How do I deploy this Solidity contract with Foundry?" → answer streams → sponsored card appears mid-stream, clearly separated → "Why this ad?" shows *Solidity · smart contract deployment · lending + DEX activity (30d, via The Graph)* → `+0.007 credits`. Then toggle the campaign's onchain criterion off / link a wallet without DeFi history and repeat: a different ad wins (Graph is load-bearing).
-4. **User dashboard** (30 s): credit balance up, reward history, usage; spend credits past the daily allowance; withdraw rewards to the Privy wallet.
+4. **User dashboard** (30 s): credit balance up, reward history, usage. Show the loop closing: the credits just earned from the sponsored card pay for the next AI request, with no top-up. Then show buying credits directly and withdrawing earned rewards to the Privy wallet.
 5. **Advertiser analytics** (20 s): spend, qualified impressions, reward distribution 70/20/10, onchain breakdown; run settlement → HashScan/Basescan links.
 6. **Agent** (40 s): terminal: `agent-demo "Summarize this Solidity error"` → 402 → pays HBAR via Blocky402 → retries → answer + HashScan link.
 7. Close: "Ads don't interrupt the AI. They pay for it."
@@ -642,7 +692,7 @@ interface AIProvider {
 
 ## 21. MVP vs optional
 
-**MVP (must work end to end):** Privy login on web; VS Code handoff auth; streaming chat via Bedrock with server-side usage limits; two-stage intent; campaign CRUD + targeting + creative; deterministic ranking with Graph-backed onchain signals (Token API + ≥1 subgraph); impression/ack/click; rewards + append-only ledger; credits spend past allowance; plan table (FREE/EARN/PRO); campaign funding via Privy wallet → `CampaignVault`; settlement job; reward payout; x402 HBAR route + agent CLI on Blocky402; user + advertiser dashboards; campaign analytics; seed data; README + docs + video.
+**MVP (must work end to end):** Privy login on web; VS Code handoff auth; streaming chat via Bedrock with server-side usage limits; two-stage intent; campaign CRUD + targeting + creative; deterministic ranking with Graph-backed onchain signals (Token API + ≥1 subgraph); impression/ack/click; rewards + append-only ledger; credit purchase and starter grant; credits as the sole way to pay for inference; campaign funding via Privy wallet → `CampaignVault`; settlement job; reward payout; x402 HBAR route + agent CLI on Blocky402; user + advertiser dashboards; campaign analytics; seed data; README + docs + video.
 
 **Optional (only after MVP is demo-ready, in priority order):**
 1. x402 USDC route + per-call metering tiers (cheap; Hedera bonus).
