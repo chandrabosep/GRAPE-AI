@@ -1,0 +1,46 @@
+{
+  "allocation": {
+    "reward": 0.7,
+    "platform": 0.2,
+    "treasury": 0.1
+  },
+  "weights": {
+    "intent": 0.4,
+    "audience": 0.15,
+    "onchain": 0.2,
+    "bid": 0.15,
+    "frequency": 0.05,
+    "fraud": 0.05,
+    "minScore": 0.35
+  },
+  "engagement": {
+    "clickMultiplier": 3,
+    "maxClickRewardsPerCampaignPerDay": 1
+  },
+  "caps": {
+    "userDailyRewardMicro": 200000,
+    "userDailyRewardMicroVerified": 500000,
+    "maxAdsPerSession": 10,
+    "minSecondsBetweenRewardedImpressions": 60,
+    "duplicatePromptWindowSeconds": 600
+  },
+  "models": {
+    "us.anthropic.claude-sonnet-5": {
+      "inputMicroPerToken": 2,
+      "outputMicroPerToken": 10
+    },
+    "us.anthropic.claude-opus-5": {
+      "inputMicroPerToken": 5,
+      "outputMicroPerToken": 25
+    },
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
+      "inputMicroPerToken": 1,
+      "outputMicroPerToken": 5
+    },
+    "fake-standard": {
+      "inputMicroPerToken": 1,
+      "outputMicroPerToken": 2
+    }
+  },
+  "signalCacheHours": 6
+}

@@ -10,3 +10,6 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - unrs-resolver
+
+# Let pnpm rebuild node_modules without a prompt when hoisting settings change.
+confirmModulesPurge: false
