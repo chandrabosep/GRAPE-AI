@@ -62,6 +62,9 @@ importers:
       cn:
         specifier: ^0.2.6
         version: 0.2.6
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       jose:
         specifier: ^6.2.12
         version: 6.2.12

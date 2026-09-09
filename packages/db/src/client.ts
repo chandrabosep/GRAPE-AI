@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../generated/prisma/client.js';
+import { PrismaClient } from '../generated/prisma/client';
 
 /**
  * Prisma 7 requires an explicit driver adapter — `new PrismaClient()` with no

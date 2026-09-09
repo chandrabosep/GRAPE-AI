@@ -1,8 +1,8 @@
 import { prisma, type ClientKind } from '@aam/db';
 import { AppError } from '@aam/shared';
 import { SignJWT, jwtVerify } from 'jose';
-import { env } from '../../config/index.js';
-import { newOpaqueToken, sha256 } from '../../lib/ids.js';
+import { env } from '../../config/index';
+import { newOpaqueToken, sha256 } from '../../lib/ids';
 
 /**
  * Our own sessions, independent of Privy.

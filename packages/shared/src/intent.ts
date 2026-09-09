@@ -5,7 +5,7 @@ import {
   INTENT_CATEGORIES,
   PERSONAS,
   TECHNOLOGIES,
-} from './taxonomy.js';
+} from './taxonomy';
 
 /**
  * The derived signal the ad engine is allowed to see.

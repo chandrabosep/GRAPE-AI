@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { aiIntentSchema } from './intent.js';
+import { aiIntentSchema } from './intent';
 
 /**
  * The wire contract for POST /api/v1/ai/chat.

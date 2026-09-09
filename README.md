@@ -39,17 +39,26 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | Area | State |
 |---|---|
 | Monorepo, tooling, environment | Done |
-| Database schema (23 models) | Done, not yet migrated to a live database |
-| Auction, rewards, token accounting | Done, 48 tests |
+| Database schema + initial migration (23 tables) | Done, not yet run against a database |
+| Auction, rewards, token accounting | Done, 44 tests |
 | AI provider abstraction (Bedrock + fake) | Done, 4 tests |
-| Intent engine, rules stage | Done, 19 tests |
-| Intent engine, LLM stage | Not started |
-| API routes, auth, credits, ads, rewards | Not started |
+| Intent engine (rules + LLM stages) | Done, 19 tests |
+| Auth, sessions, VS Code handoff | Done, untested against a database |
+| Credit ledger | Done, untested against a database |
+| AI gateway with streaming, ads and billing | Done, untested against a database |
+| Ad selection against live campaigns | Done, untested against a database |
+| API routes (9) | Done, build and 401/CORS verified |
+| Reward granting on confirmed impressions | Not started |
 | The Graph audience service | Not started |
 | Web dashboards | Scaffolded only |
 | VS Code extension | Not started |
 | x402 service and agent demo | Not started |
 | Contracts | Not started |
+
+**Not yet exercised against a real database.** Docker Hub is unreachable from the
+development machine, so no Postgres has been started. Everything above typechecks, builds
+and passes its tests, but the database paths are unverified until Supabase credentials or a
+local Postgres are available.
 
 Full architecture and the phased build order:
 [`docs/implementation-plan.md`](docs/implementation-plan.md).

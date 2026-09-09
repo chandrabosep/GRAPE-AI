@@ -1,6 +1,6 @@
 import { prisma, type CreditTransaction, type CreditTxType, type Prisma } from '@aam/db';
 import { AppError } from '@aam/shared';
-import { idempotencyKey as makeKey } from '../../lib/ids.js';
+import { idempotencyKey as makeKey } from '../../lib/ids';
 
 /**
  * The credit ledger.

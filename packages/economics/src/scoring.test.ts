@@ -1,7 +1,7 @@
 import { DEFAULT_ECONOMICS, EMPTY_ONCHAIN_CRITERIA, type OnchainSignals } from '@aam/shared';
 import { describe, expect, it } from 'vitest';
-import { checkEligibility, evaluateOnchainCriteria, rankCandidates, selectWinner } from './scoring.js';
-import type { AdRequestContext, CandidateCampaign } from './types.js';
+import { checkEligibility, evaluateOnchainCriteria, rankCandidates, selectWinner } from './scoring';
+import type { AdRequestContext, CandidateCampaign } from './types';
 
 const WEIGHTS = DEFAULT_ECONOMICS.weights;
 const MAX_ADS = DEFAULT_ECONOMICS.caps.maxAdsPerSession;

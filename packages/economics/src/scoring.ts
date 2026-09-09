@@ -11,7 +11,7 @@ import type {
   EligibilityResult,
   RankedCandidate,
   ScoreBreakdown,
-} from './types.js';
+} from './types';
 
 /**
  * Deterministic ad ranking.

@@ -1,9 +1,9 @@
 import { prisma, type Prisma, type User } from '@aam/db';
 import { AppError } from '@aam/shared';
-import { economics } from '../../config/index.js';
-import { logger } from '../../lib/logger.js';
-import { grantStarterCredits } from '../credits/service.js';
-import type { PrivyIdentity } from '../auth/privy.js';
+import { economics } from '../../config/index';
+import { logger } from '../../lib/logger';
+import { grantStarterCredits } from '../credits/service';
+import type { PrivyIdentity } from '../auth/privy';
 
 /**
  * Users are keyed by Privy DID, never by email or wallet address.

@@ -7,7 +7,7 @@ import {
   evaluateClickReward,
   evaluateImpressionReward,
   type RewardEligibilityInput,
-} from './rewards.js';
+} from './rewards';
 
 const CONFIG: EconomicsConfig = DEFAULT_ECONOMICS;
 

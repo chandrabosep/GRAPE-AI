@@ -5,7 +5,7 @@ import {
   detectTechnologies,
   inferPersona,
   mergeIntents,
-} from './rules.js';
+} from './rules';
 
 describe('technology detection', () => {
   it('reads the stack out of a Solidity question', () => {

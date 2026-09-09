@@ -1,7 +1,9 @@
 import { AppError, bigintReplacer, type ErrorCode } from '@aam/shared';
 import { ZodError, type ZodType } from 'zod';
-import { logger } from './logger.js';
-import { newRequestId } from './ids.js';
+import { logger } from './logger';
+import { newRequestId } from './ids';
+
+export { newRequestId };
 
 /**
  * Thin adapters between Next route handlers and the service modules.

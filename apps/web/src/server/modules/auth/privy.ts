@@ -1,6 +1,6 @@
 import { AppError } from '@aam/shared';
-import { env, requireEnv } from '../../config/index.js';
-import { logger } from '../../lib/logger.js';
+import { env, requireEnv } from '../../config/index';
+import { logger } from '../../lib/logger';
 
 /**
  * Privy is the identity layer for both surfaces.

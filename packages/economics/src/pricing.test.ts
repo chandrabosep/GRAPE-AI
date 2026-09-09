@@ -1,6 +1,6 @@
 import type { ModelPricing } from '@aam/shared';
 import { describe, expect, it } from 'vitest';
-import { affordableOutputTokens, checkAffordable, costMicro, reservationMicro } from './pricing.js';
+import { affordableOutputTokens, checkAffordable, costMicro, reservationMicro } from './pricing';
 
 const SONNET: ModelPricing = { inputMicroPerToken: 3, outputMicroPerToken: 15 };
 

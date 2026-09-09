@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMicro, microToUsd, splitMicro, usdToMicro } from './money.js';
+import { formatMicro, microToUsd, splitMicro, usdToMicro } from './money';
 
 describe('micro-USD conversion', () => {
   it('round-trips whole dollars', () => {

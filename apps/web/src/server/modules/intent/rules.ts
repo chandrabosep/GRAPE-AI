@@ -17,7 +17,7 @@ import {
   PERSONA_TECHNOLOGIES,
   TECHNOLOGY_ALIASES,
   TECHNOLOGY_IMPLIES,
-} from './dictionaries.js';
+} from './dictionaries';
 
 /**
  * Stage one of intent detection: deterministic, offline, sub-millisecond.

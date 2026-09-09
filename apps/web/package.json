@@ -34,7 +34,8 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
     "viem": "^2.56.3",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

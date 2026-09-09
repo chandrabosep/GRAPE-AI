@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FakeProvider } from './fake.js';
-import type { ProviderChatEvent } from './types.js';
+import { FakeProvider } from './fake';
+import type { ProviderChatEvent } from './types';
 
 async function collect(iter: AsyncIterable<ProviderChatEvent>): Promise<ProviderChatEvent[]> {
   const out: ProviderChatEvent[] = [];

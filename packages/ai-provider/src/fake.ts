@@ -6,7 +6,7 @@ import {
   type ProviderChatRequest,
   type ProviderChatResult,
   type TokenUsage,
-} from './types.js';
+} from './types';
 
 /**
  * Deterministic provider for tests and offline UI work.

@@ -1,3 +1,3 @@
-export * from './types.js';
-export { BedrockProvider, type BedrockProviderOptions } from './bedrock.js';
-export { FakeProvider, type FakeProviderOptions } from './fake.js';
+export * from './types';
+export { BedrockProvider, type BedrockProviderOptions } from './bedrock';
+export { FakeProvider, type FakeProviderOptions } from './fake';

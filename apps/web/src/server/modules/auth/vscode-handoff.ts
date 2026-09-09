@@ -1,7 +1,7 @@
 import { prisma } from '@aam/db';
 import { AppError } from '@aam/shared';
-import { newOpaqueToken, sha256 } from '../../lib/ids.js';
-import { issueSession, type IssuedSession } from './session.js';
+import { newOpaqueToken, sha256 } from '../../lib/ids';
+import { issueSession, type IssuedSession } from './session';
 
 /**
  * Browser-to-editor login handoff.

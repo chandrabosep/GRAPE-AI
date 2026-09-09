@@ -16,7 +16,7 @@ import {
   type ProviderChatRequest,
   type ProviderChatResult,
   type TokenUsage,
-} from './types.js';
+} from './types';
 
 /**
  * AWS Bedrock via the Converse API.

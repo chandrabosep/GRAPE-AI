@@ -1,11 +1,11 @@
 import { AppError } from '@aam/shared';
-import { bearerToken } from '../../lib/http.js';
-import { getUser, hasRole, type UserWithProfile } from '../users/service.js';
-import { verifyAccessToken, type SessionClaims } from './session.js';
+import { bearerToken } from '../../lib/http';
+import { getUser, hasRole, type UserWithProfile } from '../users/service';
+import { verifyAccessToken, type SessionClaims } from './session';
 
-export * from './session.js';
-export * from './privy.js';
-export * from './vscode-handoff.js';
+export * from './session';
+export * from './privy';
+export * from './vscode-handoff';
 
 export interface AuthenticatedRequest {
   claims: SessionClaims;

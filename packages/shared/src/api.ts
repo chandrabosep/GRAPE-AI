@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { intentHintsSchema } from './intent.js';
+import { intentHintsSchema } from './intent';
 
 /** Shared request/response contracts. The server validates with these; clients infer types from them. */
 
