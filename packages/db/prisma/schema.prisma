@@ -107,8 +107,8 @@ model Wallet {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  signals  OnchainSignal[]
-  orgs     Organization[]  @relation("OrgTreasury")
+  signals  OnchainSignal?
+  orgs     Organization[] @relation("OrgTreasury")
 
   @@unique([address, chainType])
   @@index([userId])

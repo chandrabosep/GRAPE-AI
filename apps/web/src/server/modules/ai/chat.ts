@@ -4,6 +4,7 @@ import { economics } from '../../config/index';
 import { createSSEStream } from '../../lib/sse';
 import { logger } from '../../lib/logger';
 import { selectAd } from '../ads/service';
+import { getSignalsForUser, isGraphConfigured } from '../graph/service';
 import { classify, persistIntent } from '../intent/service';
 import { authorizeSpend, recordUsage, touchSession } from '../usage/service';
 import type { UserWithProfile } from '../users/service';
@@ -201,12 +202,21 @@ async function resolveAd(
       languageId: body.context?.languageId ?? null,
     });
 
+    // Onchain audience signals from The Graph. Cached, so this is normally a
+    // single indexed read; a miss costs one parallel fan-out. Failure yields
+    // null, which correctly makes "require" campaigns ineligible rather than
+    // letting them match on missing data.
+    const onchain = isGraphConfigured()
+      ? await getSignalsForUser(ctx.user.id).catch((error: unknown) => {
+          logger.warn({ err: error, userId: ctx.user.id }, 'onchain signals unavailable');
+          return null;
+        })
+      : null;
+
     return await selectAd({
       user: ctx.user,
       intent,
-      // Onchain signals come from the Graph audience service, which is not wired
-      // up yet. Campaigns in "require" mode are correctly ineligible until it is.
-      onchain: null,
+      onchain,
       model,
       requestId: ctx.requestId,
       intentId,

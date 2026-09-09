@@ -48,13 +48,15 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | AI gateway with streaming, ads and billing | Done, untested against a database |
 | Ad selection against live campaigns | Done, untested against a database |
 | Reward granting on confirmed impressions | Done, untested against a database |
+| Advertiser onboarding and campaign lifecycle | Done, 11 tests |
+| The Graph audience service | Done, 15 tests, needs a gateway key to run live |
+| Wallet linking with signature proof | Done |
+| Smart contracts | Done, 21 Foundry tests |
+| VS Code extension | Done, builds; not yet run end to end |
 | Abuse rules (dwell, duplicates, caps, velocity) | Done, untested against a database |
 | API routes (13) | Done, build and 401/CORS verified |
-| The Graph audience service | Not started |
 | Web dashboards | Scaffolded only |
-| VS Code extension | Not started |
 | x402 service and agent demo | Not started |
-| Contracts | Not started |
 
 The core loop is verified end to end against a real Postgres: advertiser budget becomes a
 relevant ad, confirmed attention becomes credits, and those credits pay for the next
@@ -87,7 +89,7 @@ Requires Node 22+ and pnpm 10.
 pnpm install
 cp .env.example .env      # works with placeholders; see "Keys" below
 pnpm db:generate
-pnpm test                 # 77 tests, no keys, no network, no Docker
+pnpm test                 # 103 tests, no keys, no network, no Docker
 ```
 
 The integration tests run against a real Postgres without needing one installed: PGlite is

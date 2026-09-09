@@ -3,7 +3,7 @@ import { PrismaClient } from '../generated/prisma/client';
 
 /**
  * Prisma 7 requires an explicit driver adapter — `new PrismaClient()` with no
- * arguments throws. We pass the pooled Supabase URL here; migrations use
+ * arguments throws. The pooled Supabase URL is passed here; migrations use
  * DIRECT_URL via prisma.config.ts instead.
  */
 function createClient(): PrismaClient {
@@ -34,8 +34,27 @@ function createClient(): PrismaClient {
  */
 const globalForPrisma = globalThis as unknown as { __aamPrisma?: PrismaClient };
 
-export const prisma: PrismaClient = globalForPrisma.__aamPrisma ?? createClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.__aamPrisma = prisma;
+function instance(): PrismaClient {
+  if (!globalForPrisma.__aamPrisma) {
+    globalForPrisma.__aamPrisma = createClient();
+  }
+  return globalForPrisma.__aamPrisma;
 }
+
+/**
+ * Constructed on first use, not on import.
+ *
+ * Importing a module that merely mentions the database should not require a
+ * connection string. Eager construction meant a unit test for pure logic, or a
+ * build step that only walks imports, would fail for want of a database it never
+ * touches.
+ */
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    const value = Reflect.get(instance(), property, receiver);
+    return typeof value === 'function' ? value.bind(instance()) : value;
+  },
+  has(_target, property) {
+    return property in instance();
+  },
+});

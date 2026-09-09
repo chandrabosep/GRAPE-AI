@@ -8,7 +8,8 @@
     "start": "next start --port 3000",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "graph:health": "node scripts/graph-health.mjs"
   },
   "dependencies": {
     "@aam/ai-provider": "workspace:*",
