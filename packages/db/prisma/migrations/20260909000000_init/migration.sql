@@ -1,4 +1,3 @@
-◇ injected env (19) from ../../.env // tip: ◈ encrypted .env [www.dotenvx.com]
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 

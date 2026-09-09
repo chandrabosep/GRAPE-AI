@@ -21,9 +21,12 @@
     "db:push": "pnpm --filter @aam/db db:push",
     "db:seed": "pnpm --filter @aam/db db:seed",
     "db:studio": "pnpm --filter @aam/db db:studio",
-    "check:imports": "node scripts/check-imports.mjs"
+    "check:imports": "node scripts/check-imports.mjs",
+    "db:dev": "node scripts/pglite-server.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
     "@types/node": "^22.18.0",
     "prettier": "^3.9.6",
     "tsx": "^4.23.13",

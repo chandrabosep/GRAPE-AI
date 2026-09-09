@@ -69,7 +69,7 @@ export async function appendEntry(input: LedgerEntryInput): Promise<LedgerResult
     // Serialise on the user row. Without this, two requests can read the same
     // starting balance and both write a valid-looking but wrong tail.
     const locked = await tx.$queryRaw<{ credit_balance_micro: bigint }[]>`
-      SELECT credit_balance_micro FROM users WHERE id = ${input.userId}::uuid FOR UPDATE
+      SELECT credit_balance_micro FROM users WHERE id = ${input.userId} FOR UPDATE
     `;
     if (locked.length === 0) {
       throw new AppError('not_found', 'User not found');

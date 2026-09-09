@@ -14,7 +14,10 @@ function createClient(): PrismaClient {
     );
   }
 
-  const adapter = new PrismaPg({ connectionString });
+  // PGlite (used by the integration tests) serves one connection at a time, so
+  // the pool must be pinned to 1 there. Supabase gets a normal pool.
+  const max = process.env.PRISMA_POOL_MAX ? Number(process.env.PRISMA_POOL_MAX) : undefined;
+  const adapter = new PrismaPg({ connectionString, ...(max ? { max } : {}) });
 
   return new PrismaClient({
     adapter,

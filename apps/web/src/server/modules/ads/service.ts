@@ -151,7 +151,7 @@ async function reserveBudget(campaignId: string, bidMicro: bigint): Promise<bool
   const result = await prisma.$executeRaw`
     UPDATE campaigns
        SET spent_micro = spent_micro + ${bidMicro}
-     WHERE id = ${campaignId}::uuid
+     WHERE id = ${campaignId}
        AND status = 'active'
        AND budget_micro - spent_micro >= ${bidMicro}
   `;

@@ -168,7 +168,7 @@ export async function recordClick(userId: string, impressionId: string): Promise
   const reserved = await prisma.$executeRaw`
     UPDATE campaigns
        SET spent_micro = spent_micro + ${charge}
-     WHERE id = ${impression.campaign.id}::uuid
+     WHERE id = ${impression.campaign.id}
        AND budget_micro - spent_micro >= ${charge}
   `;
   if (reserved !== 1) return NO_REWARD('campaign_budget_exhausted');

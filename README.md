@@ -56,10 +56,9 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | x402 service and agent demo | Not started |
 | Contracts | Not started |
 
-**Not yet exercised against a real database.** Docker Hub is unreachable from the
-development machine, so no Postgres has been started. Everything above typechecks, builds
-and passes its tests, but the database paths are unverified until Supabase credentials or a
-local Postgres are available.
+The core loop is verified end to end against a real Postgres: advertiser budget becomes a
+relevant ad, confirmed attention becomes credits, and those credits pay for the next
+request. See `apps/web/src/server/loop.integration.test.ts`.
 
 Full architecture and the phased build order:
 [`docs/implementation-plan.md`](docs/implementation-plan.md).
@@ -88,7 +87,21 @@ Requires Node 22+ and pnpm 10.
 pnpm install
 cp .env.example .env      # works with placeholders; see "Keys" below
 pnpm db:generate
-pnpm test                 # 71 tests, no keys or network needed
+pnpm test                 # 77 tests, no keys, no network, no Docker
+```
+
+The integration tests run against a real Postgres without needing one installed: PGlite is
+an embedded Postgres that speaks the wire protocol over a socket, so Prisma's ordinary
+driver connects to it unchanged and the tests exercise the same SQL, transactions and
+triggers that production runs.
+
+For a database you can poke at by hand:
+
+```bash
+pnpm db:dev               # embedded Postgres on 127.0.0.1:55432
+DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres \
+DATABASE_URL=$DIRECT_URL pnpm --filter @aam/db db:deploy
+DIRECT_URL=... DATABASE_URL=... pnpm db:seed
 ```
 
 Typecheck everything:
