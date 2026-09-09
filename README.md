@@ -95,14 +95,24 @@ an embedded Postgres that speaks the wire protocol over a socket, so Prisma's or
 driver connects to it unchanged and the tests exercise the same SQL, transactions and
 triggers that production runs.
 
-For a database you can poke at by hand:
+For a database you can poke at by hand, either works. Docker gives you real
+Postgres 16 and a `psql` prompt:
 
 ```bash
-pnpm db:dev               # embedded Postgres on 127.0.0.1:55432
-DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:55432/postgres \
-DATABASE_URL=$DIRECT_URL pnpm --filter @aam/db db:deploy
-DIRECT_URL=... DATABASE_URL=... pnpm db:seed
+docker compose up -d
+export DIRECT_URL="postgresql://postgres:postgres@127.0.0.1:5432/aam"
+export DATABASE_URL="$DIRECT_URL"
+pnpm --filter @aam/db db:deploy
+pnpm db:seed
 ```
+
+Or skip Docker entirely with the same embedded Postgres the tests use:
+
+```bash
+pnpm db:dev               # 127.0.0.1:55432, in-memory
+```
+
+The migration and seed are verified against both PostgreSQL 16.15 and PGlite.
 
 Typecheck everything:
 
