@@ -38,3 +38,6 @@ contracts/cache/
 contracts/broadcast/
 contracts/lib/
 contracts/.gas-snapshot
+
+# vscode extension build output
+apps/vscode-extension/dist/

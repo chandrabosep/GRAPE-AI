@@ -1,0 +1,86 @@
+{
+  "name": "ai-attention-marketplace",
+  "displayName": "AI Attention Marketplace",
+  "description": "AI coding assistant where relevant sponsored content pays for your inference.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "aam",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": ["AI", "Chat", "Programming Languages"],
+  "main": "./dist/extension.js",
+  "activationEvents": ["onUri"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiMarketplace",
+          "title": "AI Marketplace",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiMarketplace": [
+        {
+          "type": "webview",
+          "id": "aiMarketplace.chat",
+          "name": "Chat"
+        }
+      ]
+    },
+    "commands": [
+      { "command": "aiMarketplace.signIn", "title": "AI Marketplace: Sign In" },
+      { "command": "aiMarketplace.signOut", "title": "AI Marketplace: Sign Out" },
+      { "command": "aiMarketplace.enterCode", "title": "AI Marketplace: Paste Sign-In Code" },
+      { "command": "aiMarketplace.openChat", "title": "AI Marketplace: Open Chat" },
+      { "command": "aiMarketplace.explainSelection", "title": "AI Marketplace: Explain Selection" },
+      { "command": "aiMarketplace.openDashboard", "title": "AI Marketplace: Open Dashboard" }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "aiMarketplace.explainSelection",
+          "when": "editorHasSelection",
+          "group": "navigation@9"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Marketplace",
+      "properties": {
+        "aiMarketplace.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Base URL of the AI Marketplace API."
+        },
+        "aiMarketplace.includeSelection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send the current editor selection with your question. Selections are used to answer you and are never stored or shared with advertisers."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs --production",
+    "dev": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies",
+    "test": "echo \"no extension tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@aam/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/vscode": "^1.100.0",
+    "esbuild": "^0.28.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "^7.0.2"
+  }
+}
