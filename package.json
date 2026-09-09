@@ -12,7 +12,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
-    "test": "turbo test",
+    "test": "node scripts/check-imports.mjs && turbo test",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
@@ -20,7 +20,8 @@
     "db:migrate": "pnpm --filter @aam/db db:migrate",
     "db:push": "pnpm --filter @aam/db db:push",
     "db:seed": "pnpm --filter @aam/db db:seed",
-    "db:studio": "pnpm --filter @aam/db db:studio"
+    "db:studio": "pnpm --filter @aam/db db:studio",
+    "check:imports": "node scripts/check-imports.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

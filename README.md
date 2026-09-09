@@ -47,8 +47,9 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | Credit ledger | Done, untested against a database |
 | AI gateway with streaming, ads and billing | Done, untested against a database |
 | Ad selection against live campaigns | Done, untested against a database |
-| API routes (9) | Done, build and 401/CORS verified |
-| Reward granting on confirmed impressions | Not started |
+| Reward granting on confirmed impressions | Done, untested against a database |
+| Abuse rules (dwell, duplicates, caps, velocity) | Done, untested against a database |
+| API routes (13) | Done, build and 401/CORS verified |
 | The Graph audience service | Not started |
 | Web dashboards | Scaffolded only |
 | VS Code extension | Not started |
