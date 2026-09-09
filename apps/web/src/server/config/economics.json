@@ -4,6 +4,11 @@
     "platform": 0.2,
     "treasury": 0.1
   },
+  "credits": {
+    "starterGrantMicro": 500000,
+    "minPayoutMicro": 1000000,
+    "maxRequestCostMicro": 100000
+  },
   "weights": {
     "intent": 0.4,
     "audience": 0.15,

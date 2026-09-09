@@ -39,43 +39,49 @@ export function reservationMicro(
   return costMicro(pricing, estimateTokensFromChars(promptChars), maxOutputTokens);
 }
 
-export interface SpendPlan {
-  fromAllowanceTokens: number;
-  fromCreditsMicro: bigint;
+export interface SpendCheck {
+  affordable: boolean;
+  costMicro: bigint;
+  balanceAfterMicro: bigint;
+  /** How much more the user needs. Zero when affordable. */
   shortfallMicro: bigint;
 }
 
 /**
- * Decides how a request gets paid for: daily plan allowance first, then earned
- * credits. A non-zero shortfall means the request must be refused.
+ * Credits are the only currency, so paying for a request is a single question:
+ * does the balance cover it?
+ *
+ * This replaced an allowance-then-credits split. Once credits became the sole
+ * way to pay for inference there was no second bucket to fall back to — a free
+ * tier is a starter grant of credits, not a separate allowance, which keeps one
+ * balance and one ledger rather than two things to reconcile.
  */
-export function planSpend(
-  totalTokens: number,
-  costMicroValue: bigint,
-  allowanceTokensRemaining: number,
-  creditBalanceMicro: bigint,
-  creditsEnabled: boolean,
-): SpendPlan {
-  const fromAllowance = Math.max(0, Math.min(totalTokens, allowanceTokensRemaining));
-  if (fromAllowance === totalTokens) {
-    return { fromAllowanceTokens: fromAllowance, fromCreditsMicro: 0n, shortfallMicro: 0n };
-  }
-
-  const uncoveredRatio = (totalTokens - fromAllowance) / totalTokens;
-  const uncoveredMicro = BigInt(Math.ceil(Number(costMicroValue) * uncoveredRatio));
-
-  if (!creditsEnabled) {
-    return {
-      fromAllowanceTokens: fromAllowance,
-      fromCreditsMicro: 0n,
-      shortfallMicro: uncoveredMicro,
-    };
-  }
-
-  const fromCredits = uncoveredMicro <= creditBalanceMicro ? uncoveredMicro : creditBalanceMicro;
+export function checkAffordable(costMicro: bigint, balanceMicro: bigint): SpendCheck {
+  const remaining = balanceMicro - costMicro;
   return {
-    fromAllowanceTokens: fromAllowance,
-    fromCreditsMicro: fromCredits,
-    shortfallMicro: uncoveredMicro - fromCredits,
+    affordable: remaining >= 0n,
+    costMicro,
+    balanceAfterMicro: remaining >= 0n ? remaining : balanceMicro,
+    shortfallMicro: remaining >= 0n ? 0n : -remaining,
   };
+}
+
+/**
+ * Largest output the balance can pay for, given the prompt already committed.
+ * Used to clamp maxTokens so a request cannot start and then run out of money
+ * halfway through the answer.
+ */
+export function affordableOutputTokens(
+  pricing: ModelPricing,
+  promptChars: number,
+  balanceMicro: bigint,
+  requestedMaxTokens: number,
+): number {
+  const inputCost = costMicro(pricing, estimateTokensFromChars(promptChars), 0);
+  const remaining = balanceMicro - inputCost;
+  if (remaining <= 0n) return 0;
+  if (pricing.outputMicroPerToken <= 0) return requestedMaxTokens;
+
+  const affordable = Math.floor(Number(remaining) / pricing.outputMicroPerToken);
+  return Math.max(0, Math.min(requestedMaxTokens, affordable));
 }

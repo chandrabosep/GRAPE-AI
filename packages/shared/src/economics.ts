@@ -48,6 +48,14 @@ export const economicsConfigSchema = z.object({
     clickMultiplier: z.number().min(1),
     maxClickRewardsPerCampaignPerDay: z.number().int().min(0),
   }),
+  credits: z.object({
+    /** One-time grant on signup. Without it a new user cannot reach their first ad. */
+    starterGrantMicro: z.number().int().nonnegative(),
+    /** Withdrawals below this are not worth a transaction fee. */
+    minPayoutMicro: z.number().int().nonnegative(),
+    /** Upper bound on a single inference request, so one prompt cannot drain a balance. */
+    maxRequestCostMicro: z.number().int().positive(),
+  }),
   caps: z.object({
     userDailyRewardMicro: z.number().int().nonnegative(),
     userDailyRewardMicroVerified: z.number().int().nonnegative(),
@@ -64,6 +72,11 @@ export type EconomicsConfig = z.infer<typeof economicsConfigSchema>;
 /** Used by tests and as the shape reference for economics.json. */
 export const DEFAULT_ECONOMICS: EconomicsConfig = {
   allocation: { reward: 0.7, platform: 0.2, treasury: 0.1 },
+  credits: {
+    starterGrantMicro: 500_000,
+    minPayoutMicro: 1_000_000,
+    maxRequestCostMicro: 100_000,
+  },
   weights: {
     intent: 0.4,
     audience: 0.15,

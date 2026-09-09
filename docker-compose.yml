@@ -1,0 +1,24 @@
+# Local Postgres for development and integration tests.
+# Production and the demo use Supabase; this exists so the whole stack can be
+# built and tested before any credentials are available.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aam-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aam
+    ports:
+      - '5432:5432'
+    volumes:
+      - aam-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d aam']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  aam-pgdata:
