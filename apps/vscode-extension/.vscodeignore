@@ -1,0 +1,13 @@
+# Only the bundles and the manifest need to ship; esbuild has already inlined
+# everything the extension host and the webview need.
+src/**
+webview/**
+test/**
+.vscode/**
+node_modules/**
+esbuild.mjs
+tsconfig.json
+**/*.map
+**/*.ts
+**/*.tsx
+!dist/**

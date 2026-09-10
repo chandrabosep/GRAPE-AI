@@ -9,9 +9,15 @@
   "engines": {
     "vscode": "^1.100.0"
   },
-  "categories": ["AI", "Chat", "Programming Languages"],
+  "categories": [
+    "AI",
+    "Chat",
+    "Programming Languages"
+  ],
   "main": "./dist/extension.js",
-  "activationEvents": ["onUri"],
+  "activationEvents": [
+    "onUri"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -32,12 +38,30 @@
       ]
     },
     "commands": [
-      { "command": "aiMarketplace.signIn", "title": "AI Marketplace: Sign In" },
-      { "command": "aiMarketplace.signOut", "title": "AI Marketplace: Sign Out" },
-      { "command": "aiMarketplace.enterCode", "title": "AI Marketplace: Paste Sign-In Code" },
-      { "command": "aiMarketplace.openChat", "title": "AI Marketplace: Open Chat" },
-      { "command": "aiMarketplace.explainSelection", "title": "AI Marketplace: Explain Selection" },
-      { "command": "aiMarketplace.openDashboard", "title": "AI Marketplace: Open Dashboard" }
+      {
+        "command": "aiMarketplace.signIn",
+        "title": "AI Marketplace: Sign In"
+      },
+      {
+        "command": "aiMarketplace.signOut",
+        "title": "AI Marketplace: Sign Out"
+      },
+      {
+        "command": "aiMarketplace.enterCode",
+        "title": "AI Marketplace: Paste Sign-In Code"
+      },
+      {
+        "command": "aiMarketplace.openChat",
+        "title": "AI Marketplace: Open Chat"
+      },
+      {
+        "command": "aiMarketplace.explainSelection",
+        "title": "AI Marketplace: Explain Selection"
+      },
+      {
+        "command": "aiMarketplace.openDashboard",
+        "title": "AI Marketplace: Open Dashboard"
+      }
     ],
     "menus": {
       "editor/context": [
@@ -78,6 +102,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
