@@ -5,6 +5,10 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { formatCredits } from '@/lib/api';
 import { useAuthActions, useMe, useSeedUsers } from '@/hooks/use-session';
+import { hasInjectedWallet, signInWithWallet, WalletError } from '@/lib/wallet';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +28,25 @@ export function SiteHeader() {
   const { data: me } = useMe();
   const { data: seedUsers = [] } = useSeedUsers();
   const { signInAs, signOut } = useAuthActions();
+  const queryClient = useQueryClient();
+  const [connecting, setConnecting] = useState(false);
+
+  const connectWallet = async () => {
+    setConnecting(true);
+    try {
+      const { address } = await signInWithWallet();
+      toast.success(`Signed in as ${address.slice(0, 6)}…${address.slice(-4)}`);
+      await queryClient.invalidateQueries();
+    } catch (error) {
+      toast.error(
+        error instanceof WalletError || error instanceof Error
+          ? error.message
+          : 'Could not connect your wallet.',
+      );
+    } finally {
+      setConnecting(false);
+    }
+  };
 
   return (
     <header className="border-border/60 bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
@@ -73,10 +96,23 @@ export function SiteHeader() {
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button size="sm" />}>Sign in</DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                  Development sign-in. Replaced by Privy once its keys are set.
-                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void connectWallet();
+                  }}
+                  disabled={connecting}
+                >
+                  {connecting
+                    ? 'Check your wallet…'
+                    : hasInjectedWallet()
+                      ? 'Connect wallet'
+                      : 'Connect wallet (none detected)'}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                  Or sign in as a seeded account, for development
+                </DropdownMenuLabel>
                 {seedUsers.length === 0 && (
                   <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
                     No seeded accounts. Run <code>pnpm db:seed</code>.
@@ -84,11 +120,11 @@ export function SiteHeader() {
                 )}
                 {seedUsers.map((user) => (
                   <DropdownMenuItem
-                    key={user.privyDid}
-                    onSelect={() => void signInAs(user.privyDid)}
+                    key={user.subject}
+                    onSelect={() => void signInAs(user.subject)}
                     className="flex flex-col items-start gap-0.5"
                   >
-                    <span>{user.displayName ?? user.privyDid}</span>
+                    <span>{user.displayName ?? user.subject}</span>
                     <span className="text-muted-foreground text-xs">
                       {user.roles.includes('advertiser') ? 'advertiser' : 'developer'} ·{' '}
                       {formatCredits(user.creditBalanceMicro)}

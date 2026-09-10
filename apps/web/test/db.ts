@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
@@ -14,10 +14,21 @@ import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = join(
-  here,
-  '../../../packages/db/prisma/migrations/20260909000000_init/migration.sql',
-);
+const MIGRATIONS_DIR = join(here, '../../../packages/db/prisma/migrations');
+
+/**
+ * Every migration, in order.
+ *
+ * Applying only the first one used to be enough and then silently was not: a
+ * later migration added a table the tests needed, and they failed with a
+ * confusing "table does not exist" rather than anything about migrations.
+ */
+function migrationSql(): string[] {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((entry) => /^\d{14}_/.test(entry))
+    .sort()
+    .map((entry) => readFileSync(join(MIGRATIONS_DIR, entry, 'migration.sql'), 'utf8'));
+}
 
 export interface TestDatabase {
   connectionString: string;
@@ -26,7 +37,7 @@ export interface TestDatabase {
 
 export async function startTestDatabase(): Promise<TestDatabase> {
   const db = await PGlite.create();
-  await db.exec(readFileSync(MIGRATION, 'utf8'));
+  for (const sql of migrationSql()) await db.exec(sql);
 
   // Random high port so parallel suites cannot collide.
   const port = 55_000 + Math.floor(Math.random() * 9_000);

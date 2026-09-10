@@ -19,7 +19,7 @@ export interface Me {
 }
 
 export interface SeedUser {
-  privyDid: string;
+  subject: string;
   displayName: string | null;
   roles: string[];
   creditBalanceMicro: string;
@@ -50,10 +50,10 @@ export function useAuthActions() {
   const queryClient = useQueryClient();
 
   const signInAs = useCallback(
-    async (privyDid: string) => {
+    async (subject: string) => {
       const session = await api<{ accessToken: string; refreshToken: string }>('/auth/dev', {
         method: 'POST',
-        body: JSON.stringify({ privyDid }),
+        body: JSON.stringify({ subject }),
       });
       storeSession(session);
       await queryClient.invalidateQueries();

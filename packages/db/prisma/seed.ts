@@ -112,10 +112,10 @@ async function main() {
 
   for (const spec of advertiserSpecs) {
     const user = await prisma.user.upsert({
-      where: { privyDid: `did:privy:seed-advertiser-${spec.key}` },
+      where: { subject: `seed:advertiser-${spec.key}` },
       update: {},
       create: {
-        privyDid: `did:privy:seed-advertiser-${spec.key}`,
+        subject: `seed:advertiser-${spec.key}`,
         email: spec.email,
         displayName: `${spec.company} [simulated]`,
         roles: ['user', 'advertiser'],
@@ -378,10 +378,10 @@ async function main() {
 
   for (const spec of demoUsers) {
     const user = await prisma.user.upsert({
-      where: { privyDid: `did:privy:seed-user-${spec.key}` },
+      where: { subject: `seed:user-${spec.key}` },
       update: {},
       create: {
-        privyDid: `did:privy:seed-user-${spec.key}`,
+        subject: `seed:user-${spec.key}`,
         displayName: spec.name,
         countryCode: spec.country,
         creditBalanceMicro: 0n,

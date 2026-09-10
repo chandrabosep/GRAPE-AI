@@ -23,7 +23,7 @@ const PAST = new Date(Date.now() - 86_400_000);
 
 async function makeAdvertiser(name: string) {
   const user = await m.prisma.user.create({
-    data: { privyDid: `did:privy:${name}-${Date.now()}-${Math.random()}` },
+    data: { subject: `test:${name}-${Date.now()}-${Math.random()}` },
   });
   return m.advertisers.createAdvertiser({ userId: user.id, companyName: name });
 }

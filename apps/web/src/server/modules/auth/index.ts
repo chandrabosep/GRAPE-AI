@@ -4,7 +4,7 @@ import { getUser, hasRole, type UserWithProfile } from '../users/service';
 import { verifyAccessToken, type SessionClaims } from './session';
 
 export * from './session';
-export * from './privy';
+export * from './siwe';
 export * from './vscode-handoff';
 
 export interface AuthenticatedRequest {

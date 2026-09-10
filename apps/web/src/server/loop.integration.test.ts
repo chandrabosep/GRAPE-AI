@@ -28,7 +28,7 @@ let m: Modules;
 
 async function seedCampaign(prisma: Modules['prisma']) {
   const advertiserUser = await prisma.user.create({
-    data: { privyDid: `did:privy:adv-${Date.now()}`, roles: ['user', 'advertiser'] },
+    data: { subject: `test:adv-${Date.now()}`, roles: ['user', 'advertiser'] },
   });
   const org = await prisma.organization.create({
     data: { name: 'Northwind RPC', ownerUserId: advertiserUser.id },
@@ -118,8 +118,8 @@ describe('the credit loop', () => {
   it('turns advertiser budget into credits that pay for the next request', async () => {
     const campaign = await seedCampaign(m.prisma);
 
-    const user = await m.users.upsertFromPrivy({
-      did: `did:privy:dev-${Date.now()}`,
+    const user = await m.users.upsertFromIdentity({
+      subject: `test:dev-${Date.now()}`,
       email: 'dev@example.com',
     });
 

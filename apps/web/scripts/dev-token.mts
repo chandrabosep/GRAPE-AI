@@ -23,15 +23,15 @@ if (process.env.NODE_ENV === 'production') {
 const { prisma } = await import('@aam/db');
 const { issueSession } = await import('../src/server/modules/auth/session');
 
-const did = process.argv[2] ?? 'did:privy:seed-user-solidity-dev';
+const did = process.argv[2] ?? 'seed:user-solidity-dev';
 
 const user = await prisma.user.findUnique({
-  where: { privyDid: did },
+  where: { subject: did },
   select: { id: true, displayName: true, creditBalanceMicro: true },
 });
 
 if (!user) {
-  console.error(`No seeded user with privyDid=${did}. Run: pnpm db:seed`);
+  console.error(`No seeded user with subject=${did}. Run: pnpm db:seed`);
   process.exit(1);
 }
 

@@ -23,7 +23,9 @@ datasource db {
 
 model User {
   id        String  @id @default(uuid(7))
-  privyDid  String  @unique @map("privy_did")
+  /// Provider-prefixed external identity, e.g. "wallet:0xabc…" or "seed:ada".
+  /// Prefixed so two providers can never collide on the same value.
+  subject   String  @unique
   email     String?
   displayName String? @map("display_name")
   countryCode String? @map("country_code") @db.Char(2)
@@ -186,6 +188,23 @@ model ApiSession {
 
   @@index([userId])
   @@map("api_sessions")
+}
+
+/// Single-use nonce for Sign-In With Ethereum.
+///
+/// SIWE's replay protection depends entirely on the nonce being issued by the
+/// server and accepted exactly once, so it has to be stored rather than derived.
+model AuthNonce {
+  id     String @id @default(uuid(7))
+  nonce  String @unique
+
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("auth_nonces")
 }
 
 /// Single-use handoff code for the browser -> VS Code login. Short TTL, hashed at rest.

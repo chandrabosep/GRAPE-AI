@@ -43,7 +43,7 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | Auction, rewards, token accounting | Done, 44 tests |
 | AI provider abstraction (Bedrock + fake) | Done, 4 tests |
 | Intent engine (rules + LLM stages) | Done, 19 tests |
-| Auth, sessions, VS Code handoff | Done, untested against a database |
+| Wallet sign-in (SIWE), sessions, VS Code handoff | Done, 6 tests |
 | Credit ledger | Done, untested against a database |
 | AI gateway with streaming, ads and billing | Done, untested against a database |
 | Ad selection against live campaigns | Done, untested against a database |
@@ -139,7 +139,6 @@ them stay server-side — the extension and the browser receive none of them:
 |---|---|
 | Supabase `DATABASE_URL` + `DIRECT_URL` | any persistence |
 | AWS credentials + Bedrock access | real inference (`AI_PROVIDER=fake` avoids this) |
-| Privy app id, secret, JWT verification key | login and embedded wallets |
 | Subgraph Studio key + Token API JWT | onchain audience signals |
 | Hedera testnet accounts | the x402 paid-inference demo |
 

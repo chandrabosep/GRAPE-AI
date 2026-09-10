@@ -3,14 +3,13 @@ import { prisma } from '@aam/db';
 import { AppError } from '@aam/shared';
 import { env } from '@/server/config';
 import { issueSession } from '@/server/modules/auth';
-import { isPrivyConfigured } from '@/server/modules/auth/privy';
 import { json, parseBody, route } from '@/server/lib/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const schema = z.object({
-  privyDid: z.string().default('did:privy:seed-user-solidity-dev'),
+  subject: z.string().default('seed:user-solidity-dev'),
 });
 
 /**
@@ -22,18 +21,18 @@ const schema = z.object({
  * cannot silently remain a back door once real auth is switched on.
  */
 export const POST = route(async (request) => {
-  if (env().NODE_ENV === 'production' || isPrivyConfigured()) {
+  if (env().NODE_ENV === 'production' || env().DISABLE_DEV_AUTH) {
     throw new AppError('not_found', 'Not found');
   }
 
-  const { privyDid } = await parseBody(request, schema);
+  const { subject } = await parseBody(request, schema);
 
   const user = await prisma.user.findUnique({
-    where: { privyDid },
+    where: { subject },
     include: { profile: true },
   });
   if (!user) {
-    throw new AppError('not_found', `No seeded user ${privyDid}. Run pnpm db:seed.`);
+    throw new AppError('not_found', `No seeded user ${subject}. Run pnpm db:seed.`);
   }
 
   const session = await issueSession(user.id, 'web', 'dev sign-in');

@@ -3,14 +3,20 @@ import { AppError } from '@aam/shared';
 import { economics } from '../../config/index';
 import { logger } from '../../lib/logger';
 import { grantStarterCredits } from '../credits/service';
-import type { PrivyIdentity } from '../auth/privy';
+
 
 /**
- * Users are keyed by Privy DID, never by email or wallet address.
+ * Users are keyed by a provider-prefixed subject, never by email.
  *
- * A DID is stable across a user linking or unlinking accounts, and it keeps the
- * identity we store free of anything an advertiser could correlate against.
+ * The prefix ("wallet:", "seed:") means two auth providers can never collide on
+ * the same value, and it keeps the stored identity free of anything an
+ * advertiser could correlate against.
  */
+export interface ExternalIdentity {
+  subject: string;
+  email?: string | null;
+  displayName?: string | null;
+}
 
 export type UserWithProfile = Prisma.UserGetPayload<{ include: { profile: true } }>;
 
@@ -22,9 +28,9 @@ export type UserWithProfile = Prisma.UserGetPayload<{ include: { profile: true }
  * earning credits requires seeing ads. Without an opening balance a new user
  * could do nothing at all.
  */
-export async function upsertFromPrivy(identity: PrivyIdentity): Promise<UserWithProfile> {
+export async function upsertFromIdentity(identity: ExternalIdentity): Promise<UserWithProfile> {
   const existing = await prisma.user.findUnique({
-    where: { privyDid: identity.did },
+    where: { subject: identity.subject },
     include: { profile: true },
   });
 
@@ -41,8 +47,9 @@ export async function upsertFromPrivy(identity: PrivyIdentity): Promise<UserWith
 
   const created = await prisma.user.create({
     data: {
-      privyDid: identity.did,
-      email: identity.email,
+      subject: identity.subject,
+      email: identity.email ?? null,
+      displayName: identity.displayName ?? null,
       lastSeenAt: new Date(),
       profile: { create: {} },
     },
@@ -52,7 +59,10 @@ export async function upsertFromPrivy(identity: PrivyIdentity): Promise<UserWith
   const starter = BigInt(economics().credits.starterGrantMicro);
   if (starter > 0n) {
     try {
-      await grantStarterCredits(created.id, starter);
+      const granted = await grantStarterCredits(created.id, starter);
+      // The row was read before the grant, so its balance would otherwise be
+      // stale and every caller reading it back would see zero.
+      created.creditBalanceMicro = granted.balanceMicro;
     } catch (error) {
       // A failed grant must not block sign-in; it is recoverable and idempotent.
       logger.error({ err: error, userId: created.id }, 'starter credit grant failed');

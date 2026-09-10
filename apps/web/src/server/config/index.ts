@@ -30,9 +30,12 @@ const envSchema = z.object({
   /** Set to "fake" to run the whole stack without AWS credentials. */
   AI_PROVIDER: z.enum(['bedrock', 'fake']).default('bedrock'),
 
-  PRIVY_APP_ID: z.string().optional(),
-  PRIVY_APP_SECRET: z.string().optional(),
-  PRIVY_JWT_VERIFICATION_KEY: z.string().optional(),
+  /// Wallet sign-in needs no server credentials. This is the explicit off
+  /// switch for the seeded development sign-in, which is also refused in
+  /// production regardless.
+  DISABLE_DEV_AUTH: z.coerce.boolean().default(false),
+  /// Optional: enables WalletConnect alongside injected wallets.
+  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().optional(),
 
   GRAPH_GATEWAY_API_KEY: z.string().optional(),
   PINAX_API_JWT: z.string().optional(),
