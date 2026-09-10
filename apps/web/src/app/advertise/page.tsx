@@ -132,6 +132,7 @@ export default function AdvertiserDashboard() {
             You are charged for confirmed attention, not for an ad being selected.
           </p>
         </div>
+        <Button render={<Link href="/advertise/campaigns/new" />}>New campaign</Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
