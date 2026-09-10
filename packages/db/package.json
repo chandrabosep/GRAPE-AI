@@ -19,7 +19,8 @@
     "db:reset": "prisma migrate reset --force",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "db:harden": "tsx scripts/harden.ts"
+    "db:harden": "tsx scripts/harden.ts",
+    "db:check": "tsx scripts/check.ts"
   },
   "dependencies": {
     "@aam/shared": "workspace:*",

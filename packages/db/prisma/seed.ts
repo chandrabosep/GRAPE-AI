@@ -12,8 +12,20 @@
  * live from The Graph against these addresses at request time.
  */
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
+
+// The workspace keeps one .env at the repo root, but this script runs with
+// cwd=packages/db. Load it here so `pnpm db:seed` works without the caller
+// having to export anything first.
+const here = dirname(fileURLToPath(import.meta.url));
+for (const candidate of [join(here, '..', '..', '..', '.env'), join(here, '..', '.env')]) {
+  if (existsSync(candidate)) loadEnv({ path: candidate, override: false });
+}
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DIRECT_URL or DATABASE_URL must be set');
