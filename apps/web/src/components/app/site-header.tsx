@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,59 +18,81 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatCredits } from '@/lib/api';
 import { useAuthActions, useMe } from '@/hooks/use-session';
-import { signInWithWallet, WalletError, type Eip1193Provider } from '@/lib/wallet';
 import { isWalletModalConfigured } from '@/lib/appkit';
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
-import { useEffect, useRef } from 'react';
+import { signInWithWallet, WalletError, type Eip1193Provider } from '@/lib/wallet';
 
 const NAV = [
   { href: '/app', label: 'Dashboard' },
   { href: '/advertise', label: 'Advertise' },
 ];
 
+const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
+
+/**
+ * Wallet connection and app session are two separate things, and conflating
+ * them is what made this confusing.
+ *
+ * AppKit owns the wallet connection. Our session is a signature on top of it.
+ * So there are three states, and each needs its own affordance: not connected,
+ * connected but not signed in, and signed in. Signing out has to tear down both
+ * — clearing only our session left the wallet connected, which made the app look
+ * signed out while refusing to sign in again.
+ */
 export function SiteHeader() {
   const pathname = usePathname();
   const { data: me } = useMe();
   const { signOut } = useAuthActions();
   const queryClient = useQueryClient();
-  const [connecting, setConnecting] = useState(false);
 
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
   const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
-  const signedInFor = useRef<string | null>(null);
+  const { disconnect } = useDisconnect();
 
-  /**
-   * Connecting and signing in are two steps, and AppKit owns the first.
-   *
-   * The modal returns once a wallet is connected but gives no completion
-   * callback, so the signature request is triggered by the connection appearing
-   * rather than by the button. The ref guards against re-prompting on every
-   * re-render, and against asking again for an address already signed in.
-   */
+  const [busy, setBusy] = useState(false);
+  // Remembers which address we already prompted for, so a re-render cannot
+  // trigger a second signature request.
+  const promptedFor = useRef<string | null>(null);
+
+  const authenticate = useCallback(async () => {
+    if (!walletProvider || !address) return;
+    setBusy(true);
+    try {
+      const result = await signInWithWallet(walletProvider);
+      toast.success(`Signed in as ${short(result.address)}`);
+      await queryClient.invalidateQueries();
+    } catch (error) {
+      // Deliberately does NOT clear promptedFor. Clearing it would let the
+      // auto-prompt effect fire again the moment `busy` flips back to false,
+      // re-opening the wallet forever. Retrying is the explicit "Sign in"
+      // button's job, which calls this directly and bypasses the guard.
+      toast.error(
+        error instanceof WalletError || error instanceof Error
+          ? error.message
+          : 'Could not sign you in.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [walletProvider, address, queryClient]);
+
+  // Prompt once when a wallet first connects. If it is declined, the explicit
+  // "Sign in" button below takes over rather than the app nagging.
   useEffect(() => {
-    if (!isConnected || !address || !walletProvider || me) return;
-    if (signedInFor.current === address) return;
+    if (!isConnected || !address || !walletProvider || me || busy) return;
+    if (promptedFor.current === address) return;
+    promptedFor.current = address;
+    void authenticate();
+  }, [isConnected, address, walletProvider, me, busy, authenticate]);
 
-    signedInFor.current = address;
-    setConnecting(true);
-
-    void signInWithWallet(walletProvider)
-      .then(async (result) => {
-        toast.success(`Signed in as ${result.address.slice(0, 6)}…${result.address.slice(-4)}`);
-        await queryClient.invalidateQueries();
-      })
-      .catch((error: unknown) => {
-        // Let them try again; a rejected signature is not a permanent state.
-        signedInFor.current = null;
-        toast.error(
-          error instanceof WalletError || error instanceof Error
-            ? error.message
-            : 'Could not sign you in.',
-        );
-      })
-      .finally(() => setConnecting(false));
-  }, [isConnected, address, walletProvider, me, queryClient]);
+  const fullSignOut = async () => {
+    promptedFor.current = null;
+    await signOut();
+    // Without this the wallet stays connected and the app is stuck: signed out,
+    // but unable to start a new sign-in.
+    await disconnect().catch(() => undefined);
+    toast.success('Disconnected');
+  };
 
   const connect = async () => {
     if (!isWalletModalConfigured()) {
@@ -110,7 +133,7 @@ export function SiteHeader() {
               </span>
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-                  {me.user.displayName ?? 'Account'}
+                  {address ? short(address) : (me.user.displayName ?? 'Account')}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuGroup>
@@ -118,14 +141,32 @@ export function SiteHeader() {
                       {me.user.roles.join(', ')}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => void signOut()}>Sign out</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => void open({ view: 'Account' })}>
+                      Wallet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => void fullSignOut()}>
+                      Disconnect
+                    </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
+          ) : isConnected && address ? (
+            // Connected, but the signature was never completed.
+            <>
+              <span className="text-muted-foreground hidden text-sm sm:inline">
+                {short(address)}
+              </span>
+              <Button size="sm" onClick={() => void authenticate()} disabled={busy}>
+                {busy ? 'Check your wallet…' : 'Sign in'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => void fullSignOut()}>
+                Disconnect
+              </Button>
+            </>
           ) : (
-            <Button size="sm" onClick={() => void connect()} disabled={connecting}>
-              {connecting ? 'Connecting…' : 'Connect Wallet'}
+            <Button size="sm" onClick={() => void connect()} disabled={busy}>
+              {busy ? 'Connecting…' : 'Connect Wallet'}
             </Button>
           )}
         </div>
