@@ -5,7 +5,13 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { formatCredits } from '@/lib/api';
 import { useAuthActions, useMe, useSeedUsers } from '@/hooks/use-session';
-import { hasInjectedWallet, signInWithWallet, WalletError } from '@/lib/wallet';
+import {
+  connectWalletConnect,
+  hasInjectedWallet,
+  isWalletConnectAvailable,
+  signInWithWallet,
+  WalletError,
+} from '@/lib/wallet';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -31,10 +37,11 @@ export function SiteHeader() {
   const queryClient = useQueryClient();
   const [connecting, setConnecting] = useState(false);
 
-  const connectWallet = async () => {
+  const connectWallet = async (via: 'injected' | 'walletconnect') => {
     setConnecting(true);
     try {
-      const { address } = await signInWithWallet();
+      const provider = via === 'walletconnect' ? await connectWalletConnect() : undefined;
+      const { address } = await signInWithWallet(provider);
       toast.success(`Signed in as ${address.slice(0, 6)}…${address.slice(-4)}`);
       await queryClient.invalidateQueries();
     } catch (error) {
@@ -99,16 +106,28 @@ export function SiteHeader() {
                 <DropdownMenuItem
                   onSelect={(event) => {
                     event.preventDefault();
-                    void connectWallet();
+                    void connectWallet('injected');
                   }}
                   disabled={connecting}
                 >
-                  {connecting
-                    ? 'Check your wallet…'
-                    : hasInjectedWallet()
-                      ? 'Connect wallet'
-                      : 'Connect wallet (none detected)'}
+                  {hasInjectedWallet() ? 'Browser wallet' : 'Browser wallet (none detected)'}
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void connectWallet('walletconnect');
+                  }}
+                  disabled={connecting || !isWalletConnectAvailable()}
+                >
+                  {isWalletConnectAvailable()
+                    ? 'WalletConnect (scan with your phone)'
+                    : 'WalletConnect (needs a project id)'}
+                </DropdownMenuItem>
+                {connecting && (
+                  <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                    Waiting for your wallet…
+                  </DropdownMenuLabel>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
                   Or sign in as a seeded account, for development
