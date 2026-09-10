@@ -1,69 +1,96 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function Home() {
+const ACTORS = [
+  {
+    title: 'Developers',
+    body: 'Buy credits, or earn them from sponsored content that is actually relevant to what you are building. Credits pay for inference.',
+  },
+  {
+    title: 'Advertisers',
+    body: 'Reach developers at the moment they are choosing a tool, targeted on derived intent and real onchain history rather than demographics.',
+  },
+  {
+    title: 'AI agents',
+    body: 'Pay per call over x402 on Hedera. No account, no subscription, no API key.',
+  },
+];
+
+const STEPS = [
+  'A developer buys credits, or gets a starter grant on signup.',
+  'Credits pay for AI inference, priced per token.',
+  'A relevant sponsored card appears beside the answer, never inside it.',
+  'The advertiser funds a campaign; confirmed attention pays the developer their share.',
+  'Those earnings are credits, which buy more inference.',
+];
+
+export default function LandingPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="mx-auto max-w-6xl px-6">
+      <section className="py-24">
+        <h1 className="max-w-3xl text-5xl font-semibold tracking-tight text-balance">
+          Ads that pay for your AI.
+        </h1>
+        <p className="text-muted-foreground mt-6 max-w-2xl text-lg leading-relaxed">
+          A coding assistant denominated in credits, where relevant sponsored content subsidises
+          inference instead of interrupting it. At current settings, roughly one relevant sponsored
+          card funds one AI response.
+        </p>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Button size="lg" render={<Link href="/app" />}>
+            Start using AI
+          </Button>
+          <Button size="lg" variant="outline" render={<Link href="/advertise" />}>
+            Advertise to AI users
+          </Button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
+
+      <section className="grid gap-4 pb-20 sm:grid-cols-3">
+        {ACTORS.map((actor) => (
+          <Card key={actor.title}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{actor.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm leading-relaxed">{actor.body}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section className="border-border/60 border-t py-16">
+        <h2 className="text-xl font-semibold tracking-tight">How the loop closes</h2>
+        <ol className="mt-6 grid gap-3">
+          {STEPS.map((step, index) => (
+            <li key={step} className="flex gap-4">
+              <span className="bg-muted text-muted-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums">
+                {index + 1}
+              </span>
+              <span className="text-muted-foreground text-sm leading-relaxed">{step}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="text-muted-foreground mt-8 max-w-2xl text-sm leading-relaxed">
+          Usage is what creates the inventory. A developer asking how to deploy a Solidity contract
+          is worth more to an Ethereum infrastructure advertiser than any demographic segment, and
+          that value exists only at the moment they ask.
+        </p>
+      </section>
+
+      <section className="border-border/60 border-t py-16">
+        <h2 className="text-xl font-semibold tracking-tight">What advertisers never receive</h2>
+        <p className="text-muted-foreground mt-4 max-w-2xl text-sm leading-relaxed">
+          No prompts, no source code, no conversations, no wallet addresses, no identities. Targeting
+          runs on a closed vocabulary of derived signals such as{' '}
+          <code className="bg-muted rounded px-1 py-0.5 text-xs">solidity</code>,{' '}
+          <code className="bg-muted rounded px-1 py-0.5 text-xs">smart_contract_deployment</code> and{' '}
+          <code className="bg-muted rounded px-1 py-0.5 text-xs">lending_activity_30d</code>. There is
+          no database column anywhere that can hold a prompt.
+        </p>
+      </section>
     </div>
   );
 }
