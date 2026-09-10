@@ -39,10 +39,10 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Button size="lg" render={<Link href="/app" />}>
+          <Button size="lg" nativeButton={false} render={<Link href="/app" />}>
             Start using AI
           </Button>
-          <Button size="lg" variant="outline" render={<Link href="/advertise" />}>
+          <Button size="lg" variant="outline" nativeButton={false} render={<Link href="/advertise" />}>
             Advertise to AI users
           </Button>
         </div>

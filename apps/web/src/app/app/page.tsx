@@ -70,8 +70,7 @@ export default function UserDashboard() {
       <div className="mx-auto max-w-6xl px-6 py-24 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Sign in to see your dashboard</h1>
         <p className="text-muted-foreground mx-auto mt-3 max-w-md text-sm leading-relaxed">
-          Use the sign-in menu in the header. While Privy keys are not configured, it offers the
-          seeded development accounts.
+          Connect your wallet from the header to see your credits, earnings and usage.
         </p>
       </div>
     );

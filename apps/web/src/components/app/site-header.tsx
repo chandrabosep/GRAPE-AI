@@ -2,27 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { formatCredits } from '@/lib/api';
-import { useAuthActions, useMe, useSeedUsers } from '@/hooks/use-session';
-import {
-  connectWalletConnect,
-  hasInjectedWallet,
-  isWalletConnectAvailable,
-  signInWithWallet,
-  WalletError,
-} from '@/lib/wallet';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { formatCredits } from '@/lib/api';
+import { useAuthActions, useMe } from '@/hooks/use-session';
+import { connectWalletConnect, signInWithWallet, WalletError } from '@/lib/wallet';
 
 const NAV = [
   { href: '/app', label: 'Dashboard' },
@@ -32,15 +27,19 @@ const NAV = [
 export function SiteHeader() {
   const pathname = usePathname();
   const { data: me } = useMe();
-  const { data: seedUsers = [] } = useSeedUsers();
-  const { signInAs, signOut } = useAuthActions();
+  const { signOut } = useAuthActions();
   const queryClient = useQueryClient();
   const [connecting, setConnecting] = useState(false);
 
-  const connectWallet = async (via: 'injected' | 'walletconnect') => {
+  /**
+   * One entry point. WalletConnect's own modal lists installed browser wallets
+   * next to the QR code, so a single button covers both desktop and phone
+   * without us building a chooser.
+   */
+  const connect = async () => {
     setConnecting(true);
     try {
-      const provider = via === 'walletconnect' ? await connectWalletConnect() : undefined;
+      const provider = await connectWalletConnect();
       const { address } = await signInWithWallet(provider);
       toast.success(`Signed in as ${address.slice(0, 6)}…${address.slice(-4)}`);
       await queryClient.invalidateQueries();
@@ -85,73 +84,24 @@ export function SiteHeader() {
                 {formatCredits(me.credits.balanceMicro)} credits
               </span>
               <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button variant="outline" size="sm" />}
-                >
+                <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
                   {me.user.displayName ?? 'Account'}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                    {me.user.roles.join(', ')}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => void signOut()}>Sign out</DropdownMenuItem>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                      {me.user.roles.join(', ')}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => void signOut()}>Sign out</DropdownMenuItem>
+                  </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
           ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button size="sm" />}>Sign in</DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    void connectWallet('injected');
-                  }}
-                  disabled={connecting}
-                >
-                  {hasInjectedWallet() ? 'Browser wallet' : 'Browser wallet (none detected)'}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    void connectWallet('walletconnect');
-                  }}
-                  disabled={connecting || !isWalletConnectAvailable()}
-                >
-                  {isWalletConnectAvailable()
-                    ? 'WalletConnect (scan with your phone)'
-                    : 'WalletConnect (needs a project id)'}
-                </DropdownMenuItem>
-                {connecting && (
-                  <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                    Waiting for your wallet…
-                  </DropdownMenuLabel>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                  Or sign in as a seeded account, for development
-                </DropdownMenuLabel>
-                {seedUsers.length === 0 && (
-                  <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                    No seeded accounts. Run <code>pnpm db:seed</code>.
-                  </DropdownMenuLabel>
-                )}
-                {seedUsers.map((user) => (
-                  <DropdownMenuItem
-                    key={user.subject}
-                    onSelect={() => void signInAs(user.subject)}
-                    className="flex flex-col items-start gap-0.5"
-                  >
-                    <span>{user.displayName ?? user.subject}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {user.roles.includes('advertiser') ? 'advertiser' : 'developer'} ·{' '}
-                      {formatCredits(user.creditBalanceMicro)}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button size="sm" onClick={() => void connect()} disabled={connecting}>
+              {connecting ? 'Connecting…' : 'Connect Wallet'}
+            </Button>
           )}
         </div>
       </div>

@@ -97,7 +97,7 @@ export default function AdvertiserDashboard() {
       <div className="mx-auto max-w-6xl px-6 py-24 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Sign in to manage campaigns</h1>
         <p className="text-muted-foreground mx-auto mt-3 max-w-md text-sm leading-relaxed">
-          Use the sign-in menu in the header and pick one of the seeded advertiser accounts.
+          Connect your wallet from the header to create and manage campaigns.
         </p>
       </div>
     );
@@ -132,7 +132,7 @@ export default function AdvertiserDashboard() {
             You are charged for confirmed attention, not for an ad being selected.
           </p>
         </div>
-        <Button render={<Link href="/advertise/campaigns/new" />}>New campaign</Button>
+        <Button nativeButton={false} render={<Link href="/advertise/campaigns/new" />}>New campaign</Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
