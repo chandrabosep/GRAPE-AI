@@ -96,13 +96,22 @@ async function runChat(
   // Ads resolve alongside the answer. Deliberately not awaited here.
   const adPromise = resolveAd(body, ctx, classification, model, lastUserMessage.content);
 
-  let adSent = false;
+  // Claimed synchronously, before the first await. Checking `adSent` after
+  // awaiting is not enough: every delta calls this, so a dozen calls can all get
+  // past the check while the first is still waiting on the same promise, and
+  // then all send the card. That renders a dozen identical ads.
+  let adClaimed = false;
   const flushAd = async () => {
-    if (adSent) return;
+    if (adClaimed) return;
+    adClaimed = true;
+
     const ad = await adPromise;
     if (ad && !stream.closed) {
       stream.send({ type: 'ad', ad });
-      adSent = true;
+    } else if (!ad) {
+      // Nothing to show. Release the claim so the end-of-stream flush does not
+      // silently swallow a card that resolved late.
+      adClaimed = false;
     }
   };
 
@@ -121,7 +130,7 @@ async function runChat(
     if (event.type === 'delta') {
       stream.send({ type: 'delta', text: event.text });
       // Once the answer is underway, slot the card in as soon as it is ready.
-      if (!adSent) void flushAd();
+      void flushAd();
       continue;
     }
 

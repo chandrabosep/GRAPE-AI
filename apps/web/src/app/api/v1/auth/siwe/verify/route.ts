@@ -3,6 +3,7 @@ import { issueSession, verifySiwe, walletSubject } from '@/server/modules/auth';
 import { upsertFromIdentity } from '@/server/modules/users/service';
 import { prisma } from '@aam/db';
 import { json, parseBody, route } from '@/server/lib/http';
+import { countryFromRequest } from '@/server/lib/geo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,7 @@ export const POST = route(async (request) => {
   const user = await upsertFromIdentity({
     subject: walletSubject(address),
     displayName: `${address.slice(0, 6)}…${address.slice(-4)}`,
+    countryCode: countryFromRequest(request),
   });
 
   await prisma.wallet.upsert({

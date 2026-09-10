@@ -16,6 +16,8 @@ export interface ExternalIdentity {
   subject: string;
   email?: string | null;
   displayName?: string | null;
+  /** Resolved at the edge when the platform provides it; null in development. */
+  countryCode?: string | null;
 }
 
 export type UserWithProfile = Prisma.UserGetPayload<{ include: { profile: true } }>;
@@ -40,6 +42,10 @@ export async function upsertFromIdentity(identity: ExternalIdentity): Promise<Us
       data: {
         lastSeenAt: new Date(),
         ...(identity.email && identity.email !== existing.email ? { email: identity.email } : {}),
+        // Fill in a country we did not have before, but never overwrite one.
+        ...(identity.countryCode && !existing.countryCode
+          ? { countryCode: identity.countryCode }
+          : {}),
       },
     });
     return existing;
@@ -50,6 +56,7 @@ export async function upsertFromIdentity(identity: ExternalIdentity): Promise<Us
       subject: identity.subject,
       email: identity.email ?? null,
       displayName: identity.displayName ?? null,
+      countryCode: identity.countryCode ?? null,
       lastSeenAt: new Date(),
       profile: { create: {} },
     },

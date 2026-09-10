@@ -1,4 +1,4 @@
-import { prisma } from '@aam/db';
+import { prisma, transaction } from '@aam/db';
 import { AppError } from '@aam/shared';
 import { newOpaqueToken, sha256 } from '../../lib/ids';
 import { issueSession, type IssuedSession } from './session';
@@ -45,7 +45,7 @@ export async function redeemHandoffCode(
 ): Promise<IssuedSession> {
   const codeHash = sha256(code);
 
-  const userId = await prisma.$transaction(async (tx) => {
+  const userId = await transaction(async (tx) => {
     const record = await tx.vsCodeAuthCode.findUnique({ where: { codeHash } });
 
     if (!record || record.usedAt || record.expiresAt < new Date()) {

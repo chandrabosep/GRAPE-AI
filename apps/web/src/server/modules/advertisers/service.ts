@@ -1,4 +1,4 @@
-import { prisma, type Advertiser } from '@aam/db';
+import { prisma, type Advertiser, transaction } from '@aam/db';
 import { AppError } from '@aam/shared';
 import { grantRole } from '../users/service';
 
@@ -23,7 +23,7 @@ export async function createAdvertiser(input: CreateAdvertiserInput): Promise<Ad
   });
   if (existing) return existing;
 
-  const advertiser = await prisma.$transaction(async (tx) => {
+  const advertiser = await transaction(async (tx) => {
     const org = await tx.organization.create({
       data: { name: input.companyName, ownerUserId: input.userId },
     });

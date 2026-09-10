@@ -146,7 +146,10 @@ async function main() {
       budget: USD(100),
       bid: USD(0.01),
       targeting: {
-        countries: ['IN', 'US', 'GB', 'DE'],
+        // Deliberately not country-locked. This is the campaign the demo leans
+        // on, and a developer whose country we cannot resolve would otherwise
+        // be ineligible for the one ad that actually matches their question.
+        countries: [],
         personas: ['web3_developer'],
         interests: ['web3', 'infrastructure'],
         technologies: ['solidity', 'ethereum', 'foundry', 'viem'],
@@ -234,7 +237,8 @@ async function main() {
       budget: USD(120),
       bid: USD(0.011),
       targeting: {
-        countries: [],
+        // Keeps country targeting represented in the seed data.
+        countries: ['IN', 'US', 'GB', 'DE'],
         personas: ['devops_engineer', 'backend_developer'],
         interests: ['infrastructure', 'devtools'],
         technologies: ['docker', 'kubernetes', 'terraform', 'aws'],

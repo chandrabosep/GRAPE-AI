@@ -1,4 +1,4 @@
-import { prisma, type CreditTransaction, type CreditTxType, type Prisma } from '@aam/db';
+import { prisma, type CreditTransaction, type CreditTxType, type Prisma, transaction } from '@aam/db';
 import { AppError } from '@aam/shared';
 import { idempotencyKey as makeKey } from '../../lib/ids';
 
@@ -56,7 +56,7 @@ function deriveKey(input: LedgerEntryInput): string {
 export async function appendEntry(input: LedgerEntryInput): Promise<LedgerResult> {
   const key = deriveKey(input);
 
-  return prisma.$transaction(async (tx) => {
+  return transaction(async (tx) => {
     const existing = await tx.creditTransaction.findUnique({ where: { idempotencyKey: key } });
     if (existing) {
       return {

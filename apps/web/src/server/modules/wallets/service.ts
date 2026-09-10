@@ -1,4 +1,4 @@
-import { prisma, type Wallet } from '@aam/db';
+import { prisma, type Wallet, transaction } from '@aam/db';
 import { AppError } from '@aam/shared';
 import { verifyMessage } from 'viem';
 import { logger } from '../../lib/logger';
@@ -68,7 +68,7 @@ export async function linkWallet(input: LinkWalletInput): Promise<Wallet> {
     throw new AppError('forbidden', 'This wallet is already linked to another account');
   }
 
-  const wallet = await prisma.$transaction(async (tx) => {
+  const wallet = await transaction(async (tx) => {
     // Exactly one wallet feeds targeting, so clear the flag before setting it.
     await tx.wallet.updateMany({
       where: { userId: input.userId, isPrimarySignalSource: true },

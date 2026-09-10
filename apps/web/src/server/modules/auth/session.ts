@@ -1,4 +1,4 @@
-import { prisma, type ClientKind } from '@aam/db';
+import { prisma, type ClientKind, transaction } from '@aam/db';
 import { AppError } from '@aam/shared';
 import { SignJWT, jwtVerify } from 'jose';
 import { env } from '../../config/index';
@@ -91,7 +91,7 @@ export async function issueSession(
 export async function rotateSession(refreshToken: string, userAgent?: string): Promise<IssuedSession> {
   const hash = sha256(refreshToken);
 
-  return prisma.$transaction(async (tx) => {
+  return transaction(async (tx) => {
     const existing = await tx.apiSession.findUnique({ where: { refreshTokenHash: hash } });
 
     if (!existing || existing.revokedAt || existing.expiresAt < new Date()) {
