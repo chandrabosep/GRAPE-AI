@@ -17,7 +17,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatCredits } from '@/lib/api';
 import { useAuthActions, useMe } from '@/hooks/use-session';
-import { connectWalletConnect, signInWithWallet, WalletError } from '@/lib/wallet';
+import { signInWithWallet, WalletError, type Eip1193Provider } from '@/lib/wallet';
+import { isWalletModalConfigured } from '@/lib/appkit';
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
+import { useEffect, useRef } from 'react';
 
 const NAV = [
   { href: '/app', label: 'Dashboard' },
@@ -31,27 +34,49 @@ export function SiteHeader() {
   const queryClient = useQueryClient();
   const [connecting, setConnecting] = useState(false);
 
+  const { open } = useAppKit();
+  const { address, isConnected } = useAppKitAccount();
+  const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
+  const signedInFor = useRef<string | null>(null);
+
   /**
-   * One entry point. WalletConnect's own modal lists installed browser wallets
-   * next to the QR code, so a single button covers both desktop and phone
-   * without us building a chooser.
+   * Connecting and signing in are two steps, and AppKit owns the first.
+   *
+   * The modal returns once a wallet is connected but gives no completion
+   * callback, so the signature request is triggered by the connection appearing
+   * rather than by the button. The ref guards against re-prompting on every
+   * re-render, and against asking again for an address already signed in.
    */
-  const connect = async () => {
+  useEffect(() => {
+    if (!isConnected || !address || !walletProvider || me) return;
+    if (signedInFor.current === address) return;
+
+    signedInFor.current = address;
     setConnecting(true);
-    try {
-      const provider = await connectWalletConnect();
-      const { address } = await signInWithWallet(provider);
-      toast.success(`Signed in as ${address.slice(0, 6)}…${address.slice(-4)}`);
-      await queryClient.invalidateQueries();
-    } catch (error) {
-      toast.error(
-        error instanceof WalletError || error instanceof Error
-          ? error.message
-          : 'Could not connect your wallet.',
-      );
-    } finally {
-      setConnecting(false);
+
+    void signInWithWallet(walletProvider)
+      .then(async (result) => {
+        toast.success(`Signed in as ${result.address.slice(0, 6)}…${result.address.slice(-4)}`);
+        await queryClient.invalidateQueries();
+      })
+      .catch((error: unknown) => {
+        // Let them try again; a rejected signature is not a permanent state.
+        signedInFor.current = null;
+        toast.error(
+          error instanceof WalletError || error instanceof Error
+            ? error.message
+            : 'Could not sign you in.',
+        );
+      })
+      .finally(() => setConnecting(false));
+  }, [isConnected, address, walletProvider, me, queryClient]);
+
+  const connect = async () => {
+    if (!isWalletModalConfigured()) {
+      toast.error('Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to enable wallet sign-in.');
+      return;
     }
+    await open({ view: 'Connect' });
   };
 
   return (

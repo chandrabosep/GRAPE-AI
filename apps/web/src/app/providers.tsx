@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import { AppKitProvider } from '@/lib/appkit';
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -19,5 +20,10 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  // wagmi sits inside the query client: AppKit's adapter uses react-query.
+  return (
+    <QueryClientProvider client={client}>
+      <AppKitProvider>{children}</AppKitProvider>
+    </QueryClientProvider>
+  );
 }

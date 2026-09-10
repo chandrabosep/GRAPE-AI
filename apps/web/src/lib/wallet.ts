@@ -6,14 +6,10 @@ import { api, storeSession } from './api';
 /**
  * Wallet sign-in.
  *
- * Everything speaks EIP-1193, so the same sign-in path serves both an injected
- * browser wallet and a phone scanning a WalletConnect QR code. The only
- * difference is where the provider comes from.
- *
- * WalletConnect's EVM provider is used rather than AppKit's Universal Connector:
- * we only target EVM chains, the Universal Connector pulls in ethers alongside
- * the viem we already use, and AppKit is documented as incompatible with the
- * wagmi major we would otherwise adopt.
+ * Everything speaks EIP-1193, so one path serves an injected browser wallet and
+ * a phone scanning a QR code alike. Reown AppKit decides which wallet the user
+ * picked and hands back the provider; this file only knows how to sign in with
+ * whatever provider it is given.
  */
 
 export interface Eip1193Provider {
@@ -56,58 +52,6 @@ async function currentChainId(provider: Eip1193Provider): Promise<number> {
 
 export interface SignInResult {
   address: string;
-}
-
-export function walletConnectProjectId(): string | undefined {
-  return process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || undefined;
-}
-
-export function isWalletConnectAvailable(): boolean {
-  return Boolean(walletConnectProjectId());
-}
-
-/**
- * Opens the WalletConnect QR modal and returns the connected provider.
- *
- * Imported lazily so the relay client and modal are only downloaded when
- * somebody actually chooses WalletConnect, rather than being carried by every
- * page load.
- */
-export async function connectWalletConnect(): Promise<Eip1193Provider> {
-  const projectId = walletConnectProjectId();
-  if (!projectId) {
-    throw new WalletError(
-      'WalletConnect is not configured. Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.',
-    );
-  }
-
-  const { EthereumProvider } = await import('@walletconnect/ethereum-provider');
-
-  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 84532);
-
-  const provider = await EthereumProvider.init({
-    projectId,
-    // optionalChains rather than chains: a wallet that cannot switch to our
-    // chain can still connect and sign, which is all sign-in needs.
-    optionalChains: [chainId],
-    showQrModal: true,
-    methods: ['personal_sign', 'eth_sendTransaction'],
-    events: ['chainChanged', 'accountsChanged'],
-    metadata: {
-      name: 'AI Attention Marketplace',
-      description: 'Ads that pay for your AI.',
-      url: typeof window === 'undefined' ? 'http://localhost:3000' : window.location.origin,
-      icons: [],
-    },
-  });
-
-  try {
-    await provider.connect();
-  } catch (error) {
-    throw new WalletError(describe(error));
-  }
-
-  return provider as unknown as Eip1193Provider;
 }
 
 /**
