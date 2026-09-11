@@ -5,11 +5,61 @@ import { intentHintsSchema } from './intent';
 
 export const chatRoleSchema = z.enum(['user', 'assistant']);
 
+/**
+ * One piece of a message.
+ *
+ * A turn used to be a string, and for ordinary chat it still reads as one. Tool
+ * use forces the richer shape: the assistant's turn has to carry *which* tool it
+ * asked for with which arguments, and the reply has to carry the result tied
+ * back to that exact request by id. Losing either link breaks the conversation
+ * for the model, not just for us.
+ */
+export const textBlockSchema = z.object({
+  type: z.literal('text'),
+  text: z.string().max(200_000),
+});
+
+export const toolUseBlockSchema = z.object({
+  type: z.literal('tool_use'),
+  toolUseId: z.string().min(1).max(200),
+  name: z.string().min(1).max(80),
+  input: z.unknown(),
+});
+
+export const toolResultBlockSchema = z.object({
+  type: z.literal('tool_result'),
+  toolUseId: z.string().min(1).max(200),
+  /** Whatever the editor produced — file contents, a listing, or an error. */
+  content: z.string().max(200_000),
+  /** A failed tool still returns a result; the model needs to see why. */
+  isError: z.boolean().default(false),
+});
+
+export const contentBlockSchema = z.discriminatedUnion('type', [
+  textBlockSchema,
+  toolUseBlockSchema,
+  toolResultBlockSchema,
+]);
+export type ContentBlock = z.infer<typeof contentBlockSchema>;
+
 export const chatMessageSchema = z.object({
   role: chatRoleSchema,
-  content: z.string().min(1).max(24_000),
+  /** A bare string is the ordinary case and stays legal. */
+  content: z.union([
+    z.string().min(1).max(24_000),
+    z.array(contentBlockSchema).min(1).max(40),
+  ]),
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+/** Flattens a message to its plain text, ignoring tool traffic. */
+export function messageText(message: ChatMessage): string {
+  if (typeof message.content === 'string') return message.content;
+  return message.content
+    .filter((block): block is z.infer<typeof textBlockSchema> => block.type === 'text')
+    .map((block) => block.text)
+    .join('\n');
+}
 
 /**
  * Editor context is optional and capped. It is forwarded to the model only,
@@ -24,12 +74,22 @@ export const editorContextSchema = z.object({
 export type EditorContext = z.infer<typeof editorContextSchema>;
 
 export const chatRequestSchema = z.object({
-  messages: z.array(chatMessageSchema).min(1).max(40),
+  // Raised from 40: a tool-using answer spends several messages per question,
+  // so the old ceiling cut conversations short after a couple of exchanges.
+  messages: z.array(chatMessageSchema).min(1).max(120),
   context: editorContextSchema.optional(),
   hints: intentHintsSchema.optional(),
   model: z.string().max(120).optional(),
   useCredits: z.boolean().default(true),
   sessionId: z.string().max(64).optional(),
+  /**
+   * Whether the assistant may call editor tools on this request.
+   *
+   * Sent by the client because only the client can actually run them. A caller
+   * that cannot execute tools — the x402 agent API, say — leaves this off and
+   * gets a plain answer rather than a tool call it can never satisfy.
+   */
+  tools: z.boolean().default(false),
 });
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 

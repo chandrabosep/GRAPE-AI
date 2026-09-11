@@ -163,6 +163,61 @@ export async function startSession(
   return session.id;
 }
 
+/** Client ids are uuids; anything else is not one of ours and is not trusted. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Turns a conversation id from a client into a real session row.
+ *
+ * Conversations live on the client — the schema has no table that could hold a
+ * prompt or a reply — so the id a client sends is a grouping key it made up,
+ * not something the server issued. It still has to resolve to an `AiSession`
+ * before it can be written to `AiUsage.session_id`, or the usage insert trips a
+ * foreign key after the answer has already been delivered and the advertiser
+ * already charged.
+ *
+ * Adopting the client's id as the primary key keeps one id across the whole
+ * conversation, and the ownership check is what makes that safe: a session id
+ * that belongs to somebody else is treated as though it had never been sent,
+ * so guessing one buys an attacker nothing but their own new session.
+ */
+export async function resolveSession(
+  userId: string,
+  clientSessionId: string | null,
+  client: ClientKind,
+  model: string,
+): Promise<string | null> {
+  if (!clientSessionId || !UUID.test(clientSessionId)) {
+    return startSession(userId, client, model).catch(() => null);
+  }
+
+  const existing = await prisma.aiSession.findUnique({
+    where: { id: clientSessionId },
+    select: { id: true, userId: true },
+  });
+
+  if (existing) {
+    return existing.userId === userId
+      ? existing.id
+      : await startSession(userId, client, model).catch(() => null);
+  }
+
+  try {
+    const created = await prisma.aiSession.create({
+      data: { id: clientSessionId, userId, client, model },
+      select: { id: true },
+    });
+    return created.id;
+  } catch {
+    // Lost a race with a concurrent request for the same conversation, or the
+    // insert failed for a reason that is not worth failing an answer over.
+    const raced = await prisma.aiSession
+      .findUnique({ where: { id: clientSessionId }, select: { id: true, userId: true } })
+      .catch(() => null);
+    return raced?.userId === userId ? raced.id : null;
+  }
+}
+
 export async function touchSession(sessionId: string): Promise<void> {
   await prisma.aiSession
     .update({ where: { id: sessionId }, data: { lastActivityAt: new Date() } })

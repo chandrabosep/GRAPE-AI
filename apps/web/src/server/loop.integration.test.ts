@@ -26,21 +26,33 @@ type Modules = {
 };
 let m: Modules;
 
-async function seedCampaign(prisma: Modules['prisma']) {
+let advertiserSeq = 0;
+
+interface SeedOptions {
+  name?: string;
+  /** Which sponsored slots this campaign competes for. */
+  formats?: ('banner' | 'inline')[];
+}
+
+async function seedCampaign(prisma: Modules['prisma'], options: SeedOptions = {}) {
+  const name = options.name ?? 'Northwind RPC';
+  const formats = options.formats ?? ['banner'];
+  const unique = `${Date.now()}-${advertiserSeq++}`;
+
   const advertiserUser = await prisma.user.create({
-    data: { subject: `test:adv-${Date.now()}`, roles: ['user', 'advertiser'] },
+    data: { subject: `test:adv-${unique}`, roles: ['user', 'advertiser'] },
   });
   const org = await prisma.organization.create({
-    data: { name: 'Northwind RPC', ownerUserId: advertiserUser.id },
+    data: { name, ownerUserId: advertiserUser.id },
   });
   const advertiser = await prisma.advertiser.create({
-    data: { orgId: org.id, userId: advertiserUser.id, name: 'Northwind RPC' },
+    data: { orgId: org.id, userId: advertiserUser.id, name },
   });
 
   const campaign = await prisma.campaign.create({
     data: {
       advertiserId: advertiser.id,
-      name: 'Ethereum Developer Launch',
+      name: `${name} — Ethereum Developer Launch`,
       status: 'active',
       budgetMicro: 100_000_000n,
       bidMicro: 10_000n,
@@ -64,15 +76,21 @@ async function seedCampaign(prisma: Modules['prisma']) {
     },
   });
 
-  await prisma.adCreative.create({
-    data: {
-      campaignId: campaign.id,
-      headline: 'Ship your contract without babysitting a node',
-      body: 'Managed Ethereum RPC with archive access.',
-      ctaText: 'See the free tier',
-      ctaUrl: 'https://example.com/northwind',
-    },
-  });
+  for (const format of formats) {
+    await prisma.adCreative.create({
+      data: {
+        campaignId: campaign.id,
+        format,
+        headline:
+          format === 'banner'
+            ? 'Ship your contract without babysitting a node'
+            : 'Managed Ethereum RPC, archive access included',
+        body: format === 'banner' ? 'Managed Ethereum RPC with archive access.' : null,
+        ctaText: format === 'banner' ? 'See the free tier' : 'Free tier',
+        ctaUrl: 'https://example.com/northwind',
+      },
+    });
+  }
 
   return campaign;
 }
@@ -134,10 +152,12 @@ describe('the credit loop', () => {
         ],
         hints: { languageId: 'solidity' },
         useCredits: true,
+        tools: false,
       },
       {
         user,
         sessionId: null,
+        client: 'web',
         requestId: `req_${Date.now()}`,
         adsEnabled: true,
       },
@@ -214,6 +234,97 @@ describe('the credit loop', () => {
     expect(record.promptHash).toMatch(/^[a-f0-9]{64}$/);
     expect(record.intent).toBe('smart_contract_deployment');
   });
+
+  /**
+   * The two-slot answer, end to end.
+   *
+   * Three things have to hold at once and none of them is obvious: the slots
+   * are priced differently, they come from different advertisers, and both of
+   * them pay. The last one is the easiest to break — the anti-farming rule
+   * spaces rewards a minute apart, and two slots of one answer arrive together.
+   */
+  it('fills both sponsored slots from different advertisers, and pays for both', async () => {
+    await seedCampaign(m.prisma, { name: 'Inline Co', formats: ['inline'] });
+    await seedCampaign(m.prisma, { name: 'Banner Co', formats: ['banner'] });
+
+    const user = await m.users.upsertFromIdentity({
+      subject: `test:dev-two-slots-${Date.now()}`,
+    });
+
+    const events = await collectStream(
+      m.chat.handleChat(
+        {
+          messages: [
+            { role: 'user', content: 'How do I deploy this Solidity contract using Foundry?' },
+          ],
+          hints: { languageId: 'solidity' },
+          useCredits: true,
+          tools: false,
+        },
+        {
+          user,
+          sessionId: null,
+          client: 'web',
+          requestId: `req_two_slots_${Date.now()}`,
+          adsEnabled: true,
+        },
+      ),
+    );
+
+    const ads = events.filter((e) => e.type === 'ad').map((e) => e.ad);
+    expect(ads).toHaveLength(2);
+
+    const inline = ads.find((ad) => ad.format === 'inline');
+    const banner = ads.find((ad) => ad.format === 'banner');
+    expect(inline).toBeDefined();
+    expect(banner).toBeDefined();
+
+    // One answer never carries the same advertiser twice.
+    expect(inline!.advertiserName).not.toBe(banner!.advertiserName);
+
+    // An inline creative is one line: it has no body to render.
+    expect(inline!.body).toBeNull();
+    expect(banner!.body).toBeTruthy();
+
+    // Both campaigns bid 10_000µ. The inline slot bills at 30% of that, so the
+    // reward it offers is 70% of 3_000µ rather than 70% of 10_000µ.
+    expect(banner!.estimatedRewardMicro).toBe(7_000);
+    expect(inline!.estimatedRewardMicro).toBe(2_100);
+
+    const before = await m.credits.getBalance(user.id);
+
+    const bannerOutcome = await m.rewards.confirmImpression(
+      user.id,
+      banner!.impressionId,
+      1_500,
+    );
+    const inlineOutcome = await m.rewards.confirmImpression(
+      user.id,
+      inline!.impressionId,
+      1_500,
+    );
+
+    // The second slot must not be refused as "too_soon": the spacing rule is
+    // about repeated prompts, and these two are the same answer.
+    expect(bannerOutcome.granted).toBe(true);
+    expect(inlineOutcome.granted).toBe(true);
+    expect(inlineOutcome.reason).toBeUndefined();
+
+    const after = await m.credits.getBalance(user.id);
+    expect(after - before).toBe(7_000n + 2_100n);
+
+    // Neither advertiser was charged more than the slot they actually won.
+    const impressions = await m.prisma.adImpression.findMany({
+      where: { id: { in: [banner!.impressionId, inline!.impressionId] } },
+      select: { format: true, chargedMicro: true },
+    });
+    expect(
+      impressions.find((i) => i.format === 'banner')?.chargedMicro,
+    ).toBe(10_000n);
+    expect(
+      impressions.find((i) => i.format === 'inline')?.chargedMicro,
+    ).toBe(3_000n);
+  }, 60_000);
 
   it('keeps the credit ledger append-only at the database level', async () => {
     const entry = await m.prisma.creditTransaction.findFirstOrThrow();

@@ -123,6 +123,7 @@ describe('campaign lifecycle', () => {
     });
 
     await m.campaigns.upsertCreative(campaign.id, advertiser.id, {
+      format: 'banner',
       headline: 'Ship your contract faster',
       body: 'Managed Ethereum RPC with archive access.',
       ctaText: 'Learn more',
@@ -177,6 +178,7 @@ describe('advertiser isolation', () => {
 
     await expect(
       m.campaigns.upsertCreative(campaign.id, stranger.id, {
+        format: 'banner',
         headline: 'Hijacked headline',
         body: 'Should never be written.',
         ctaText: 'No',

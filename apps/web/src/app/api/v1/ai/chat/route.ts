@@ -21,6 +21,7 @@ export async function POST(request: Request): Promise<Response> {
     return handleChat(body, {
       user,
       sessionId: body.sessionId ?? null,
+      client: 'web',
       requestId,
       adsEnabled: true,
       signal: request.signal,
