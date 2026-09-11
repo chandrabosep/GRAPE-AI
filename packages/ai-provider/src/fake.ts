@@ -62,8 +62,22 @@ export class FakeProvider implements AIProvider {
 
   listModels(): ModelInfo[] {
     return [
-      { id: 'fake-standard', label: 'Fake Standard', tier: 'standard', supportsStreaming: true },
-      { id: 'fake-fast', label: 'Fake Fast', tier: 'fast', supportsStreaming: true },
+      {
+        id: 'fake-standard',
+        label: 'Fake Standard',
+        description: 'Deterministic reply, no network.',
+        tier: 'standard',
+        supportsStreaming: true,
+        default: true,
+      },
+      {
+        id: 'fake-fast',
+        label: 'Fake Fast',
+        description: 'Deterministic reply, no network.',
+        tier: 'fast',
+        supportsStreaming: true,
+        default: false,
+      },
     ];
   }
 

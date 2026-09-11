@@ -22,8 +22,21 @@ const envSchema = z.object({
   ADMIN_TOKEN: z.string().min(4).default('dev-admin-token'),
 
   AWS_REGION: z.string().default('us-east-1'),
-  BEDROCK_CHAT_MODEL: z.string().default('us.anthropic.claude-sonnet-5'),
-  BEDROCK_PREMIUM_MODEL: z.string().default('us.anthropic.claude-opus-5'),
+  /**
+   * Long-lived Bedrock API key ("ABSK..."). When set, the runtime client
+   * authenticates with a bearer token instead of SigV4, which is what lets the
+   * app run without an AWS profile, SSO login or instance role. Falls back to
+   * the SDK default credential chain when absent.
+   */
+  BEDROCK_API_KEY: z.string().optional(),
+  /**
+   * Cross-region inference profile ids. Bedrock has no in-Region id for these
+   * models, so the `us.` prefix is required, not cosmetic.
+   */
+  BEDROCK_CHAT_MODEL: z.string().default('us.anthropic.claude-sonnet-4-6'),
+  BEDROCK_PREMIUM_MODEL: z
+    .string()
+    .default('us.anthropic.claude-opus-4-5-20251101-v1:0'),
   BEDROCK_CLASSIFIER_MODEL: z
     .string()
     .default('us.anthropic.claude-haiku-4-5-20251001-v1:0'),

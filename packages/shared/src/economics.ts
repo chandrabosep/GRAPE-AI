@@ -53,7 +53,15 @@ export const economicsConfigSchema = z.object({
     starterGrantMicro: z.number().int().nonnegative(),
     /** Withdrawals below this are not worth a transaction fee. */
     minPayoutMicro: z.number().int().nonnegative(),
-    /** Upper bound on a single inference request, so one prompt cannot drain a balance. */
+    /**
+     * Upper bound on a single inference request.
+     *
+     * Sized for a tool-using turn, not a bare chat message. A hop that has read
+     * several files legitimately carries tens of thousands of prompt tokens, and
+     * this cap is what `authorizeSpend` clamps the answer length against — set
+     * too low it does not refuse the request, it silently truncates the reply
+     * mid-sentence, which reads as the model breaking rather than as a limit.
+     */
     maxRequestCostMicro: z.number().int().positive(),
   }),
   caps: z.object({
@@ -63,6 +71,34 @@ export const economicsConfigSchema = z.object({
     minSecondsBetweenRewardedImpressions: z.number().int().nonnegative(),
     /** Identical prompts inside this window earn nothing. */
     duplicatePromptWindowSeconds: z.number().int().nonnegative(),
+  }),
+  /**
+   * What happens to a slot no targeted campaign wanted.
+   *
+   * Off, the slot stays empty — the strictest reading of "an irrelevant ad is
+   * worse than none". On, it is offered to campaigns that asked for no
+   * targeting at all (brand campaigns bidding for any developer), which is what
+   * an unsold slot is worth in a real market. A targeted campaign can never
+   * win this way, so a developer is still never shown an ad aimed at someone
+   * they are not.
+   */
+  remnant: z.object({
+    enabled: z.boolean(),
+    /** Recorded on the impression so remnant fills are separable in analytics. */
+    label: z.string().min(1),
+  }),
+  /**
+   * Per-format economics.
+   *
+   * The inline slot is one line beside a streaming answer; the banner is a card
+   * the developer stops and reads. They are not the same unit of attention, so
+   * they do not cost the advertiser the same. The multiplier scales the bid for
+   * that slot, which scales the reward with it — the split is untouched, so a
+   * developer still earns the same share of whatever was actually charged.
+   */
+  formats: z.object({
+    banner: z.object({ bidMultiplier: z.number().positive() }),
+    inline: z.object({ bidMultiplier: z.number().positive() }),
   }),
   models: z.record(z.string(), modelPricingSchema),
   signalCacheHours: z.number().positive(),
@@ -75,7 +111,7 @@ export const DEFAULT_ECONOMICS: EconomicsConfig = {
   credits: {
     starterGrantMicro: 500_000,
     minPayoutMicro: 1_000_000,
-    maxRequestCostMicro: 100_000,
+    maxRequestCostMicro: 400_000,
   },
   weights: {
     intent: 0.4,
@@ -94,6 +130,8 @@ export const DEFAULT_ECONOMICS: EconomicsConfig = {
     minSecondsBetweenRewardedImpressions: 60,
     duplicatePromptWindowSeconds: 600,
   },
+  remnant: { enabled: true, label: 'unsold_slot' },
+  formats: { banner: { bidMultiplier: 1 }, inline: { bidMultiplier: 0.3 } },
   models: {},
   signalCacheHours: 6,
 };

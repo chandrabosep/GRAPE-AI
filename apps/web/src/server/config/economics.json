@@ -7,7 +7,7 @@
   "credits": {
     "starterGrantMicro": 500000,
     "minPayoutMicro": 1000000,
-    "maxRequestCostMicro": 100000
+    "maxRequestCostMicro": 400000
   },
   "weights": {
     "intent": 0.4,
@@ -29,12 +29,24 @@
     "minSecondsBetweenRewardedImpressions": 60,
     "duplicatePromptWindowSeconds": 600
   },
-  "models": {
-    "us.anthropic.claude-sonnet-5": {
-      "inputMicroPerToken": 2,
-      "outputMicroPerToken": 10
+  "remnant": {
+    "enabled": true,
+    "label": "unsold_slot"
+  },
+  "formats": {
+    "banner": {
+      "bidMultiplier": 1
     },
-    "us.anthropic.claude-opus-5": {
+    "inline": {
+      "bidMultiplier": 0.3
+    }
+  },
+  "models": {
+    "us.anthropic.claude-sonnet-4-6": {
+      "inputMicroPerToken": 3,
+      "outputMicroPerToken": 15
+    },
+    "us.anthropic.claude-opus-4-5-20251101-v1:0": {
       "inputMicroPerToken": 5,
       "outputMicroPerToken": 25
     },
@@ -45,6 +57,10 @@
     "fake-standard": {
       "inputMicroPerToken": 1,
       "outputMicroPerToken": 2
+    },
+    "fake-fast": {
+      "inputMicroPerToken": 1,
+      "outputMicroPerToken": 1
     }
   },
   "signalCacheHours": 6
