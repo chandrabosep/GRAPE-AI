@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "graph:health": "node scripts/graph-health.mjs",
-    "dev:token": "tsx scripts/dev-token.mts"
+    "dev:token": "tsx scripts/dev-token.mts",
+    "dev:topup": "tsx scripts/topup.mts"
   },
   "dependencies": {
     "@aam/ai-provider": "workspace:*",

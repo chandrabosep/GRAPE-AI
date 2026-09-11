@@ -3,6 +3,8 @@
 src/**
 webview/**
 test/**
+scripts/**
+.turbo/**
 .vscode/**
 node_modules/**
 esbuild.mjs
