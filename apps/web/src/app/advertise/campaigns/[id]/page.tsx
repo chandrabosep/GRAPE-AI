@@ -9,6 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/app/stat-card';
+import {
+  InlineSponsoredPreview,
+  SponsoredPreview,
+} from '@/components/app/sponsored-preview';
+import {
+  InsightsCharts,
+  type CampaignInsights,
+} from '@/components/app/insights-charts';
 import { api, formatCredits } from '@/lib/api';
 
 interface Campaign {
@@ -35,10 +43,12 @@ interface Campaign {
   } | null;
   creatives: {
     id: string;
+    format: 'banner' | 'inline';
     headline: string;
-    body: string;
+    body: string | null;
     ctaText: string;
     ctaUrl: string;
+    imageUrl: string | null;
   }[];
 }
 
@@ -56,6 +66,18 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
   const { data: campaign, isLoading } = useQuery<Campaign>({
     queryKey: ['campaign', id],
     queryFn: () => api<Campaign>(`/campaigns/${id}`),
+  });
+
+  // Only for the creative preview: the card carries the advertiser's name, so
+  // the preview has to as well or it is not the card the developer sees.
+  const { data: advertiser } = useQuery<{ name: string }>({
+    queryKey: ['advertiser', 'me'],
+    queryFn: () => api<{ name: string }>('/advertisers/me'),
+  });
+
+  const { data: insights } = useQuery<CampaignInsights>({
+    queryKey: ['campaign-insights', id],
+    queryFn: () => api<CampaignInsights>(`/advertisers/me/insights?campaignId=${id}&days=30`),
   });
 
   const transition = useMutation({
@@ -89,7 +111,8 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
   const spent = Number(campaign.spentMicro);
   const spendPct = budget > 0 ? (spent / budget) * 100 : 0;
   const targeting = campaign.targeting;
-  const creative = campaign.creatives[0];
+  const banner = campaign.creatives.find((c) => c.format === 'banner');
+  const inline = campaign.creatives.find((c) => c.format === 'inline');
 
   const rewardShare = spent * campaign.allocation.reward;
   const platformShare = spent * campaign.allocation.platform;
@@ -109,6 +132,15 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
             {formatCredits(campaign.bidMicro)} per qualified impression ·{' '}
             {Number(campaign.clickMultiplier)}× on a click
           </p>
+          {/* The auction only ever considers active campaigns, so a draft that
+              looks finished is the easiest way to conclude the ads are broken. */}
+          {campaign.status !== 'active' && (
+            <p className="mt-2 text-sm text-amber-600 dark:text-amber-500">
+              {campaign.status === 'draft' || campaign.status === 'awaiting_funding'
+                ? 'Not in the auction yet — only active campaigns are eligible to be served.'
+                : `A ${campaign.status.replace(/_/g, ' ')} campaign is not served.`}
+            </p>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -170,23 +202,91 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
         </CardContent>
       </Card>
 
-      {creative && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Creative</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Rendered exactly as a developer sees it, separator and label included. */}
-            <div className="border-primary/60 bg-muted/40 max-w-md space-y-2 rounded-md border border-l-[3px] p-4">
-              <div className="text-muted-foreground text-[10px] tracking-widest uppercase">
-                Sponsored · relevant to your task
-              </div>
-              <div className="font-medium">{creative.headline}</div>
-              <div className="text-muted-foreground text-sm leading-relaxed">{creative.body}</div>
-              <div className="text-primary text-sm">{creative.ctaText} →</div>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Creatives</CardTitle>
+          <p className="text-muted-foreground text-sm">
+            A campaign can run either format or both. Each is its own auction and its own
+            charge — the inline line bills at a fraction of your bid, because it is a
+            fraction of the attention.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-8 md:grid-cols-2">
+          <div className="space-y-3">
+            <div className="text-muted-foreground text-xs tracking-wide uppercase">
+              Banner — after the answer
             </div>
-          </CardContent>
-        </Card>
+            {banner ? (
+              /* Rendered exactly as a developer sees it, separator and badge included. */
+              <SponsoredPreview
+                headline={banner.headline}
+                body={banner.body ?? ''}
+                ctaText={banner.ctaText}
+                imageUrl={banner.imageUrl}
+                advertiserName={advertiser?.name ?? 'Advertiser'}
+              />
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                No banner creative. This campaign will not compete for the card slot.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-muted-foreground text-xs tracking-wide uppercase">
+              Inline — while the answer streams
+            </div>
+            {inline ? (
+              <InlineSponsoredPreview
+                headline={inline.headline}
+                ctaText={inline.ctaText}
+                advertiserName={advertiser?.name ?? 'Advertiser'}
+              />
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                No inline creative. This campaign will not compete for the inline slot.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {insights && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Performance</h2>
+            <p className="text-muted-foreground mt-1 text-sm">Last 30 days.</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Click-through rate"
+              value={`${(insights.totals.clickThroughRate * 100).toFixed(1)}%`}
+              hint={`${insights.totals.clicks.toLocaleString()} clicks`}
+            />
+            <StatCard
+              label="View rate"
+              value={`${(insights.totals.viewRate * 100).toFixed(1)}%`}
+              hint={`${insights.totals.qualified.toLocaleString()} of ${insights.totals.impressions.toLocaleString()} looked at`}
+            />
+            <StatCard
+              label="Cost per click"
+              value={
+                insights.totals.costPerClickMicro
+                  ? formatCredits(insights.totals.costPerClickMicro, 4)
+                  : '—'
+              }
+              hint="Spend divided by clicks in the window"
+            />
+            <StatCard
+              label="Average relevance"
+              value={insights.totals.averageRelevance.toFixed(3)}
+              hint="Auction score of your winning impressions"
+            />
+          </div>
+
+          <InsightsCharts data={insights} />
+        </section>
       )}
 
       {targeting && (

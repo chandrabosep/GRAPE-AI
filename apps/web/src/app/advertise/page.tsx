@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/app/stat-card';
+import {
+  InsightsCharts,
+  type CampaignInsights,
+} from '@/components/app/insights-charts';
 import { api, formatCredits } from '@/lib/api';
 import { useMe } from '@/hooks/use-session';
 import { toast } from 'sonner';
@@ -48,9 +53,17 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
   ended: 'outline',
 };
 
+/** Windows the dashboard offers. Short enough to read, long enough to show a trend. */
+const RANGES = [
+  { days: 7, label: '7d' },
+  { days: 30, label: '30d' },
+  { days: 90, label: '90d' },
+];
+
 export default function AdvertiserDashboard() {
   const { data: me, isLoading: loadingMe } = useMe();
   const queryClient = useQueryClient();
+  const [days, setDays] = useState(30);
 
   const isAdvertiser = me?.user.roles.includes('advertiser') ?? false;
 
@@ -63,6 +76,12 @@ export default function AdvertiserDashboard() {
   const { data: campaigns } = useQuery<Campaign[]>({
     queryKey: ['campaigns'],
     queryFn: () => api<Campaign[]>('/campaigns'),
+    enabled: isAdvertiser,
+  });
+
+  const { data: insights } = useQuery<CampaignInsights>({
+    queryKey: ['advertiser-insights', days],
+    queryFn: () => api<CampaignInsights>(`/advertisers/me/insights?days=${days}`),
     enabled: isAdvertiser,
   });
 
@@ -174,7 +193,83 @@ export default function AdvertiserDashboard() {
         </Card>
       )}
 
+      {/* Performance. The stat row answers "is this working"; the charts answer
+          "what changed". Both read from the same windowed query. */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Performance</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Across every campaign you run.
+            </p>
+          </div>
+
+          {/* Filters in one row above the charts, never beside them. */}
+          <div className="flex items-center gap-1 rounded-lg border p-1">
+            {RANGES.map((range) => (
+              <button
+                key={range.days}
+                onClick={() => setDays(range.days)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                  days === range.days
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Click-through rate"
+            value={
+              insights ? `${(insights.totals.clickThroughRate * 100).toFixed(1)}%` : '—'
+            }
+            hint={`${(insights?.totals.clicks ?? 0).toLocaleString()} clicks on ${(
+              insights?.totals.qualified ?? 0
+            ).toLocaleString()} qualified`}
+          />
+          <StatCard
+            label="View rate"
+            value={insights ? `${(insights.totals.viewRate * 100).toFixed(1)}%` : '—'}
+            hint="Selected impressions a developer actually looked at"
+          />
+          <StatCard
+            label="Cost per click"
+            value={
+              insights?.totals.costPerClickMicro
+                ? formatCredits(insights.totals.costPerClickMicro, 4)
+                : '—'
+            }
+            hint={
+              insights?.totals.costPerMilleMicro
+                ? `${formatCredits(insights.totals.costPerMilleMicro, 2)} per 1,000 qualified`
+                : 'No clicks in this window yet'
+            }
+          />
+          <StatCard
+            label="Spend in window"
+            value={formatCredits(insights?.totals.spendMicro, 2)}
+            hint={`${formatCredits(insights?.totals.rewardMicro, 2)} reached developers`}
+            accent
+          />
+        </div>
+
+        {insights ? (
+          <InsightsCharts data={insights} />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Skeleton className="h-72" />
+            <Skeleton className="h-72" />
+          </div>
+        )}
+      </section>
+
       <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">All campaigns</h2>
         {(campaigns ?? []).map((campaign) => {
           const remaining = Number(campaign.budgetMicro) - Number(campaign.spentMicro);
           return (
@@ -194,6 +289,11 @@ export default function AdvertiserDashboard() {
                     <p className="text-muted-foreground mt-1 truncate text-sm">
                       {campaign.creatives[0]?.headline ?? 'No creative yet'}
                     </p>
+                    {campaign.status !== 'active' && (
+                      <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
+                        Not serving — open it to launch.
+                      </p>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-1">
                       {(campaign.targeting?.aiIntents ?? []).slice(0, 3).map((intent) => (
                         <Badge key={intent} variant="secondary" className="text-[10px]">

@@ -18,6 +18,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ChipSelect } from '@/components/app/chip-select';
+import {
+  InlineSponsoredPreview,
+  SponsoredPreview,
+} from '@/components/app/sponsored-preview';
 import { api, formatCredits } from '@/lib/api';
 import { usePublicConfig } from '@/hooks/use-public-config';
 import { useMe } from '@/hooks/use-session';
@@ -61,6 +65,17 @@ export default function NewCampaignPage() {
   );
   const [ctaText, setCtaText] = useState('See the free tier');
   const [ctaUrl, setCtaUrl] = useState('https://example.com/northwind');
+  // A path is accepted as well as a full URL; it is resolved against this origin
+  // on submit, because the extension loads the artwork from a different one.
+  const [imageUrl, setImageUrl] = useState('/creatives/northwind-rpc.svg');
+
+  // The inline slot gets its own copy. Defaulted to something that reads like a
+  // one-liner rather than a truncated banner, because that is the point of it.
+  const [runInline, setRunInline] = useState(true);
+  const [inlineHeadline, setInlineHeadline] = useState(
+    'Managed Ethereum RPC, archive access included',
+  );
+  const [inlineCta, setInlineCta] = useState('Free tier');
 
   const targeting = useMemo(
     () => ({
@@ -125,7 +140,8 @@ export default function NewCampaignPage() {
           clickMultiplier: 3,
           startsAt: new Date().toISOString(),
           endsAt: new Date(Date.now() + days * 86_400_000).toISOString(),
-          frequencyCap: { perUserPerHour: 1, perUserPerDay: 3 },
+          // Loose enough that a demo can ask the same question twice.
+          frequencyCap: { perUserPerHour: 5, perUserPerDay: 25 },
         }),
       });
 
@@ -136,8 +152,28 @@ export default function NewCampaignPage() {
 
       await api(`/campaigns/${campaign.id}/creative`, {
         method: 'PUT',
-        body: JSON.stringify({ headline, body, ctaText, ctaUrl }),
+        body: JSON.stringify({
+          format: 'banner',
+          headline,
+          body,
+          ctaText,
+          ctaUrl,
+          imageUrl: imageUrl.trim() ? new URL(imageUrl, window.location.origin).toString() : null,
+        }),
       });
+
+      if (runInline && inlineHeadline.trim()) {
+        await api(`/campaigns/${campaign.id}/creative`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            format: 'inline',
+            headline: inlineHeadline,
+            ctaText: inlineCta,
+            // Same destination as the card: one campaign, one place to land.
+            ctaUrl,
+          }),
+        });
+      }
 
       return campaign;
     },
@@ -374,6 +410,72 @@ export default function NewCampaignPage() {
                 <Input id="url" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} />
               </div>
             </div>
+            <div>
+              <Label htmlFor="image">Image</Label>
+              <Input
+                id="image"
+                value={imageUrl}
+                placeholder="https://… or /creatives/your-art.svg"
+                onChange={(e) => setImageUrl(e.target.value)}
+              />
+              <p className="text-muted-foreground mt-1.5 text-xs">
+                Square artwork reads best: it is shown as a 76px thumbnail beside the copy.
+                Leave empty and the card falls back to your initials.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Inline ad</CardTitle>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              One line shown beside the answer while it is still streaming — the moment the
+              developer is waiting. It is a separate auction from the card, billed at 30% of
+              your bid, and a developer can be shown both in one answer only if two different
+              advertisers win them.
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={runInline}
+                onChange={(e) => setRunInline(e.target.checked)}
+              />
+              Also run this campaign in the inline slot
+            </label>
+
+            {runInline && (
+              <>
+                <div>
+                  <Label htmlFor="inline-headline">Message</Label>
+                  <Input
+                    id="inline-headline"
+                    value={inlineHeadline}
+                    maxLength={70}
+                    onChange={(e) => setInlineHeadline(e.target.value)}
+                  />
+                  <p className="text-muted-foreground mt-1.5 text-xs">
+                    {inlineHeadline.length}/70. Write it as a useful aside, not a pitch — it
+                    sits next to an answer the developer asked for, and is truncated rather
+                    than wrapped.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="inline-cta">Link text</Label>
+                  <Input
+                    id="inline-cta"
+                    value={inlineCta}
+                    maxLength={24}
+                    onChange={(e) => setInlineCta(e.target.value)}
+                  />
+                  <p className="text-muted-foreground mt-1.5 text-xs">
+                    Points at the same destination as your card.
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -438,19 +540,30 @@ export default function NewCampaignPage() {
             <CardTitle className="text-base">Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border-primary/60 bg-muted/40 space-y-2 rounded-md border border-l-[3px] p-4">
-              <div className="text-muted-foreground text-[10px] tracking-widest uppercase">
-                Sponsored · relevant to your task
-              </div>
-              <div className="font-medium">{headline || 'Your headline'}</div>
-              <div className="text-muted-foreground text-sm leading-relaxed">
-                {body || 'Your body copy.'}
-              </div>
-              <div className="text-primary text-sm">{ctaText || 'Learn more'} →</div>
-            </div>
+            <SponsoredPreview
+              headline={headline}
+              body={body}
+              ctaText={ctaText}
+              imageUrl={imageUrl.trim() || null}
+              advertiserName={me?.user.displayName ?? 'Your company'}
+              rewardMicro={config ? Math.round(bid * config.allocation.reward * 1_000_000) : null}
+            />
             <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
               This is exactly how it appears beside an answer, never inside it.
             </p>
+
+            {runInline && (
+              <div className="mt-6 border-t pt-5">
+                <div className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">
+                  Inline slot
+                </div>
+                <InlineSponsoredPreview
+                  headline={inlineHeadline}
+                  ctaText={inlineCta}
+                  advertiserName={me?.user.displayName ?? 'Your company'}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       </aside>
