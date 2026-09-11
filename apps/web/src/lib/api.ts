@@ -3,28 +3,49 @@
 /**
  * Browser API client.
  *
- * The access token lives in memory plus sessionStorage rather than a cookie, so
- * a page refresh keeps you signed in without exposing the token to any
- * cross-site request. On a 401 it refreshes once and retries, which matters
- * because access tokens are deliberately short-lived.
+ * Tokens live in localStorage rather than a cookie, so they are never attached
+ * to a cross-site request automatically, and — unlike sessionStorage — they
+ * survive closing the browser. The refresh token is good for 30 days, so being
+ * signed out by quitting the browser was a storage choice, not a security one.
+ * On a 401 it refreshes once and retries, since access tokens are deliberately
+ * short-lived.
  */
 
 const ACCESS_KEY = 'aam.accessToken';
 const REFRESH_KEY = 'aam.refreshToken';
 
-export function getAccessToken(): string | null {
+/** Storage can throw in private windows or with site data blocked. */
+function read(key: string): string | null {
   if (typeof window === 'undefined') return null;
-  return window.sessionStorage.getItem(ACCESS_KEY);
+  try {
+    return window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function getAccessToken(): string | null {
+  return read(ACCESS_KEY);
 }
 
 export function storeSession(session: { accessToken: string; refreshToken: string }): void {
-  window.sessionStorage.setItem(ACCESS_KEY, session.accessToken);
-  window.sessionStorage.setItem(REFRESH_KEY, session.refreshToken);
+  try {
+    window.localStorage.setItem(ACCESS_KEY, session.accessToken);
+    window.localStorage.setItem(REFRESH_KEY, session.refreshToken);
+  } catch {
+    // Nothing persists; the tab keeps working until it is closed.
+  }
 }
 
 export function clearSession(): void {
-  window.sessionStorage.removeItem(ACCESS_KEY);
-  window.sessionStorage.removeItem(REFRESH_KEY);
+  try {
+    for (const store of [window.localStorage, window.sessionStorage]) {
+      store.removeItem(ACCESS_KEY);
+      store.removeItem(REFRESH_KEY);
+    }
+  } catch {
+    // Already unavailable: there is nothing to clear.
+  }
 }
 
 export class ApiError extends Error {
@@ -38,7 +59,7 @@ export class ApiError extends Error {
 }
 
 async function refresh(): Promise<boolean> {
-  const refreshToken = window.sessionStorage.getItem(REFRESH_KEY);
+  const refreshToken = read(REFRESH_KEY);
   if (!refreshToken) return false;
 
   const response = await fetch('/api/v1/auth/refresh', {

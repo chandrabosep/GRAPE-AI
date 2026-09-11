@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatCredits } from '@/lib/api';
-import { useAuthActions, useMe } from '@/hooks/use-session';
+import { useAuthActions, useMe, useSeedUsers } from '@/hooks/use-session';
 import { isWalletModalConfigured } from '@/lib/appkit';
 import { signInWithWallet, WalletError, type Eip1193Provider } from '@/lib/wallet';
 
@@ -41,7 +41,10 @@ const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)
 export function SiteHeader() {
   const pathname = usePathname();
   const { data: me } = useMe();
-  const { signOut } = useAuthActions();
+  const { signInAs, signOut } = useAuthActions();
+  // Empty in any environment where real auth is configured, which is what makes
+  // it safe to render unconditionally.
+  const { data: seedUsers } = useSeedUsers();
   const queryClient = useQueryClient();
 
   const { open } = useAppKit();
@@ -165,9 +168,42 @@ export function SiteHeader() {
               </Button>
             </>
           ) : (
-            <Button size="sm" onClick={() => void connect()} disabled={busy}>
-              {busy ? 'Connecting…' : 'Connect Wallet'}
-            </Button>
+            <>
+              {/* Local development only: the endpoint behind this refuses to
+                  answer in production or once Privy is configured, so the menu
+                  disappears on its own rather than needing a flag. */}
+              {(seedUsers ?? []).length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
+                    Dev sign-in
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                      Seeded accounts
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {(seedUsers ?? []).map((user) => (
+                      <DropdownMenuItem
+                        key={user.subject}
+                        onSelect={() => {
+                          void signInAs(user.subject)
+                            .then(() => toast.success(`Signed in as ${user.displayName ?? user.subject}`))
+                            .catch((error: Error) => toast.error(error.message));
+                        }}
+                      >
+                        {user.displayName ?? user.subject}
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          {user.roles.includes('advertiser') ? 'advertiser' : 'developer'}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <Button size="sm" onClick={() => void connect()} disabled={busy}>
+                {busy ? 'Connecting…' : 'Connect Wallet'}
+              </Button>
+            </>
           )}
         </div>
       </div>

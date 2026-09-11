@@ -94,10 +94,11 @@ export default function VsCodeAuthPage({ searchParams }: PageProps<'/auth/vscode
 
   if (!me) {
     return (
-      <Shell title="Connect your wallet to continue">
+      <Shell title="Sign in to continue">
         <p>
-          The extension is waiting. Use <strong>Connect Wallet</strong> in the header, and this page
-          will hand your editor a sign-in code automatically.
+          The extension is waiting. Sign in from the header — <strong>Connect Wallet</strong>, or{' '}
+          <strong>Dev sign-in</strong> when running locally — and this page will hand your editor a
+          sign-in code automatically.
         </p>
       </Shell>
     );
