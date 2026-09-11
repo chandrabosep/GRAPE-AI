@@ -315,6 +315,135 @@ export function rankCandidates(
     });
 }
 
+/**
+ * Why the auction produced nothing.
+ *
+ * A silent empty slot is indistinguishable from a broken pipeline, which costs
+ * far more debugging time than the reason costs to compute. These are coarse on
+ * purpose: they describe the auction, never the user.
+ */
+export type NoWinnerReason =
+  | 'ads_disabled'
+  | 'no_campaigns'
+  | 'below_relevance_floor'
+  | 'frequency_capped'
+  | 'audience_excluded'
+  | 'onchain_required'
+  | 'budget_exhausted';
+
+const REASON_GROUP: Record<string, NoWinnerReason> = {
+  ads_disabled_for_plan: 'ads_disabled',
+  user_opted_out: 'ads_disabled',
+  session_ad_limit: 'frequency_capped',
+  frequency_cap_hour: 'frequency_capped',
+  frequency_cap_day: 'frequency_capped',
+  country_excluded: 'audience_excluded',
+  persona_excluded: 'audience_excluded',
+  model_excluded: 'audience_excluded',
+  commercial_intent_too_low: 'audience_excluded',
+  onchain_signals_missing: 'onchain_required',
+  onchain_criteria_unmet: 'onchain_required',
+  budget_exhausted: 'budget_exhausted',
+  daily_cap_reached: 'budget_exhausted',
+  not_started: 'no_campaigns',
+  ended: 'no_campaigns',
+};
+
+/** Ordered most to least informative when campaigns failed for different reasons. */
+const REASON_PRIORITY: NoWinnerReason[] = [
+  'ads_disabled',
+  'frequency_capped',
+  'onchain_required',
+  'audience_excluded',
+  'budget_exhausted',
+  'no_campaigns',
+];
+
+export function explainNoWinner(
+  candidates: CandidateCampaign[],
+  ctx: AdRequestContext,
+  weights: ScoringWeights,
+  maxAdsPerSession: number,
+): NoWinnerReason {
+  if (candidates.length === 0) return 'no_campaigns';
+
+  const failures = new Set<NoWinnerReason>();
+  let anyEligible = false;
+
+  for (const candidate of candidates) {
+    const verdict = checkEligibility(candidate, ctx, maxAdsPerSession);
+    if (verdict.eligible) {
+      anyEligible = true;
+      continue;
+    }
+    failures.add(REASON_GROUP[verdict.reason ?? ''] ?? 'no_campaigns');
+  }
+
+  // Something could have run and still did not score highly enough: that is the
+  // relevance floor doing its job, and it is the answer the caller wants.
+  if (anyEligible) return 'below_relevance_floor';
+
+  return REASON_PRIORITY.find((reason) => failures.has(reason)) ?? 'no_campaigns';
+}
+
+/**
+ * Is this campaign bidding for anyone at all?
+ *
+ * A campaign that named no intents, no technologies, no interests and no
+ * persona has not asked for a particular developer — it is buying attention,
+ * not an audience. That is the only kind of campaign allowed to fill a slot no
+ * targeted campaign wanted.
+ */
+export function isUntargeted(campaign: CandidateCampaign): boolean {
+  const t = campaign.targeting;
+  return (
+    t.aiIntents.length === 0 &&
+    t.intentCategories.length === 0 &&
+    t.technologies.length === 0 &&
+    t.interests.length === 0 &&
+    t.personas.length === 0 &&
+    t.onchainMode !== 'require'
+  );
+}
+
+/**
+ * The unsold slot.
+ *
+ * Called only when nothing cleared the relevance floor. Eligibility still
+ * applies in full — budget, frequency, country, dates — so this fills a gap, it
+ * does not bypass the rules. Highest bid wins, because with relevance out of
+ * the picture that is all that is left to rank on.
+ */
+export function selectRemnant(
+  candidates: CandidateCampaign[],
+  ctx: AdRequestContext,
+  maxAdsPerSession: number,
+): RankedCandidate | null {
+  const eligible = candidates
+    .filter(isUntargeted)
+    .filter((c) => checkEligibility(c, ctx, maxAdsPerSession).eligible);
+
+  if (eligible.length === 0) return null;
+
+  const winner = eligible.reduce((best, c) => (c.bidMicro > best.bidMicro ? c : best));
+
+  return {
+    campaign: winner,
+    // Zeroed deliberately: this campaign won nothing on relevance, and the
+    // analytics should never suggest otherwise.
+    score: {
+      intentMatch: 0,
+      audienceMatch: 0,
+      onchainMatch: 0,
+      bidWeight: 1,
+      frequencyPenalty: 0,
+      fraudPenalty: 0,
+      total: 0,
+    },
+    reasons: ['untargeted_brand_campaign'],
+  };
+}
+
 /** Convenience for the ad module: the winner, or null when nothing is relevant enough. */
 export function selectWinner(
   candidates: CandidateCampaign[],
