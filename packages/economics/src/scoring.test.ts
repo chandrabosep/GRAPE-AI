@@ -10,6 +10,7 @@ const NOW = new Date('2026-09-10T12:00:00Z');
 function campaign(overrides: Partial<CandidateCampaign> = {}): CandidateCampaign {
   return {
     campaignId: 'c1',
+    advertiserId: 'a1',
     advertiserName: 'Acme RPC',
     bidMicro: 10_000n,
     budgetRemainingMicro: 1_000_000n,
@@ -19,6 +20,7 @@ function campaign(overrides: Partial<CandidateCampaign> = {}): CandidateCampaign
     frequencyCap: { perUserPerHour: 1, perUserPerDay: 3 },
     creative: {
       id: 'cr1',
+      format: 'banner',
       headline: 'Deploy faster',
       body: 'Managed Ethereum RPC',
       ctaText: 'Learn more',

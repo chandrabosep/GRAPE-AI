@@ -1,5 +1,7 @@
 import { prisma } from '@aam/db';
 import {
+  explainNoWinner,
+  selectRemnant,
   selectWinner,
   type AdRequestContext,
   type CandidateCampaign,
@@ -7,7 +9,9 @@ import {
 } from '@aam/economics';
 import {
   onchainCriteriaSchema,
+  type AdSkippedReason,
   type AIIntent,
+  type CreativeFormat,
   type OnchainSignals,
   type Persona,
   type SponsoredAd,
@@ -70,23 +74,41 @@ async function loadFrequency(userId: string, sessionId: string | null): Promise<
 }
 
 /**
+ * What one impression of this format costs the advertiser.
+ *
+ * Rounded down, and floored at one micro-USD so a cheap bid on a discounted
+ * slot can never become free — a charge of zero would serve an impression that
+ * nobody paid for and that earns the developer nothing.
+ */
+function scaleBid(bidMicro: bigint, format: CreativeFormat): bigint {
+  const multiplier = economics().formats[format].bidMultiplier;
+  if (multiplier === 1) return bidMicro;
+  const scaled = BigInt(Math.floor(Number(bidMicro) * multiplier));
+  return scaled > 0n ? scaled : 1n;
+}
+
+/**
  * Coarse pre-filter in SQL, precise filtering in the ranking engine.
  *
  * Only conditions that are cheap and safe to express as indexed predicates go
  * here; everything nuanced stays in one place in @aam/economics so the rules
  * cannot drift between the database and the scorer.
  */
-async function loadCandidates(now: Date): Promise<CandidateCampaign[]> {
+async function loadCandidates(now: Date, format: CreativeFormat): Promise<CandidateCampaign[]> {
   const campaigns = await prisma.campaign.findMany({
     where: {
       status: 'active',
       startsAt: { lte: now },
       endsAt: { gte: now },
+      // A campaign with no creative for this slot cannot fill it, so it is not
+      // a candidate for it. This is what lets a campaign run inline-only or
+      // banner-only without either slot silently falling back to the other.
+      creatives: { some: { status: 'active', format } },
     },
     include: {
       targeting: true,
-      advertiser: { select: { name: true } },
-      creatives: { where: { status: 'active' }, take: 1, orderBy: { createdAt: 'asc' } },
+      advertiser: { select: { id: true, name: true } },
+      creatives: { where: { status: 'active', format }, take: 1 },
     },
     take: 200,
   });
@@ -97,15 +119,20 @@ async function loadCandidates(now: Date): Promise<CandidateCampaign[]> {
     const creative = campaign.creatives[0];
     if (!creative || !campaign.targeting) continue;
 
+    // The slot's price, not the campaign's headline bid. Scaling every
+    // candidate by the same factor leaves their relative order untouched, so
+    // the auction is unchanged — only what the winner pays moves.
+    const bidMicro = scaleBid(campaign.bidMicro, format);
     const remaining = campaign.budgetMicro - campaign.spentMicro;
-    if (remaining < campaign.bidMicro) continue;
+    if (remaining < bidMicro) continue;
 
     const frequencyCap = campaign.frequencyCap as { perUserPerHour?: number; perUserPerDay?: number };
 
     candidates.push({
       campaignId: campaign.id,
+      advertiserId: campaign.advertiser.id,
       advertiserName: campaign.advertiser.name,
-      bidMicro: campaign.bidMicro,
+      bidMicro,
       budgetRemainingMicro: remaining,
       dailySpendRemainingMicro: campaign.dailySpendCapMicro,
       startsAt: campaign.startsAt,
@@ -128,6 +155,7 @@ async function loadCandidates(now: Date): Promise<CandidateCampaign[]> {
       },
       creative: {
         id: creative.id,
+        format: creative.format,
         headline: creative.headline,
         body: creative.body,
         ctaText: creative.ctaText,
@@ -167,20 +195,61 @@ export interface SelectAdInput {
   intentId: string | null;
   sessionId: string | null;
   adsEnabled: boolean;
+  /** Which slot is being filled. Each is its own auction and its own charge. */
+  format: CreativeFormat;
+  /**
+   * Advertisers that already won another slot in this same turn.
+   *
+   * Excluded by advertiser rather than by campaign, because the advertiser is
+   * what a developer actually reads: two campaigns from one company filling
+   * both slots looks exactly like being shown the same ad twice, however
+   * different the two creatives are.
+   *
+   * The frequency cap cannot do this job — it counts impressions, and neither
+   * impression exists yet at the moment the other is ranked.
+   */
+  excludeAdvertiserIds?: string[];
 }
 
-export async function selectAd(input: SelectAdInput): Promise<SponsoredAd | null> {
+/**
+ * The outcome of one auction.
+ *
+ * `null` with a reason rather than a bare `null`: an empty slot is a normal,
+ * intended outcome, and the client has to be able to say which of the several
+ * very different normal outcomes it was.
+ */
+export interface AdSelection {
+  ad: SponsoredAd | null;
+  reason: AdSkippedReason | null;
+  /**
+   * Who won, for callers filling a second slot in the same turn. Kept off `ad`
+   * because it is internal bookkeeping rather than something the client needs.
+   */
+  advertiserId: string | null;
+}
+
+const SKIPPED = (reason: AdSkippedReason): AdSelection => ({
+  ad: null,
+  reason,
+  advertiserId: null,
+});
+
+export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
   const config = economics();
   const now = new Date();
 
-  if (!input.adsEnabled || input.user.profile?.adsOptOut) return null;
+  if (!input.adsEnabled || input.user.profile?.adsOptOut) return SKIPPED('ads_disabled');
 
-  const [candidates, frequency] = await Promise.all([
-    loadCandidates(now),
+  const [loaded, frequency] = await Promise.all([
+    loadCandidates(now, input.format),
     loadFrequency(input.user.id, input.sessionId),
   ]);
 
-  if (candidates.length === 0) return null;
+  const excluded = new Set(input.excludeAdvertiserIds ?? []);
+  const candidates =
+    excluded.size === 0 ? loaded : loaded.filter((c) => !excluded.has(c.advertiserId));
+
+  if (candidates.length === 0) return SKIPPED('no_campaigns');
 
   const ctx: AdRequestContext = {
     intent: input.intent,
@@ -201,20 +270,34 @@ export async function selectAd(input: SelectAdInput): Promise<SponsoredAd | null
     now,
   };
 
-  const winner: RankedCandidate | null = selectWinner(
+  let winner: RankedCandidate | null = selectWinner(
     candidates,
     ctx,
     config.weights,
     config.caps.maxAdsPerSession,
   );
-  if (!winner) return null;
+
+  // Nothing was relevant enough. The slot is unsold, so it goes to a campaign
+  // that bid for any developer rather than for this one — never to a targeted
+  // campaign that simply scored badly.
+  let remnant = false;
+  if (!winner && config.remnant.enabled) {
+    winner = selectRemnant(candidates, ctx, config.caps.maxAdsPerSession);
+    remnant = winner !== null;
+  }
+
+  if (!winner) {
+    return SKIPPED(
+      explainNoWinner(candidates, ctx, config.weights, config.caps.maxAdsPerSession),
+    );
+  }
 
   const charged = await reserveBudget(winner.campaign.campaignId, winner.campaign.bidMicro);
   if (!charged) {
     // Budget went in the time between ranking and reserving. Show nothing rather
     // than serve an impression nobody is paying for.
     logger.debug({ campaignId: winner.campaign.campaignId }, 'lost budget race, skipping ad');
-    return null;
+    return SKIPPED('budget_exhausted');
   }
 
   // Prisma's Json input needs an index signature; the breakdown is all numbers.
@@ -227,9 +310,13 @@ export async function selectAd(input: SelectAdInput): Promise<SponsoredAd | null
       creativeId: winner.campaign.creative.id,
       requestId: input.requestId,
       intentId: input.intentId,
+      format: input.format,
+      // What was actually reserved, recorded now. Reading the charge back off
+      // today's config would misreport a campaign that ran under an older one.
+      chargedMicro: winner.campaign.bidMicro,
       scoreTotal: winner.score.total,
       scoreBreakdown,
-      signalsUsed: winner.reasons,
+      signalsUsed: remnant ? [config.remnant.label, ...winner.reasons] : winner.reasons,
     },
     select: { id: true },
   });
@@ -238,8 +325,9 @@ export async function selectAd(input: SelectAdInput): Promise<SponsoredAd | null
     Math.floor(Number(winner.campaign.bidMicro) * config.allocation.reward),
   );
 
-  return {
+  const ad: SponsoredAd = {
     impressionId: impression.id,
+    format: input.format,
     headline: winner.campaign.creative.headline,
     body: winner.campaign.creative.body,
     ctaText: winner.campaign.creative.ctaText,
@@ -249,4 +337,6 @@ export async function selectAd(input: SelectAdInput): Promise<SponsoredAd | null
     reasons: winner.reasons,
     estimatedRewardMicro: Number(rewardShare),
   };
+
+  return { ad, reason: null, advertiserId: winner.campaign.advertiserId };
 }

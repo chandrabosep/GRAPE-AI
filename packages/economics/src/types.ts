@@ -1,6 +1,7 @@
 import type {
   AIIntent,
   CommercialIntent,
+  CreativeFormat,
   OnchainCriteria,
   OnchainMode,
   OnchainSignals,
@@ -22,8 +23,10 @@ export interface CandidateTargeting {
 
 export interface CandidateCreative {
   id: string;
+  format: CreativeFormat;
   headline: string;
-  body: string;
+  /** Banner only; an inline creative is a single line with no body. */
+  body: string | null;
   ctaText: string;
   ctaUrl: string;
   imageUrl: string | null;
@@ -31,6 +34,7 @@ export interface CandidateCreative {
 
 export interface CandidateCampaign {
   campaignId: string;
+  advertiserId: string;
   advertiserName: string;
   bidMicro: bigint;
   budgetRemainingMicro: bigint;

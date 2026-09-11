@@ -91,6 +91,13 @@ export async function updateTargeting(
   return getCampaign(campaignId, advertiserId);
 }
 
+/**
+ * Writes the creative for one format, leaving the other format's untouched.
+ *
+ * Keyed on (campaign, format) rather than "the first creative", so a campaign
+ * can carry a banner and an inline line at once and editing one never silently
+ * overwrites the other.
+ */
 export async function upsertCreative(
   campaignId: string,
   advertiserId: string,
@@ -98,21 +105,53 @@ export async function upsertCreative(
 ): Promise<CampaignWithDetail> {
   await assertOwnership(campaignId, advertiserId);
 
-  const existing = await prisma.adCreative.findFirst({
-    where: { campaignId },
-    orderBy: { createdAt: 'asc' },
+  // An inline creative has no body and no artwork; the columns exist for the
+  // banner, and writing anything into them here would be dead data.
+  const data =
+    input.format === 'banner'
+      ? {
+          headline: input.headline,
+          body: input.body,
+          ctaText: input.ctaText,
+          ctaUrl: input.ctaUrl,
+          imageUrl: input.imageUrl ?? null,
+        }
+      : {
+          headline: input.headline,
+          body: null,
+          ctaText: input.ctaText,
+          ctaUrl: input.ctaUrl,
+          imageUrl: null,
+        };
+
+  await prisma.adCreative.upsert({
+    where: { campaignId_format: { campaignId, format: input.format } },
+    create: { campaignId, format: input.format, ...data },
+    update: data,
   });
 
-  if (existing) {
-    await prisma.adCreative.update({
-      where: { id: existing.id },
-      data: { ...input, imageUrl: input.imageUrl ?? null },
-    });
-  } else {
-    await prisma.adCreative.create({
-      data: { campaignId, ...input, imageUrl: input.imageUrl ?? null },
-    });
+  return getCampaign(campaignId, advertiserId);
+}
+
+/** Removes one format's creative, so a campaign can stop running that slot. */
+export async function deleteCreative(
+  campaignId: string,
+  advertiserId: string,
+  format: CreativeInput['format'],
+): Promise<CampaignWithDetail> {
+  await assertOwnership(campaignId, advertiserId);
+
+  const remaining = await prisma.adCreative.count({ where: { campaignId } });
+  if (remaining <= 1) {
+    throw new AppError(
+      'validation_failed',
+      'A campaign needs at least one creative. Add the other format before removing this one.',
+    );
   }
+
+  await prisma.adCreative
+    .delete({ where: { campaignId_format: { campaignId, format } } })
+    .catch(() => undefined);
 
   return getCampaign(campaignId, advertiserId);
 }

@@ -34,8 +34,26 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 
 const USD = (dollars: number) => BigInt(Math.round(dollars * 1_000_000));
 
+/**
+ * Creative artwork is served by the web app, so a campaign image is a normal
+ * URL the VS Code webview can load under its image CSP. Absolute, because the
+ * extension renders these from a different origin than the one that stored them.
+ */
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+const creativeImage = (file: string) => `${APP_URL}/creatives/${file}.svg`;
+
 /** Snapshotted onto each campaign so later config changes cannot rewrite it. */
 const ALLOCATION = { reward: 0.7, platform: 0.2, treasury: 0.1 };
+
+/**
+ * Deliberately loose for demo data.
+ *
+ * A production cap of one card per advertiser per hour makes a live demo look
+ * broken: the second question of the same kind returns nothing. The cap
+ * mechanism is unchanged and still enforced — only these seeded numbers are
+ * generous.
+ */
+const DEMO_FREQUENCY_CAP = { perUserPerHour: 5, perUserPerDay: 25 };
 
 const IN_30_DAYS = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -168,11 +186,19 @@ async function main() {
           chains: ['mainnet'],
         },
       },
-      creative: {
+      creatives: {
+        banner: {
         headline: 'Ship your contract without babysitting a node',
         body: 'Managed Ethereum RPC with archive access and no rate-limit surprises. Free tier covers most testnet work.',
         ctaText: 'See the free tier',
         ctaUrl: 'https://example.com/northwind?utm_source=aam',
+        imageUrl: creativeImage('northwind-rpc'),
+        },
+        inline: {
+          headline: 'Managed Ethereum RPC, archive access included',
+          ctaText: 'Free tier',
+          ctaUrl: 'https://example.com/northwind?utm_source=aam',
+        },
       },
     },
     {
@@ -201,11 +227,19 @@ async function main() {
           chains: ['mainnet'],
         },
       },
-      creative: {
+      creatives: {
+        banner: {
         headline: 'Query any protocol with one schema',
         body: 'Standardised subgraphs across lending and DEX protocols. Write the query once, point it anywhere.',
         ctaText: 'Read the docs',
         ctaUrl: 'https://example.com/lattice?utm_source=aam',
+        imageUrl: creativeImage('lattice-subgraph'),
+        },
+        inline: {
+          headline: 'One subgraph schema across every lending protocol',
+          ctaText: 'Read the docs',
+          ctaUrl: 'https://example.com/lattice?utm_source=aam',
+        },
       },
     },
     {
@@ -224,11 +258,19 @@ async function main() {
         onchainMode: 'off' as const,
         onchainCriteria: {},
       },
-      creative: {
+      creatives: {
+        banner: {
         headline: 'Fuzz your invariants before an auditor does',
         body: 'Property-based testing for Solidity that plugs into your existing Foundry setup.',
         ctaText: 'Try it',
         ctaUrl: 'https://example.com/forgeline?utm_source=aam',
+        imageUrl: creativeImage('forgeline-fuzz'),
+        },
+        inline: {
+          headline: 'Fuzz Solidity invariants inside your Foundry setup',
+          ctaText: 'Try it',
+          ctaUrl: 'https://example.com/forgeline?utm_source=aam',
+        },
       },
     },
     {
@@ -248,11 +290,19 @@ async function main() {
         onchainMode: 'off' as const,
         onchainCriteria: {},
       },
-      creative: {
+      creatives: {
+        banner: {
         headline: 'From Dockerfile to production in one command',
         body: 'Container hosting with preview environments per branch and no YAML to maintain.',
         ctaText: 'Deploy a test app',
         ctaUrl: 'https://example.com/meridian?utm_source=aam',
+        imageUrl: creativeImage('meridian-deploy'),
+        },
+        inline: {
+          headline: 'Dockerfile to production in a single command',
+          ctaText: 'Deploy one',
+          ctaUrl: 'https://example.com/meridian?utm_source=aam',
+        },
       },
     },
     {
@@ -274,11 +324,19 @@ async function main() {
         onchainMode: 'off' as const,
         onchainCriteria: {},
       },
-      creative: {
+      creatives: {
+        banner: {
         headline: 'Cloud hosting for every team',
         body: 'Scalable infrastructure for whatever you are building.',
         ctaText: 'Learn more',
         ctaUrl: 'https://example.com/meridian-general?utm_source=aam',
+        imageUrl: creativeImage('meridian-hosting'),
+        },
+        inline: {
+          headline: 'Container hosting that scales without the YAML',
+          ctaText: 'Learn more',
+          ctaUrl: 'https://example.com/meridian-general?utm_source=aam',
+        },
       },
     },
     {
@@ -298,18 +356,65 @@ async function main() {
         onchainMode: 'off' as const,
         onchainCriteria: {},
       },
-      creative: {
+      creatives: {
+        banner: {
         headline: 'Stack traces that point at your code',
         body: 'Source-mapped error tracking for Node services.',
         ctaText: 'Start free',
         ctaUrl: 'https://example.com/forgeline-debug?utm_source=aam',
+        imageUrl: creativeImage('forgeline-traces'),
+        },
+        inline: {
+          headline: 'Source-mapped stack traces for Node services',
+          ctaText: 'Start free',
+          ctaUrl: 'https://example.com/forgeline-debug?utm_source=aam',
+        },
       },
     },
   ];
 
+  /**
+   * Writes both sponsored formats for a campaign.
+   *
+   * Upserted per format rather than blanket-updated, so re-seeding a database
+   * that has been demoed against refreshes each slot in place instead of
+   * leaving a stale banner and a new inline line disagreeing with each other.
+   */
+  async function writeCreatives(
+    campaignId: string,
+    creatives: (typeof campaigns)[number]['creatives'],
+  ): Promise<void> {
+    await prisma.adCreative.upsert({
+      where: { campaignId_format: { campaignId, format: 'banner' } },
+      create: { campaignId, format: 'banner', ...creatives.banner },
+      update: creatives.banner,
+    });
+
+    await prisma.adCreative.upsert({
+      where: { campaignId_format: { campaignId, format: 'inline' } },
+      create: { campaignId, format: 'inline', body: null, ...creatives.inline },
+      update: { body: null, imageUrl: null, ...creatives.inline },
+    });
+  }
+
   for (const spec of campaigns) {
-    const existing = await prisma.campaign.findFirst({ where: { name: spec.name } });
-    if (existing) continue;
+    const existing = await prisma.campaign.findMany({ where: { name: spec.name } });
+
+    // Artwork and copy are refreshed on every run even for campaigns that
+    // already exist, so re-seeding an established demo database picks up a new
+    // creative instead of silently keeping the old one. Every matching campaign
+    // is updated, not just the first: a database that has been demoed against
+    // for a while accumulates duplicates, and a stale one still wins auctions.
+    if (existing.length > 0) {
+      for (const campaign of existing) {
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { frequencyCap: DEMO_FREQUENCY_CAP },
+        });
+        await writeCreatives(campaign.id, spec.creatives);
+      }
+      continue;
+    }
 
     const campaign = await prisma.campaign.create({
       data: {
@@ -322,7 +427,7 @@ async function main() {
         startsAt: YESTERDAY,
         endsAt: IN_30_DAYS,
         vaultKey: `0x${randomUUID().replace(/-/g, '')}`,
-        frequencyCap: { perUserPerHour: 1, perUserPerDay: 3 },
+        frequencyCap: DEMO_FREQUENCY_CAP,
       },
     });
 
@@ -342,9 +447,7 @@ async function main() {
       },
     });
 
-    await prisma.adCreative.create({
-      data: { campaignId: campaign.id, ...spec.creative },
-    });
+    await writeCreatives(campaign.id, spec.creatives);
   }
 
   // --- demo users ----------------------------------------------------------

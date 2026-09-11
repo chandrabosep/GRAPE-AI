@@ -27,10 +27,20 @@ function startOfUtcDay(): Date {
   return date;
 }
 
-/** Gathers everything the reward rules need, in one round trip per fact. */
+/**
+ * Gathers everything the reward rules need, in one round trip per fact.
+ *
+ * `exceptRequestId` excludes rewards already granted for the same answer. The
+ * spacing rule exists to stop someone farming by firing off prompts back to
+ * back, and a single answer now carries two sponsored slots — an inline line
+ * and a card. Both were genuinely shown and both genuinely charged an
+ * advertiser, so counting the first against the second would leave the platform
+ * collecting money it never paid out.
+ */
 export async function collectAbuseSignals(
   userId: string,
   promptHash: string | null,
+  exceptRequestId?: string | null,
 ): Promise<AbuseSignals> {
   const config = economics();
   const dayStart = startOfUtcDay();
@@ -41,7 +51,11 @@ export async function collectAbuseSignals(
       _sum: { amountMicro: true },
     }),
     prisma.reward.findFirst({
-      where: { userId, status: 'granted' },
+      where: {
+        userId,
+        status: 'granted',
+        ...(exceptRequestId ? { impression: { requestId: { not: exceptRequestId } } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       select: { createdAt: true },
     }),

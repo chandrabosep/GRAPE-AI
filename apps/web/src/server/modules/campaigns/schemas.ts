@@ -55,11 +55,34 @@ export const targetingSchema = z.object({
 });
 export type TargetingInput = z.infer<typeof targetingSchema>;
 
-export const creativeSchema = z.object({
+/**
+ * Creative input, validated per format.
+ *
+ * The two formats are not the same copy at two sizes. A banner gets a headline
+ * and a body and may carry artwork; an inline creative is a single line that
+ * has to sit unobtrusively beside a streaming answer, so it is capped hard and
+ * has no body or image at all. Enforcing that here rather than in the UI is
+ * what stops a 240-character "one-liner" reaching the chat.
+ */
+export const bannerCreativeSchema = z.object({
+  format: z.literal('banner'),
   headline: z.string().min(5).max(90),
   body: z.string().min(10).max(240),
   ctaText: z.string().min(2).max(30),
   ctaUrl: z.url().max(500),
   imageUrl: z.url().max(500).nullable().optional(),
 });
+
+export const inlineCreativeSchema = z.object({
+  format: z.literal('inline'),
+  /** The whole ad. One line, so it is shorter than a banner headline. */
+  headline: z.string().min(5).max(70),
+  ctaText: z.string().min(2).max(24),
+  ctaUrl: z.url().max(500),
+});
+
+export const creativeSchema = z.discriminatedUnion('format', [
+  bannerCreativeSchema,
+  inlineCreativeSchema,
+]);
 export type CreativeInput = z.infer<typeof creativeSchema>;

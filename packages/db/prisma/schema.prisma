@@ -354,13 +354,28 @@ enum CreativeStatus {
   paused
 }
 
+/// The two shapes a sponsored slot can take.
+///
+/// `banner` is the card below a finished answer. `inline` is a single line
+/// shown beside the answer while it streams. They are separate rows rather than
+/// two renderings of one row, so an advertiser can write copy that suits each,
+/// pause one without the other, and read their performance apart.
+enum CreativeFormat {
+  banner
+  inline
+}
+
 model AdCreative {
   id         String   @id @default(uuid(7))
   campaignId String   @map("campaign_id")
   campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
+  format CreativeFormat @default(banner)
+
+  /// The card headline, or the whole of the inline line.
   headline String
-  body     String
+  /// Banner only. An inline creative is one line and has no body.
+  body     String?
   ctaText  String  @map("cta_text")
   ctaUrl   String  @map("cta_url")
   imageUrl String? @map("image_url")
@@ -371,6 +386,9 @@ model AdCreative {
 
   impressions AdImpression[]
 
+  /// One creative per format per campaign, so "the inline creative" is always
+  /// a single unambiguous row rather than whichever was written first.
+  @@unique([campaignId, format])
   @@index([campaignId])
   @@map("ad_creatives")
 }
@@ -387,6 +405,14 @@ model AdImpression {
 
   requestId String  @map("request_id")
   intentId  String? @map("intent_id")
+
+  /// Denormalised from the creative so per-format reporting never needs a join.
+  format CreativeFormat @default(banner)
+
+  /// What this impression actually charged the campaign. The bid scaled by the
+  /// format multiplier, recorded at serve time so a later config change cannot
+  /// rewrite what an advertiser was billed.
+  chargedMicro BigInt @default(0) @map("charged_micro")
 
   scoreTotal     Decimal @map("score_total") @db.Decimal(6, 4)
   scoreBreakdown Json    @map("score_breakdown")
@@ -405,6 +431,7 @@ model AdImpression {
 
   @@index([userId, campaignId, createdAt])
   @@index([campaignId, createdAt])
+  @@index([campaignId, format, createdAt])
   @@index([requestId])
   @@map("ad_impressions")
 }

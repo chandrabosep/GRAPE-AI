@@ -9,10 +9,23 @@ import { aiIntentSchema } from './intent';
  * sponsor, and the client cannot render an ad as if the AI wrote it.
  */
 
+/**
+ * The two sponsored slots.
+ *
+ * `inline` is a single line shown beside the answer while it is still
+ * streaming; `banner` is the card that follows a finished answer. Both are
+ * rendered as siblings of the answer and never inside it — the format changes
+ * how much room an ad takes, never whether it can be mistaken for the model.
+ */
+export const creativeFormatSchema = z.enum(['banner', 'inline']);
+export type CreativeFormat = z.infer<typeof creativeFormatSchema>;
+
 export const sponsoredAdSchema = z.object({
   impressionId: z.string(),
+  format: creativeFormatSchema,
   headline: z.string(),
-  body: z.string(),
+  /** Banner only. An inline ad is one line and carries no body. */
+  body: z.string().nullable(),
   ctaText: z.string(),
   ctaUrl: z.string(),
   imageUrl: z.string().nullable(),
@@ -42,11 +55,46 @@ export const rewardEventSchema = z.object({
 });
 export type RewardEvent = z.infer<typeof rewardEventSchema>;
 
+/**
+ * Why no sponsored card was served. Coarse and about the auction, never about
+ * the person: an empty slot that explains itself is the difference between a
+ * working relevance floor and an apparently broken product.
+ */
+export const adSkippedReasonSchema = z.enum([
+  'ads_disabled',
+  'no_campaigns',
+  'below_relevance_floor',
+  'frequency_capped',
+  'audience_excluded',
+  'onchain_required',
+  'budget_exhausted',
+]);
+export type AdSkippedReason = z.infer<typeof adSkippedReasonSchema>;
+
 export const chatStreamEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('start'), requestId: z.string(), model: z.string() }),
   z.object({ type: z.literal('intent'), intent: aiIntentSchema }),
   z.object({ type: z.literal('delta'), text: z.string() }),
   z.object({ type: z.literal('ad'), ad: sponsoredAdSchema }),
+  z.object({
+    type: z.literal('ad_skipped'),
+    format: creativeFormatSchema,
+    reason: adSkippedReasonSchema,
+  }),
+  /**
+   * The model wants to run an editor tool.
+   *
+   * The turn ends here: the server cannot execute anything, so it hands the
+   * request to the client and stops. The client runs the tool and starts a new
+   * request carrying the result, which is what makes the agent loop work over a
+   * one-way stream.
+   */
+  z.object({
+    type: z.literal('tool_use'),
+    toolUseId: z.string(),
+    name: z.string(),
+    input: z.unknown(),
+  }),
   z.object({ type: z.literal('usage'), usage: usageEventSchema }),
   z.object({ type: z.literal('reward'), reward: rewardEventSchema }),
   z.object({ type: z.literal('done'), stopReason: z.string().nullable() }),

@@ -16,6 +16,21 @@ import { collectAbuseSignals } from '../fraud/service';
  * than from whatever the config happens to say today.
  */
 
+/**
+ * What the advertiser was charged for one impression.
+ *
+ * `chargedMicro` is written at serve time, so it survives both a later change
+ * to the format multipliers and a later edit to the campaign's bid. It is zero
+ * only on rows written before that column existed, where the campaign bid is
+ * the correct historical answer.
+ */
+function reservedMicro(impression: {
+  chargedMicro: bigint;
+  campaign: { bidMicro: bigint };
+}): bigint {
+  return impression.chargedMicro > 0n ? impression.chargedMicro : impression.campaign.bidMicro;
+}
+
 export interface RewardOutcome {
   granted: boolean;
   reason?: string;
@@ -76,9 +91,17 @@ export async function confirmImpression(
       })
     : null;
 
-  const signals = await collectAbuseSignals(userId, intentRecord?.promptHash ?? null);
+  // The other slot of this same answer must not count against this one.
+  const signals = await collectAbuseSignals(
+    userId,
+    intentRecord?.promptHash ?? null,
+    impression.requestId,
+  );
 
-  const charge = impressionCharge(impression.campaign.bidMicro);
+  // What this slot actually reserved, not the campaign's headline bid. The two
+  // differ whenever the format carries a multiplier, and paying out of the
+  // headline bid would hand the user more than the advertiser was charged.
+  const charge = impressionCharge(reservedMicro(impression));
   const allocation = allocationSchema.parse(impression.campaign.allocation);
   const split = allocateCharge(charge, allocation);
 
@@ -162,7 +185,10 @@ export async function recordClick(userId: string, impressionId: string): Promise
     return NO_REWARD('already_clicked');
   }
 
-  const charge = clickCharge(impression.campaign.bidMicro, Number(impression.campaign.clickMultiplier));
+  const charge = clickCharge(
+    reservedMicro(impression),
+    Number(impression.campaign.clickMultiplier),
+  );
 
   // A click costs more than an impression, so the budget has to be checked again.
   const reserved = await prisma.$executeRaw`
