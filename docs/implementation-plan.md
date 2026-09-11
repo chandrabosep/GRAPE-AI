@@ -301,8 +301,8 @@ Package `ai-attention-marketplace` (publisher TBD). `engines.vscode ^1.100`, esb
 
 **Webview (`webview/`, React + Tailwind, Vite single-file build)**
 - `ChatView` (message list, composer with "include selection" chip, model picker if plan allows)
-- `AssistantMessage` (markdown + code blocks with copy/insert buttons)
-- `AdCard` — visually separated block: `SPONSORED · Relevant to your task` label, headline, body, `Learn more →` (posts to host → `env.openExternal` → click tracked), `Why this ad?` (shows categorical signals), dismiss. Uses `IntersectionObserver` to post `adVisible` after 1s.
+- `AssistantMessage` (markdown + code blocks with copy/insert buttons, and a per-answer token/cost readout beside the credits the card earned)
+- `AdCard` — a bordered card below a rule, never inside the answer: square creative thumbnail (advertiser monogram when the campaign has no artwork), advertiser name, a permanent `Ad` badge, headline, body, CTA (posts to host → `env.openExternal` → click tracked), an overflow menu carrying `Why this ad?` (categorical signals only) and `Hide this ad`, and the credits earned once the impression is confirmed. Uses `IntersectionObserver` to post `adVisible` after 1s; the host grants the reward from the ack response, since the ack happens after the stream has closed.
 - `RewardToast` — `+0.007 credits earned`.
 - `Footer` — plan badge, usage bar, credit balance, sign-in state.
 

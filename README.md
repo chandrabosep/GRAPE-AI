@@ -46,13 +46,13 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | Wallet sign-in (SIWE), sessions, VS Code handoff | Done, 6 tests |
 | Credit ledger | Done, untested against a database |
 | AI gateway with streaming, ads and billing | Done, untested against a database |
-| Ad selection against live campaigns | Done, untested against a database |
+| Ad selection against live campaigns | Done, verified against the database |
 | Reward granting on confirmed impressions | Done, untested against a database |
 | Advertiser onboarding and campaign lifecycle | Done, 11 tests |
 | The Graph audience service | Done, 15 tests, needs a gateway key to run live |
 | Wallet linking with signature proof | Done |
 | Smart contracts | Done, 21 Foundry tests |
-| VS Code extension | Done, builds; not yet run end to end |
+| VS Code extension | Chat, markdown answers, sponsored card, dwell ack, reward and cost readout |
 | Abuse rules (dwell, duplicates, caps, velocity) | Done, untested against a database |
 | API routes (13) | Done, build and 401/CORS verified |
 | Web dashboards | Scaffolded only |
@@ -97,8 +97,34 @@ an embedded Postgres that speaks the wire protocol over a socket, so Prisma's or
 driver connects to it unchanged and the tests exercise the same SQL, transactions and
 triggers that production runs.
 
-For a database you can poke at by hand, either works. Docker gives you real
-Postgres 16 and a `psql` prompt:
+### The whole stack, locally
+
+No Docker, no Supabase, no network. PGlite is an embedded Postgres that speaks the wire
+protocol over a socket, so Prisma's ordinary driver connects to it unchanged and gets the
+same SQL, transactions and triggers as production.
+
+```bash
+pnpm db:dev               # 127.0.0.1:55432, persisted in ./.pglite
+```
+
+Then, in a second terminal, with `.env` pointing `DATABASE_URL` and `DIRECT_URL` at
+`postgresql://postgres:postgres@127.0.0.1:55432/postgres` and `PRISMA_POOL_MAX=1`:
+
+```bash
+pnpm --filter @aam/db db:deploy   # migrations
+pnpm --filter @aam/db db:harden   # append-only ledger trigger
+pnpm db:seed                      # advertisers, campaigns, creatives, demo users
+pnpm dev
+```
+
+`PRISMA_POOL_MAX=1` is required: PGlite serves one connection at a time, and the default
+pool opens several and has them dropped underneath it.
+
+Sign in from the header. With no real auth configured, **Dev sign-in** lists the seeded
+accounts and signs you in as one — the endpoint behind it refuses to answer in production
+or once Privy is configured, so the menu disappears by itself.
+
+Docker gives you real Postgres 16 and a `psql` prompt instead, if you want one:
 
 ```bash
 docker compose up -d
@@ -108,26 +134,12 @@ pnpm --filter @aam/db db:deploy
 pnpm db:seed
 ```
 
-Or skip Docker entirely with the same embedded Postgres the tests use:
-
-```bash
-pnpm db:dev               # 127.0.0.1:55432, in-memory
-```
-
 The migration and seed are verified against both PostgreSQL 16.15 and PGlite.
 
 Typecheck everything:
 
 ```bash
 pnpm --filter @aam/web typecheck
-```
-
-Once a Supabase database is configured in `.env`:
-
-```bash
-pnpm db:migrate
-pnpm --filter @aam/db db:harden   # applies the append-only ledger trigger
-pnpm dev
 ```
 
 ## Keys
