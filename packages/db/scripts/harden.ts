@@ -2,13 +2,19 @@
  * Applies the database guarantees Prisma cannot express (append-only ledger).
  * Idempotent: safe to run after every migration.
  */
-import 'dotenv/config';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
 import { Client } from 'pg';
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+// The workspace keeps one .env at the repo root, but this script runs with
+// cwd=packages/db, where plain `dotenv/config` finds nothing.
+for (const candidate of [join(here, '..', '..', '..', '.env'), join(here, '..', '.env')]) {
+  if (existsSync(candidate)) loadEnv({ path: candidate, override: false });
+}
 const sqlDir = join(here, '..', 'prisma', 'sql');
 
 const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL;

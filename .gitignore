@@ -41,3 +41,6 @@ contracts/.gas-snapshot
 
 # vscode extension build output
 apps/vscode-extension/dist/
+
+# local database
+.pglite/

@@ -20,7 +20,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "db:harden": "tsx scripts/harden.ts",
-    "db:check": "tsx scripts/check.ts"
+    "db:check": "tsx scripts/check.ts",
+    "db:import-hosted": "tsx scripts/import-hosted-advertisers.ts"
   },
   "dependencies": {
     "@aam/shared": "workspace:*",

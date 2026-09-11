@@ -11,7 +11,11 @@ import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 
 const port = Number(process.env.PGLITE_PORT ?? 55432);
-const dataDir = process.env.PGLITE_DIR ?? undefined; // undefined = in-memory
+// Persistent by default: a dev database that forgets your campaigns every time
+// you restart it is worse than no local database at all. PGLITE_DIR="" opts
+// back into an in-memory instance for throwaway runs.
+const dataDir =
+  process.env.PGLITE_DIR === '' ? undefined : (process.env.PGLITE_DIR ?? '.pglite');
 
 const db = await PGlite.create(dataDir);
 const server = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
