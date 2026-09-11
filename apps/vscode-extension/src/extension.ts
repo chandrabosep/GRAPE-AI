@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ApiClient } from './api';
 import { AuthManager } from './auth';
-import { ChatViewProvider } from './chat-view';
+import { ChatViewProvider, PROPOSED_SCHEME, proposedContentProvider } from './chat-view';
 import { StatusBar } from './status-bar';
 
 /**
@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const auth = new AuthManager(context, apiUrl);
   const api = new ApiClient(apiUrl, auth);
-  const chat = new ChatViewProvider(context.extensionUri, auth, api);
+  const chat = new ChatViewProvider(context, auth, api, apiUrl);
   const statusBar = new StatusBar(auth, api);
 
   context.subscriptions.push(
@@ -34,6 +34,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerUriHandler({
       handleUri: (uri) => auth.handleUri(uri),
     }),
+
+    // Lets the diff view render a proposed change that is not on disk yet.
+    vscode.workspace.registerTextDocumentContentProvider(
+      PROPOSED_SCHEME,
+      proposedContentProvider,
+    ),
 
     vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chat, {
       webviewOptions: { retainContextWhenHidden: true },
@@ -70,6 +76,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aiMarketplace.openChat', async () => {
       await vscode.commands.executeCommand('aiMarketplace.chat.focus');
+    }),
+
+    vscode.commands.registerCommand('aiMarketplace.newChat', async () => {
+      await chat.newSession();
     }),
 
     vscode.commands.registerCommand('aiMarketplace.explainSelection', async () => {

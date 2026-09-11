@@ -55,6 +55,10 @@
         "title": "AI Marketplace: Open Chat"
       },
       {
+        "command": "aiMarketplace.newChat",
+        "title": "AI Marketplace: New Chat"
+      },
+      {
         "command": "aiMarketplace.explainSelection",
         "title": "AI Marketplace: Explain Selection"
       },
@@ -84,6 +88,13 @@
           "type": "boolean",
           "default": true,
           "description": "Send the current editor selection with your question. Selections are used to answer you and are never stored or shared with advertisers."
+        },
+        "aiMarketplace.maxToolSteps": {
+          "type": "number",
+          "default": 12,
+          "minimum": 1,
+          "maximum": 40,
+          "description": "How many tool steps the assistant may take before it must answer. Each step is a separate billed request, so this is the ceiling on what one question can cost."
         }
       }
     }
@@ -93,7 +104,8 @@
     "dev": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "package": "vsce package --no-dependencies",
-    "test": "echo \"no extension tests yet\" && exit 0"
+    "test": "vitest run",
+    "reinstall": "node scripts/reinstall.mjs"
   },
   "dependencies": {
     "@aam/shared": "workspace:*"
@@ -106,6 +118,7 @@
     "esbuild": "^0.28.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   }
 }
