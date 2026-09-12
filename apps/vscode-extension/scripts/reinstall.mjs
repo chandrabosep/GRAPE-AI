@@ -10,7 +10,7 @@
  * never having been built, which is confusing enough to be worth one command.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -18,7 +18,13 @@ const run = (cmd, args) => execFileSync(cmd, args, { stdio: 'inherit', cwd: root
 
 run('npx', ['--no-install', 'vsce', 'package', '--no-dependencies']);
 
-const VSIX = 'ai-attention-marketplace-0.1.0.vsix';
+/**
+ * Derived, never spelled out: the packaged filename carries the version, so a
+ * hard-coded name breaks silently on the first version bump — and a bump is
+ * exactly what you reach for when an editor is serving a cached copy.
+ */
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const VSIX = `${pkg.name}-${pkg.version}.vsix`;
 if (!existsSync(new URL(`../${VSIX}`, import.meta.url))) {
   console.error(`Expected ${VSIX} after packaging, but it is not there.`);
   process.exit(1);

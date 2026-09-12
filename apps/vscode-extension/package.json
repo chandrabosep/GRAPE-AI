@@ -2,7 +2,7 @@
   "name": "ai-attention-marketplace",
   "displayName": "GRAPE AI",
   "description": "AI coding assistant where relevant sponsored content pays for your inference.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "publisher": "aam",
   "license": "MIT",
