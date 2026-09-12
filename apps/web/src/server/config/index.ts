@@ -62,7 +62,7 @@ const envSchema = z.object({
   MOCK_USDC_ADDRESS: z.string().optional(),
   OPERATOR_PRIVATE_KEY: z.string().optional(),
 
-  NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
+  NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3001'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -8,7 +8,7 @@
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { createSiweMessage } from 'viem/siwe';
 
-const BASE = process.env.API_URL ?? 'http://localhost:3000';
+const BASE = process.env.API_URL ?? 'http://localhost:3001';
 const DOMAIN = new URL(BASE).host;
 
 const post = async (path: string, body: unknown, token?: string) => {

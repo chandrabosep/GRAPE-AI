@@ -3,6 +3,7 @@
   "ui": "stream",
   "globalEnv": ["NODE_ENV"],
   "globalPassThroughEnv": [
+    "WEB_PORT",
     "DATABASE_URL",
     "DIRECT_URL",
     "JWT_SECRET",

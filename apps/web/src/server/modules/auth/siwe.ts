@@ -50,7 +50,7 @@ function expectedDomain(): string {
   try {
     return new URL(env().NEXT_PUBLIC_APP_URL).host;
   } catch {
-    return 'localhost:3000';
+    return 'localhost:3001';
   }
 }
 

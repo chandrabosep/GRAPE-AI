@@ -2,7 +2,7 @@
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { createSiweMessage } from 'viem/siwe';
 
-const BASE = process.env.API_URL ?? 'http://localhost:3000';
+const BASE = process.env.API_URL ?? 'http://localhost:3001';
 const account = privateKeyToAccount(generatePrivateKey());
 
 const { nonce } = await (await fetch(`${BASE}/api/v1/auth/siwe/nonce`)).json();

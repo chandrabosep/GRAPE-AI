@@ -39,7 +39,7 @@ if (projectId) {
     metadata: {
       name: 'AI Attention Marketplace',
       description: 'Ads that pay for your AI.',
-      url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+      url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001',
       icons: [],
     },
     // EIP-6963 discovery is what surfaces MetaMask and friends in the modal.

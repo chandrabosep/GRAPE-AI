@@ -39,7 +39,7 @@ const USD = (dollars: number) => BigInt(Math.round(dollars * 1_000_000));
  * URL the VS Code webview can load under its image CSP. Absolute, because the
  * extension renders these from a different origin than the one that stored them.
  */
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001').replace(/\/$/, '');
 const creativeImage = (file: string) => `${APP_URL}/creatives/${file}.svg`;
 
 /** Snapshotted onto each campaign so later config changes cannot rewrite it. */

@@ -19,7 +19,7 @@ type Modules = {
 };
 let m: Modules;
 
-const DOMAIN = 'localhost:3000';
+const DOMAIN = 'localhost:3001';
 
 async function signIn(account: ReturnType<typeof privateKeyToAccount>, nonce: string) {
   const message = createSiweMessage({

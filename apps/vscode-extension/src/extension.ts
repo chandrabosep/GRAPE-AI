@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const apiUrl = () =>
     vscode.workspace
       .getConfiguration('aiMarketplace')
-      .get<string>('apiUrl', 'http://localhost:3000')
+      .get<string>('apiUrl', 'http://localhost:3001')
       .replace(/\/$/, '');
 
   const auth = new AuthManager(context, apiUrl);
