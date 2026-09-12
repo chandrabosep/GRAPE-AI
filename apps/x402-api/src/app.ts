@@ -197,6 +197,14 @@ export function createApp(options: AppOptions = {}) {
   app.use(express.json({ limit: '256kb' }));
 
   // Free endpoints, registered before the paywall so discovery costs nothing.
+  //
+  // The root is one of them because the bare domain is what a person pastes
+  // into a browser. Express's own "Cannot GET /" tells them nothing about a
+  // service that is working perfectly well; the discovery document tells them
+  // what is for sale and where.
+  app.get('/', (_req, res) => {
+    res.json(discovery());
+  });
   app.get('/health', (_req, res) => {
     res.json({ ok: true, network: env().X402_NETWORK });
   });

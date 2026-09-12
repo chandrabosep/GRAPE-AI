@@ -44,3 +44,4 @@ apps/vscode-extension/dist/
 
 # local database
 .pglite/
+.vercel
