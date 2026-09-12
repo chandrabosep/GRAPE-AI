@@ -1,4 +1,4 @@
-import { type Allocation, type EconomicsConfig, splitMicro } from '@aam/shared';
+import { type Allocation, type EconomicsConfig, type Tier, splitMicro } from '@aam/shared';
 
 /**
  * Reward accounting.
@@ -60,6 +60,8 @@ export interface RewardEligibilityInput {
   rewardedTodayMicro: bigint;
   worldVerified: boolean;
   fraudScore: number;
+  /** Where the developer stands on the earning ladder. Lifts the daily ceiling. */
+  tier: Tier;
 }
 
 export interface RewardDecision {
@@ -71,10 +73,25 @@ export interface RewardDecision {
 
 export const FRAUD_REWARD_THRESHOLD = 0.8;
 
-export function dailyRewardCapMicro(config: EconomicsConfig, worldVerified: boolean): bigint {
-  return BigInt(
-    worldVerified ? config.caps.userDailyRewardMicroVerified : config.caps.userDailyRewardMicro,
-  );
+/**
+ * The most a developer may earn today.
+ *
+ * Two things lift it, and they answer different questions. Verification says
+ * this is one human rather than a farm, so the ceiling can be higher without
+ * the risk scaling with it. The tier says this human keeps showing up, so the
+ * larger share of each charge they earned is actually reachable on the days
+ * they use the product hardest — which is the only kind of day the ceiling is
+ * ever reached.
+ */
+export function dailyRewardCapMicro(
+  config: EconomicsConfig,
+  worldVerified: boolean,
+  tier: Tier,
+): bigint {
+  const base = worldVerified
+    ? config.caps.userDailyRewardMicroVerified
+    : config.caps.userDailyRewardMicro;
+  return BigInt(Math.floor(base * tier.dailyCapMultiplier));
 }
 
 /**
@@ -101,7 +118,7 @@ export function evaluateImpressionReward(
     return { ok: false, reason: 'too_soon' };
   }
 
-  const cap = dailyRewardCapMicro(config, input.worldVerified);
+  const cap = dailyRewardCapMicro(config, input.worldVerified, input.tier);
   const remaining = cap - input.rewardedTodayMicro;
   if (remaining <= 0n) return { ok: false, reason: 'daily_cap_reached' };
 

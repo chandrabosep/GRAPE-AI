@@ -1,5 +1,6 @@
 import { authenticate } from '@/server/modules/auth';
 import { withdrawableMicro } from '@/server/modules/credits/service';
+import { getTierStanding } from '@/server/modules/tiers/service';
 import { usageSummary } from '@/server/modules/usage/service';
 import { json, route } from '@/server/lib/http';
 
@@ -12,9 +13,10 @@ export const GET = route(async (request) => {
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
 
-  const [withdrawable, usage] = await Promise.all([
+  const [withdrawable, usage, standing] = await Promise.all([
     withdrawableMicro(user.id),
     usageSummary(user.id, startOfDay),
+    getTierStanding(user.id),
   ]);
 
   return json({
@@ -32,5 +34,9 @@ export const GET = route(async (request) => {
       withdrawableMicro: withdrawable,
     },
     usageToday: usage,
+    // The whole standing, not just the tier: a ladder the client has to
+    // reassemble from the public config and a bare level is a ladder that
+    // renders differently in each client.
+    tier: standing,
   });
 });

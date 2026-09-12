@@ -21,6 +21,8 @@ export const GET = route(async () => {
 
   return json({
     allocation: config.allocation,
+    /** The full ladder, so a client can show what is above a developer's rung. */
+    tiers: config.tiers,
     credits: config.credits,
     chain: {
       id: env().CHAIN_ID,

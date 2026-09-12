@@ -11,6 +11,10 @@ import {
 
 const CONFIG: EconomicsConfig = DEFAULT_ECONOMICS;
 
+/** The bottom rung, which is what every existing rule was written against. */
+const BUD = CONFIG.tiers[0];
+const RESERVE = CONFIG.tiers[CONFIG.tiers.length - 1];
+
 function input(overrides: Partial<RewardEligibilityInput> = {}): RewardEligibilityInput {
   return {
     viewConfirmed: true,
@@ -20,6 +24,7 @@ function input(overrides: Partial<RewardEligibilityInput> = {}): RewardEligibili
     rewardedTodayMicro: 0n,
     worldVerified: false,
     fraudScore: 0,
+    tier: BUD,
     ...overrides,
   };
 }
@@ -100,7 +105,7 @@ describe('impression reward eligibility', () => {
   });
 
   it('trims the last reward of the day to the cap instead of refusing it', () => {
-    const cap = dailyRewardCapMicro(CONFIG, false);
+    const cap = dailyRewardCapMicro(CONFIG, false, BUD);
     const decision = evaluateImpressionReward(
       input({ rewardedTodayMicro: cap - 1_000n }),
       7_000n,
@@ -110,14 +115,35 @@ describe('impression reward eligibility', () => {
   });
 
   it('refuses once the cap is fully spent', () => {
-    const cap = dailyRewardCapMicro(CONFIG, false);
+    const cap = dailyRewardCapMicro(CONFIG, false, BUD);
     expect(
       evaluateImpressionReward(input({ rewardedTodayMicro: cap }), 7_000n, CONFIG).reason,
     ).toBe('daily_cap_reached');
   });
 
   it('gives verified humans a higher daily ceiling', () => {
-    expect(dailyRewardCapMicro(CONFIG, true)).toBeGreaterThan(dailyRewardCapMicro(CONFIG, false));
+    expect(dailyRewardCapMicro(CONFIG, true, BUD)).toBeGreaterThan(
+      dailyRewardCapMicro(CONFIG, false, BUD),
+    );
+  });
+
+  it('raises the daily ceiling with the tier', () => {
+    expect(dailyRewardCapMicro(CONFIG, false, RESERVE)).toBeGreaterThan(
+      dailyRewardCapMicro(CONFIG, false, BUD),
+    );
+  });
+
+  // The larger share is worthless to a heavy user whose day ends at the same
+  // ceiling, so the rung that pays more has to let them reach further too.
+  it('still pays a top-tier user at a total the bottom tier had already spent', () => {
+    const budCap = dailyRewardCapMicro(CONFIG, false, BUD);
+    expect(
+      evaluateImpressionReward(
+        input({ rewardedTodayMicro: budCap, tier: RESERVE }),
+        8_500n,
+        CONFIG,
+      ),
+    ).toEqual({ ok: true, cappedAtMicro: 8_500n });
   });
 });
 

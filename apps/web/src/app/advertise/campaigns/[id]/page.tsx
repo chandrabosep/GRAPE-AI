@@ -122,6 +122,15 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
   const inline = campaign.creatives.find((c) => c.format === 'inline');
   const live = campaign.status === 'active';
 
+  /*
+   * The floor of the split, not the settled one.
+   *
+   * A developer on a higher earning tier is paid a larger share of the same
+   * charge, and the difference comes out of the platform's cut rather than off
+   * this campaign's bill. So the developer line is a lower bound and the
+   * platform line an upper one, while `spent` — the only figure the advertiser
+   * is actually out — is exact either way.
+   */
   const rewardShare = spent * campaign.allocation.reward;
   const platformShare = spent * campaign.allocation.platform;
   const treasuryShare = spent * campaign.allocation.treasury;
@@ -196,14 +205,14 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
         <MetricGrid columns={3} className="mt-8">
           <Metric
             label="To developers"
-            value={formatUsd(rewardShare)}
-            hint={`${(campaign.allocation.reward * 100).toFixed(0)}% of what you were charged`}
+            value={`${formatUsd(rewardShare)}+`}
+            hint={`At least ${(campaign.allocation.reward * 100).toFixed(0)}% of what you were charged. Developers on a higher tier earn more, out of our share and not your budget.`}
             accent
           />
           <Metric
             label="Platform"
             value={formatUsd(platformShare)}
-            hint={`${(campaign.allocation.platform * 100).toFixed(0)}%`}
+            hint={`${(campaign.allocation.platform * 100).toFixed(0)}%, less whatever tiers moved to developers`}
           />
           <Metric
             label="Treasury"

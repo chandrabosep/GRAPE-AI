@@ -1,5 +1,6 @@
 import { prisma } from '@aam/db';
 import {
+  applyTier,
   explainNoWinner,
   selectRemnant,
   selectWinner,
@@ -15,6 +16,7 @@ import {
   type OnchainSignals,
   type Persona,
   type SponsoredAd,
+  type Tier,
 } from '@aam/shared';
 import { economics } from '../../config/index';
 import { logger } from '../../lib/logger';
@@ -195,6 +197,16 @@ async function reserveBudget(campaignId: string, bidMicro: bigint): Promise<bool
 
 export interface SelectAdInput {
   user: UserWithProfile;
+  /**
+   * The developer's rung on the earning ladder.
+   *
+   * Passed in rather than read here because both slots of one answer belong to
+   * the same person: resolving it per auction would count the same rewards
+   * twice per turn to reach the same number. It only affects the reward
+   * estimate shown on the card — the auction itself is blind to it, so what a
+   * developer earns can never influence which ad they are shown.
+   */
+  tier: Tier;
   intent: AIIntent;
   onchain: OnchainSignals | null;
   model: string;
@@ -340,9 +352,11 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
     select: { id: true },
   });
 
-  const rewardShare = BigInt(
-    Math.floor(Number(winner.campaign.bidMicro) * config.allocation.reward),
-  );
+  // Quoted at this developer's tier, so the card promises what the ack will
+  // actually pay. It is still an estimate: the daily ceiling and the abuse
+  // gates are only evaluated once the impression is confirmed.
+  const allocation = applyTier(config.allocation, input.tier);
+  const rewardShare = BigInt(Math.floor(Number(winner.campaign.bidMicro) * allocation.reward));
 
   const ad: SponsoredAd = {
     impressionId: impression.id,

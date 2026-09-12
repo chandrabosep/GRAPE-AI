@@ -217,7 +217,7 @@ export default function AdvertiserDashboard() {
           <Metric
             label="Paid to developers"
             value={formatUsd(overview?.rewardPaidMicro)}
-            hint="70% of what you were charged"
+            hint="At least 70% of what you were charged — more to developers on a higher tier, out of our cut"
             accent
           />
         </MetricGrid>

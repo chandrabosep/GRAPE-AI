@@ -1,19 +1,27 @@
 import { prisma } from '@aam/db';
-import { allocateCharge, clickCharge, evaluateImpressionReward, impressionCharge } from '@aam/economics';
+import {
+  allocateCharge,
+  applyTier,
+  clickCharge,
+  evaluateImpressionReward,
+  impressionCharge,
+} from '@aam/economics';
 import { AppError, allocationSchema } from '@aam/shared';
 import { economics } from '../../config/index';
 import { logger } from '../../lib/logger';
 import { creditReward } from '../credits/service';
 import { collectAbuseSignals } from '../fraud/service';
+import { getTierStanding } from '../tiers/service';
 
 /**
  * Turning confirmed attention into credits.
  *
  * This is where the loop closes: an advertiser's budget becomes a developer's
- * ability to run another request. Two invariants make it safe to run on every
+ * ability to run another request. Three invariants make it safe to run on every
  * impression — a user can never be paid more than the advertiser was charged,
- * and the reward is derived from the campaign's snapshotted allocation rather
- * than from whatever the config happens to say today.
+ * the reward is derived from the campaign's snapshotted allocation rather than
+ * from whatever the config happens to say today, and the earning tier only ever
+ * moves the *division* of that allocation, never its total.
  */
 
 /**
@@ -107,17 +115,25 @@ export async function confirmImpression(
     : null;
 
   // The other slot of this same answer must not count against this one.
-  const signals = await collectAbuseSignals(
-    userId,
-    intentRecord?.promptHash ?? null,
-    impression.requestId,
-  );
+  const [signals, standing] = await Promise.all([
+    collectAbuseSignals(userId, intentRecord?.promptHash ?? null, impression.requestId),
+    getTierStanding(userId),
+  ]);
 
   // What this slot actually reserved, not the campaign's headline bid. The two
   // differ whenever the format carries a multiplier, and paying out of the
   // headline bid would hand the user more than the advertiser was charged.
   const charge = impressionCharge(reservedMicro(impression));
-  const allocation = allocationSchema.parse(impression.campaign.allocation);
+
+  // The campaign's snapshotted split, re-divided for where this developer
+  // stands. The tier is resolved from rewards granted *before* this one, so the
+  // impression that lifts someone onto a new rung is paid at the old rate and
+  // every impression after it at the new one — the ladder never reprices a
+  // charge that has already been reserved.
+  const allocation = applyTier(
+    allocationSchema.parse(impression.campaign.allocation),
+    standing.tier,
+  );
   const split = allocateCharge(charge, allocation);
 
   const decision = evaluateImpressionReward(
@@ -129,6 +145,7 @@ export async function confirmImpression(
       rewardedTodayMicro: signals.rewardedTodayMicro,
       worldVerified: signals.worldVerified,
       fraudScore: signals.fraudScore,
+      tier: standing.tier,
     },
     split.rewardMicro,
     config,
@@ -214,9 +231,16 @@ export async function recordClick(userId: string, impressionId: string): Promise
   `;
   if (reserved !== 1) return NO_REWARD('campaign_budget_exhausted');
 
-  const allocation = allocationSchema.parse(impression.campaign.allocation);
+  const [signals, standing] = await Promise.all([
+    collectAbuseSignals(userId, null),
+    getTierStanding(userId),
+  ]);
+
+  const allocation = applyTier(
+    allocationSchema.parse(impression.campaign.allocation),
+    standing.tier,
+  );
   const split = allocateCharge(charge, allocation);
-  const signals = await collectAbuseSignals(userId, null);
 
   const decision = evaluateImpressionReward(
     {
@@ -229,6 +253,7 @@ export async function recordClick(userId: string, impressionId: string): Promise
       rewardedTodayMicro: signals.rewardedTodayMicro,
       worldVerified: signals.worldVerified,
       fraudScore: signals.fraudScore,
+      tier: standing.tier,
     },
     split.rewardMicro,
     config,

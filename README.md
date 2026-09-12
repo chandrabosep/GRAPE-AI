@@ -9,7 +9,9 @@ sponsored content subsidises inference instead of interrupting it.
 2. Credits pay for AI inference, priced per token.
 3. Between responses, a relevant sponsored card appears, clearly separated from the answer.
 4. The advertiser funds a campaign; qualified attention pays the developer their share.
-5. Those earnings are credits, which buy more inference.
+5. That share starts at 70% and climbs to 85% across three earning tiers — Bud, Vine,
+   Reserve — out of the platform's cut, never off the advertiser's bill.
+6. Those earnings are credits, which buy more inference.
 
 The loop closes because usage is what creates the inventory. A developer asking how to
 deploy a Solidity contract is worth more to an Ethereum infrastructure advertiser than any

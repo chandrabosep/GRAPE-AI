@@ -153,13 +153,15 @@ export default function LandingPage() {
            */}
           <div className="bloom rounded-card text-near-black grid gap-10 p-10 md:grid-cols-[1fr_auto] md:items-end md:p-14">
             <div>
-              <div className="stamp-sm text-near-black/60">The exchange rate</div>
+              <div className="stamp-sm text-near-black/60">The exchange rate · from</div>
               <p className="mt-6 max-w-2xl text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.1] font-light tracking-[-0.03em] text-balance">
                 One relevant sponsored card funds one AI response.
               </p>
               <p className="text-near-black/70 mt-5 max-w-lg text-[15px] leading-relaxed">
                 Seventy per cent of what an advertiser is charged for confirmed attention goes to
-                the developer who gave it, as credits they can spend or withdraw.
+                the developer who gave it, as credits they can spend or withdraw. That is the
+                floor: it rises to 85% as you go up the tiers, out of our share and never off the
+                advertiser&rsquo;s bill.
               </p>
             </div>
             <div className="text-[clamp(4rem,12vw,8rem)] leading-none font-light tracking-[-0.06em] tabular-nums">

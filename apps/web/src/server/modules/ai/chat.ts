@@ -6,6 +6,7 @@ import { economics } from '../../config/index';
 import { createSSEStream } from '../../lib/sse';
 import { logger } from '../../lib/logger';
 import { selectAd, type AdSelection } from '../ads/service';
+import { getTierStanding } from '../tiers/service';
 import { executeBlockchainQuery } from '../graph/blockchain-tool';
 import { getSignalsForUser, isGraphConfigured } from '../graph/service';
 import { classify, persistIntent, refineIntentRecord } from '../intent/service';
@@ -557,7 +558,7 @@ async function prepareAdContext(
   promptText: string,
 ): Promise<PreparedAdContext | null> {
   try {
-    const [intentId, onchain] = await Promise.all([
+    const [intentId, onchain, standing] = await Promise.all([
       persistIntent({
         requestId: ctx.requestId,
         userId: ctx.user.id,
@@ -576,10 +577,14 @@ async function prepareAdContext(
             return null;
           })
         : Promise.resolve(null),
+      // Resolved once for the turn and shared by both auctions, so the card and
+      // the inline line quote the same rate to the same person.
+      getTierStanding(ctx.user.id),
     ]);
 
     return {
       user: ctx.user,
+      tier: standing.tier,
       intent,
       onchain,
       model,

@@ -3,8 +3,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+/** One rung of the earning ladder, exactly as the engine has it. */
+export interface TierConfig {
+  level: number;
+  name: string;
+  blurb: string;
+  minRewards: number;
+  rewardShare: number;
+  dailyCapMultiplier: number;
+}
+
 export interface PublicConfig {
   allocation: { reward: number; platform: number; treasury: number };
+  tiers: TierConfig[];
   credits: { starterGrantMicro: number; minPayoutMicro: number; maxRequestCostMicro: number };
   chain: {
     id: number;

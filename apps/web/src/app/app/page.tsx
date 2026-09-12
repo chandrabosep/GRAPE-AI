@@ -17,7 +17,9 @@ import { Metric, MetricGrid } from '@/components/app/metric';
 import { Eyebrow, Shell, Stamp } from '@/components/app/section';
 import { api } from '@/lib/api';
 import { Credits } from '@/lib/credits';
-import { useMe } from '@/hooks/use-session';
+import { usePublicConfig, type TierConfig } from '@/hooks/use-public-config';
+import { useMe, type Me } from '@/hooks/use-session';
+import { cn } from '@/lib/utils';
 
 interface LedgerEntry {
   id: string;
@@ -48,6 +50,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default function UserDashboard() {
   const { data: me, isLoading } = useMe();
+  const { data: config } = usePublicConfig();
 
   const { data: ledger } = useQuery<Ledger>({
     queryKey: ['credits'],
@@ -113,7 +116,7 @@ export default function UserDashboard() {
         <Metric
           label="Earned from ads"
           value={<Credits micro={earnedTotal} />}
-          hint="Your 70% share of confirmed attention"
+          hint={`Your ${share(me.tier.tier)} share of confirmed attention, as ${me.tier.tier.name}`}
           accent
         />
         <Metric
@@ -127,6 +130,8 @@ export default function UserDashboard() {
           hint={`${me.usageToday.requestCount} request${me.usageToday.requestCount === 1 ? '' : 's'}`}
         />
       </MetricGrid>
+
+      <TierLadder standing={me.tier} ladder={config?.tiers ?? []} />
 
       <section className="mt-24">
         <Stamp size="section">Credit history</Stamp>
@@ -211,6 +216,124 @@ export default function UserDashboard() {
         </div>
       </section>
     </Shell>
+  );
+}
+
+/** A rung's share, written the way the rest of the product writes a split. */
+function share(tier: TierConfig): string {
+  return `${Math.round(tier.rewardShare * 100)}%`;
+}
+
+/**
+ * The earning ladder.
+ *
+ * Rendered as the whole ladder rather than as the one rung the developer is on,
+ * because the number that changes behaviour is the next one up, not the current
+ * one. A badge saying "Vine" is a label; three rungs with the rung above lit and
+ * a count of what it takes to reach it is the reason to keep using the product.
+ *
+ * The rungs share their strokes with the metric panel above — this is the same
+ * instrument, read down instead of across.
+ */
+function TierLadder({ standing, ladder }: { standing: Me['tier']; ladder: TierConfig[] }) {
+  // Until the public config lands there is still one rung worth showing: the
+  // one the server already told us the developer is standing on.
+  const rungs = ladder.length > 0 ? ladder : [standing.tier];
+
+  return (
+    <section className="mt-24">
+      <Stamp
+        size="section"
+        sub={
+          standing.next
+            ? `${standing.toNext} more rewarded ad${standing.toNext === 1 ? '' : 's'} and your share rises to ${share(standing.next)}. The extra comes out of the platform's cut — an advertiser is charged the same whoever sees their campaign.`
+            : `You are at the top of the ladder. ${share(standing.tier)} of every charge is yours, which is the most the platform can give up and still run.`
+        }
+      >
+        Your tier
+      </Stamp>
+
+      <div className="mt-10">
+        {standing.next && (
+          <div className="mb-10">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <div className="stamp-sm">
+                {standing.tier.name} → {standing.next.name}
+              </div>
+              <div className="text-steel text-sm tabular-nums">
+                {standing.rewardCount} / {standing.next.minRewards} rewarded ads
+              </div>
+            </div>
+            {/*
+             * A bare div rather than the Progress primitive: this meter is
+             * read alongside a value that is already written above it, so the
+             * component's own label and value rows would repeat it.
+             */}
+            <div className="bg-wash-strong mt-4 h-[3px] w-full overflow-hidden rounded-full">
+              <div
+                className="bg-signal-violet h-full transition-all"
+                style={{ width: `${Math.round(standing.progress * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <ul className="border-hairline border-t">
+          {rungs.map((rung) => {
+            const standingHere = rung.level === standing.tier.level;
+            const reached = rung.level <= standing.tier.level;
+
+            return (
+              <li
+                key={rung.level}
+                className="border-hairline grid gap-x-6 gap-y-2 border-b py-6 sm:grid-cols-[auto_1fr_auto] sm:items-baseline"
+              >
+                <div className="stamp-sm flex items-center gap-3">
+                  <span
+                    className={cn(
+                      'inline-block size-1.5 rounded-full',
+                      standingHere ? 'bg-signal-violet' : reached ? 'bg-steel' : 'bg-wash-strong',
+                    )}
+                  />
+                  <span className={standingHere ? 'text-almost-white' : undefined}>
+                    {rung.name}
+                  </span>
+                  {standingHere && <span className="text-signal-violet">· you</span>}
+                </div>
+
+                <p
+                  className={cn(
+                    'text-sm leading-relaxed',
+                    reached ? 'text-steel' : 'text-graphite',
+                  )}
+                >
+                  {rung.blurb}
+                  {rung.minRewards > 0 && ` From ${rung.minRewards} rewarded ads.`}
+                </p>
+
+                <div
+                  className={cn(
+                    'text-[22px] leading-none font-light tracking-[-0.02em] tabular-nums sm:text-right',
+                    standingHere
+                      ? 'text-signal-violet'
+                      : reached
+                        ? 'text-almost-white'
+                        : 'text-graphite',
+                  )}
+                >
+                  {share(rung)}
+                  {rung.dailyCapMultiplier > 1 && (
+                    <span className="text-steel ml-2 align-[0.15em] text-xs">
+                      ×{rung.dailyCapMultiplier} daily cap
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
   );
 }
 

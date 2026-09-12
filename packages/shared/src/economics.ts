@@ -22,6 +22,68 @@ export const allocationSchema = z
   });
 export type Allocation = z.infer<typeof allocationSchema>;
 
+/**
+ * The earning ladder.
+ *
+ * A developer's share of a charge is not fixed at the campaign's split. It
+ * rises with the attention they have actually been paid for, across three
+ * levels named for the vine they are growing: Bud, Vine, Reserve.
+ *
+ * The extra share is carved out of the platform's, never added to the
+ * advertiser's bill. A campaign is charged exactly the same whoever happens to
+ * see it, so a tier can never make an impression cost more than was bid for it
+ * — which is the same invariant that stops the platform paying out money it
+ * did not collect.
+ */
+export const tierSchema = z.object({
+  /** 1-based rung, contiguous from the bottom. */
+  level: z.number().int().min(1),
+  /** What the developer is called at this rung. */
+  name: z.string().min(1),
+  /** One line of explanation, rendered on the dashboard beside the name. */
+  blurb: z.string().min(1),
+  /** Lifetime granted rewards needed to stand here. The first rung is always 0. */
+  minRewards: z.number().int().nonnegative(),
+  /**
+   * The developer's share of every charge at this rung.
+   *
+   * Absolute rather than a bonus, so the number written here is the number
+   * shown on the dashboard, and a campaign that snapshotted a more generous
+   * split than the ladder keeps it.
+   */
+  rewardShare: ratio,
+  /**
+   * Scales the daily reward ceiling at this rung.
+   *
+   * Without it the ladder is decorative for exactly the people who climbed it:
+   * a heavy user reaches the same daily cap either way, so a larger share of
+   * each charge buys them nothing on the days it would have mattered.
+   */
+  dailyCapMultiplier: z.number().min(1),
+});
+export type Tier = z.infer<typeof tierSchema>;
+
+export const tiersSchema = z
+  .array(tierSchema)
+  .min(1)
+  .refine((tiers) => tiers[0].minRewards === 0, {
+    message: 'the lowest tier must start at zero rewards',
+  })
+  .refine((tiers) => tiers.every((tier, i) => tier.level === i + 1), {
+    message: 'tier levels must be contiguous and start at 1',
+  })
+  .refine(
+    (tiers) =>
+      tiers.every(
+        (tier, i) =>
+          i === 0 ||
+          (tier.minRewards > tiers[i - 1].minRewards &&
+            tier.rewardShare >= tiers[i - 1].rewardShare &&
+            tier.dailyCapMultiplier >= tiers[i - 1].dailyCapMultiplier),
+      ),
+    { message: 'each tier must be harder to reach and never pay less than the one below it' },
+  );
+
 export const scoringWeightsSchema = z.object({
   intent: z.number().min(0),
   audience: z.number().min(0),
@@ -42,6 +104,8 @@ export type ModelPricing = z.infer<typeof modelPricingSchema>;
 
 export const economicsConfigSchema = z.object({
   allocation: allocationSchema,
+  /** The ladder a developer climbs. Ordered from the bottom rung up. */
+  tiers: tiersSchema,
   weights: scoringWeightsSchema,
   engagement: z.object({
     /** A click is worth this many impressions to the advertiser, and to the user. */
@@ -108,6 +172,32 @@ export type EconomicsConfig = z.infer<typeof economicsConfigSchema>;
 /** Used by tests and as the shape reference for economics.json. */
 export const DEFAULT_ECONOMICS: EconomicsConfig = {
   allocation: { reward: 0.7, platform: 0.2, treasury: 0.1 },
+  tiers: [
+    {
+      level: 1,
+      name: 'Bud',
+      blurb: 'Where every vine starts. The campaign\u2019s own split, nothing taken off it.',
+      minRewards: 0,
+      rewardShare: 0.7,
+      dailyCapMultiplier: 1,
+    },
+    {
+      level: 2,
+      name: 'Vine',
+      blurb: 'Established and producing. A larger share, and more room to earn in a day.',
+      minRewards: 25,
+      rewardShare: 0.78,
+      dailyCapMultiplier: 1.5,
+    },
+    {
+      level: 3,
+      name: 'Reserve',
+      blurb: 'The best of the harvest. The most the platform can give up and still run.',
+      minRewards: 100,
+      rewardShare: 0.85,
+      dailyCapMultiplier: 2,
+    },
+  ],
   credits: {
     starterGrantMicro: 500_000,
     minPayoutMicro: 1_000_000,

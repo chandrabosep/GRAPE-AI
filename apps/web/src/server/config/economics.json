@@ -4,6 +4,32 @@
     "platform": 0.2,
     "treasury": 0.1
   },
+  "tiers": [
+    {
+      "level": 1,
+      "name": "Bud",
+      "blurb": "Where every vine starts. The campaign’s own split, nothing taken off it.",
+      "minRewards": 0,
+      "rewardShare": 0.7,
+      "dailyCapMultiplier": 1
+    },
+    {
+      "level": 2,
+      "name": "Vine",
+      "blurb": "Established and producing. A larger share, and more room to earn in a day.",
+      "minRewards": 25,
+      "rewardShare": 0.78,
+      "dailyCapMultiplier": 1.5
+    },
+    {
+      "level": 3,
+      "name": "Reserve",
+      "blurb": "The best of the harvest. The most the platform can give up and still run.",
+      "minRewards": 100,
+      "rewardShare": 0.85,
+      "dailyCapMultiplier": 2
+    }
+  ],
   "credits": {
     "starterGrantMicro": 500000,
     "minPayoutMicro": 1000000,

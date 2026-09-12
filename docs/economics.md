@@ -15,8 +15,8 @@ The product is a Cursor-style AI coding assistant whose usage is denominated in
 ```mermaid
 flowchart LR
   ADV["Advertiser<br/>funds a campaign"] -->|deposits budget| VAULT[CampaignVault]
-  VAULT -->|"70% on qualified attention"| USER["Developer<br/>credit balance"]
-  VAULT -->|20%| PLAT[Platform]
+  VAULT -->|"70–85% on qualified attention"| USER["Developer<br/>credit balance"]
+  VAULT -->|"20% less the tier bonus"| PLAT[Platform]
   VAULT -->|10%| TREAS[Treasury]
   BUY["Developer<br/>buys credits"] --> USER
   USER -->|spends credits| AI["AI inference<br/>AWS Bedrock"]
@@ -64,7 +64,8 @@ With the current configuration, using the standard model:
 |---|---|
 | Typical coding request (~1,500 in, ~600 out tokens) | $0.009 |
 | Advertiser bid per qualified impression | $0.010 |
-| Developer's share at 70% | $0.007 |
+| Developer's share at Bud, the opening tier (70%) | $0.007 |
+| Developer's share at Reserve, the top tier (85%) | $0.0085 |
 | Ads needed to fund one AI response | ~1.3 |
 
 That is the whole claim, and it is a strong one: **roughly one relevant sponsored card
@@ -103,6 +104,37 @@ These ratios are configuration, not architecture. A campaign **snapshots** the s
 it activates, so changing the configuration never rewrites the economics of a campaign
 that is already running. The split is computed with integer arithmetic that always sums
 back to the exact amount charged, so no rounding unit is ever created or lost.
+
+## Earning tiers
+
+The developer's share is a floor, not a fixed number. It rises with the attention they
+have actually been paid for, across three rungs:
+
+| Tier | Reached at | Share of each charge | Daily ceiling |
+|---|---|---|---|
+| **Bud** | signup | 70% | ×1 |
+| **Vine** | 25 rewarded ads | 78% | ×1.5 |
+| **Reserve** | 100 rewarded ads | 85% | ×2 |
+
+Three properties make this safe to run on every impression:
+
+1. **The advertiser never pays more.** The bonus is carved out of the *platform's* share,
+   never added to the charge and never taken from the treasury — the treasury is what
+   settles rewards on chain, so borrowing from it to fund a reward would be circular. A
+   campaign is charged exactly what it bid whoever happens to see it.
+2. **Progress is counted in granted rewards, not in impressions served or prompts sent.**
+   Every abuse gate below has already run by the time a reward is granted, so the only
+   way to climb is the way the product is meant to be used.
+3. **The ceiling moves with the share.** Without that the ladder would be decorative for
+   exactly the people who climbed it: a heavy user reaches the same daily cap either way,
+   so a larger share of each charge would buy them nothing on the days it mattered.
+
+A rung once reached is never lost. Standing is derived from the rewards table rather than
+stored in a counter column, so there is only ever one answer to how much a developer has
+earned from attention, and a reversed reward cannot buy progress.
+
+A campaign that snapshotted a *more* generous split than the ladder keeps it: the tier is
+a floor on what a developer earns, never a ceiling.
 
 ## Why this cannot be farmed
 

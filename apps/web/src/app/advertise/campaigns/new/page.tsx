@@ -827,9 +827,13 @@ export default function NewCampaignPage() {
             <Row label="Per impression" value={`$${bid.toFixed(4)}`} />
             <Row
               label="To the developer"
-              value={`$${rewardShare.toFixed(4)}`}
+              value={`$${rewardShare.toFixed(4)}+`}
               accent
-              hint={config ? `${(config.allocation.reward * 100).toFixed(0)}% of your spend` : ''}
+              hint={
+                config
+                  ? `At least ${(config.allocation.reward * 100).toFixed(0)}% of your spend. A developer on a higher earning tier gets more of it, out of our share rather than your budget.`
+                  : ''
+              }
             />
           </div>
         </Panel>

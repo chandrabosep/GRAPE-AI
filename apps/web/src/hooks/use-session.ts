@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { api, clearSession, getAccessToken, storeSession } from '@/lib/api';
+import type { TierConfig } from '@/hooks/use-public-config';
 
 export interface Me {
   user: {
@@ -16,6 +17,14 @@ export interface Me {
   profile: { persona: string | null; interests: string[]; technologies: string[] } | null;
   credits: { balanceMicro: string; withdrawableMicro: string };
   usageToday: { todayTokens: number; todayCostMicro: string; requestCount: number };
+  /** Where the developer stands on the earning ladder, and how far the next rung is. */
+  tier: {
+    tier: TierConfig;
+    next: TierConfig | null;
+    rewardCount: number;
+    toNext: number;
+    progress: number;
+  };
 }
 
 export interface SeedUser {
