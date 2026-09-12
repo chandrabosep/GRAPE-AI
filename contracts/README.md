@@ -8,7 +8,6 @@ promises not to expose.
 
 | Contract | Purpose |
 |---|---|
-| `MockUSDC` | Six-decimal test token with an open mint. Local chains only — real networks pass their own USDC. |
 | `CampaignVault` | Holds advertiser budgets, settles them three ways, refunds the remainder. |
 | `RewardPool` | Holds the users' share and pays withdrawals, idempotently. |
 
@@ -80,6 +79,14 @@ but this is the one Hedera-specific behaviour that has no equivalent on other
 EVM chains, so **verify it with a real transfer before trusting a deployment**:
 a vault that cannot receive USDC fails at funding time, not at deploy time.
 
-If association gets in the way, leaving `USDC_ADDRESS` unset deploys `MockUSDC`
-— a plain ERC-20 with no association rules — and everything else behaves
-identically. That is the fallback, not the default.
+There is no mock fallback. `USDC_ADDRESS` is required and the deploy reverts
+without it, because a script that quietly substitutes play money is how a demo
+ends up settling campaigns against a token nobody can withdraw.
+
+The unit tests use `test/TestToken.sol`, a six-decimal ERC-20 that exists only
+under `test/` and is never compiled into anything deployable — the vault needs
+some token to hold in a unit test, and HTS USDC does not exist on a local EVM.
+
+Get real testnet USDC from <https://faucet.circle.com> with **Hedera Testnet**
+selected. Accounts created through the Hedera portal come with unlimited
+automatic token association, so they can receive it with no association step.

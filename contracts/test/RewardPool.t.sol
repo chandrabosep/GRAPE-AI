@@ -2,11 +2,11 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {MockUSDC} from "../src/MockUSDC.sol";
+import {TestToken} from "./TestToken.sol";
 import {RewardPool} from "../src/RewardPool.sol";
 
 contract RewardPoolTest is Test {
-    MockUSDC internal token;
+    TestToken internal token;
     RewardPool internal pool;
 
     address internal operator = makeAddr("operator");
@@ -16,7 +16,7 @@ contract RewardPoolTest is Test {
     bytes32 internal constant PAYOUT_ID = keccak256("payout-1");
 
     function setUp() public {
-        token = new MockUSDC();
+        token = new TestToken();
         pool = new RewardPool(token, operator);
         token.mint(address(pool), 1_000e6);
     }

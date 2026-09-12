@@ -241,7 +241,9 @@ the ledger of record; the rows are a local index of it.
 target **Hedera testnet (296)** — the same chain the x402 payments settle on, so
 the project has one chain rather than two. The token is HTS USDC `0.0.429274`,
 which the EVM reaches at `0x…68cda` with 6 decimals, matching the ledger's
-micro-USD precision exactly.
+micro-USD precision exactly. Real testnet USDC comes from
+[Circle's faucet](https://faucet.circle.com) with Hedera Testnet selected;
+there is no mock token in the deployable path.
 
 They are **not deployed**, and nothing that runs today needs them: campaign
 budgets and rewards move through the credit ledger, which is integer micro-USD

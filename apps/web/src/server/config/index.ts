@@ -56,7 +56,7 @@ const envSchema = z.object({
 
   // Hedera testnet EVM, via the HashIO relay — the same network the x402 agent
   // payments settle on, so the project has one chain rather than two. USDC is
-  // HTS token 0.0.429274 behind the ERC-20 interface at the alias below, with 6
+  // HTS token 0.0.5449 behind the ERC-20 interface at the alias below, with 6
   // decimals, which is the ledger's micro-USD precision: token base units and
   // credit micros are the same number.
   CHAIN_ID: z.coerce.number().int().default(296),
@@ -64,7 +64,7 @@ const envSchema = z.object({
   EXPLORER_URL: z.string().default('https://hashscan.io/testnet'),
   CAMPAIGN_VAULT_ADDRESS: z.string().optional(),
   REWARD_POOL_ADDRESS: z.string().optional(),
-  USDC_ADDRESS: z.string().default('0x0000000000000000000000000000000000068cda'),
+  USDC_ADDRESS: z.string().default('0x0000000000000000000000000000000000001549'),
   OPERATOR_PRIVATE_KEY: z.string().optional(),
 
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3001'),

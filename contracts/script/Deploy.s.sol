@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import {Script, console} from "forge-std/Script.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CampaignVault} from "../src/CampaignVault.sol";
-import {MockUSDC} from "../src/MockUSDC.sol";
 import {RewardPool} from "../src/RewardPool.sol";
 
 /**
@@ -21,7 +20,7 @@ import {RewardPool} from "../src/RewardPool.sol";
  *   OPERATOR_ADDRESS  backend address allowed to settle and pay out
  *   PLATFORM_WALLET   receives the platform share
  *   TREASURY_WALLET   receives the treasury share
- *   USDC_ADDRESS      real token to settle in; deploys MockUSDC when unset
+ *   USDC_ADDRESS      the settlement token; required, and must be a real one
  *
  * On Hedera testnet (chain 296) the token is HTS USDC 0.0.429274, which the EVM
  * reaches at its alias 0x0000000000000000000000000000000000068cda with 6
@@ -34,20 +33,18 @@ contract Deploy is Script {
         address operator = vm.envAddress("OPERATOR_ADDRESS");
         address platformWallet = vm.envAddress("PLATFORM_WALLET");
         address treasuryWallet = vm.envAddress("TREASURY_WALLET");
-        address usdc = vm.envOr("USDC_ADDRESS", address(0));
+        // Required, and deliberately not defaulted. Silently deploying a stand-in
+        // token when this is missing is how a demo ends up settling real
+        // campaigns against play money nobody notices until withdrawal.
+        address usdc = vm.envAddress("USDC_ADDRESS");
+        require(usdc != address(0), "USDC_ADDRESS must be a real token");
 
         vm.startBroadcast(deployerKey);
 
-        if (usdc == address(0)) {
-            // Local chains only. Any real deployment passes the network's USDC.
-            usdc = address(new MockUSDC());
-            console.log("MockUSDC        ", usdc);
-        } else {
-            console.log("Using token     ", usdc);
-        }
+        console.log("Settlement token", usdc);
 
-        // Cast to IERC20, not MockUSDC: the token is whatever the chain's real
-        // USDC is, and the contracts only ever need the ERC-20 interface.
+        // Only the ERC-20 interface is ever needed. On Hedera that is HTS USDC
+        // reached through its EVM alias, which answers ERC-20 like any token.
         IERC20 token = IERC20(usdc);
 
         RewardPool pool = new RewardPool(token, operator);

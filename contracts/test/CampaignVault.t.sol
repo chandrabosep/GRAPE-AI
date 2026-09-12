@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {CampaignVault} from "../src/CampaignVault.sol";
-import {MockUSDC} from "../src/MockUSDC.sol";
+import {TestToken} from "./TestToken.sol";
 import {RewardPool} from "../src/RewardPool.sol";
 
 /**
@@ -13,7 +13,7 @@ import {RewardPool} from "../src/RewardPool.sol";
  * than draining the vault.
  */
 contract CampaignVaultTest is Test {
-    MockUSDC internal token;
+    TestToken internal token;
     RewardPool internal pool;
     CampaignVault internal vault;
 
@@ -27,7 +27,7 @@ contract CampaignVaultTest is Test {
     uint256 internal constant BUDGET = 100e6; // $100 at 6 decimals
 
     function setUp() public {
-        token = new MockUSDC();
+        token = new TestToken();
         pool = new RewardPool(token, operator);
         vault = new CampaignVault(token, operator, address(pool), platform, treasury);
 
