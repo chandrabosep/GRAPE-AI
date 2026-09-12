@@ -1,6 +1,11 @@
 import { prisma, type Campaign, type CampaignStatus, type Prisma } from '@aam/db';
 import { AppError, onchainCriteriaSchema, type OnchainCriteria, type OnchainSignals } from '@aam/shared';
 import { economics } from '../../config/index';
+import {
+  campaignMetrics,
+  emptyCampaignMetrics,
+  type CampaignMetrics,
+} from '../advertisers/insights';
 import type { CreateCampaignInput, CreativeInput, TargetingInput } from './schemas';
 
 /**
@@ -15,6 +20,15 @@ import type { CreateCampaignInput, CreativeInput, TargetingInput } from './schem
 export type CampaignWithDetail = Prisma.CampaignGetPayload<{
   include: { targeting: true; creatives: true };
 }>;
+
+/**
+ * A campaign as the list shows it: its configuration plus how it is doing.
+ *
+ * Delivery is attached here rather than fetched per row, because a list that
+ * only shows budget cannot answer the one question an advertiser opens it to
+ * ask — which of these is actually being seen and clicked.
+ */
+export type CampaignListItem = CampaignWithDetail & { metrics: CampaignMetrics };
 
 async function assertOwnership(campaignId: string, advertiserId: string): Promise<Campaign> {
   const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
@@ -56,12 +70,18 @@ export async function createCampaign(
   });
 }
 
-export async function listCampaigns(advertiserId: string): Promise<CampaignWithDetail[]> {
-  return prisma.campaign.findMany({
+export async function listCampaigns(advertiserId: string): Promise<CampaignListItem[]> {
+  const campaigns = await prisma.campaign.findMany({
     where: { advertiserId },
     include: { targeting: true, creatives: true },
     orderBy: { createdAt: 'desc' },
   });
+
+  const metrics = await campaignMetrics(campaigns);
+  return campaigns.map((campaign) => ({
+    ...campaign,
+    metrics: metrics.get(campaign.id) ?? emptyCampaignMetrics(),
+  }));
 }
 
 export async function getCampaign(

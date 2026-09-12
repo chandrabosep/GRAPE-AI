@@ -25,8 +25,22 @@ interface Overview {
   impressions: number;
   qualifiedImpressions: number;
   clicks: number;
+  viewRate: number;
+  clickThroughRate: number;
+  costPerClickMicro: string | null;
+  costPerMilleMicro: string | null;
   rewardPaidMicro: string;
   averageRelevance: number;
+}
+
+/** Lifetime delivery for one campaign, as the list row shows it. */
+interface CampaignMetrics {
+  impressions: number;
+  qualified: number;
+  clicks: number;
+  clickThroughRate: number;
+  costPerClickMicro: string | null;
+  costPerMilleMicro: string | null;
 }
 
 interface Campaign {
@@ -36,12 +50,18 @@ interface Campaign {
   budgetMicro: string;
   spentMicro: string;
   bidMicro: string;
+  metrics: CampaignMetrics;
   targeting: {
     aiIntents: string[];
     technologies: string[];
     onchainMode: string;
   } | null;
   creatives: { headline: string }[];
+}
+
+/** Rates are read at a glance, so one decimal is all that helps. */
+function percent(value: number | undefined): string {
+  return `${((value ?? 0) * 100).toFixed(1)}%`;
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -154,29 +174,59 @@ export default function AdvertiserDashboard() {
         <Button nativeButton={false} render={<Link href="/advertise/campaigns/new" />}>New campaign</Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Spent"
-          value={formatCredits(overview?.spentMicro, 2)}
-          hint={`of ${formatCredits(overview?.budgetMicro, 2)} funded`}
-        />
-        <StatCard
-          label="Qualified impressions"
-          value={(overview?.qualifiedImpressions ?? 0).toLocaleString()}
-          hint={`${overview?.impressions ?? 0} selected, ${overview?.clicks ?? 0} clicked`}
-        />
-        <StatCard
-          label="Average relevance"
-          value={(overview?.averageRelevance ?? 0).toFixed(3)}
-          hint="Auction score of your winning impressions"
-        />
-        <StatCard
-          label="Paid to developers"
-          value={formatCredits(overview?.rewardPaidMicro)}
-          hint="70% of what you were charged"
-          accent
-        />
-      </div>
+      {/* All time. Read left to right it is the funnel itself: impressions
+          served, of those the ones confirmed on screen, of those the ones
+          clicked — then what that attention cost and where the money went. */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">All time</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Every campaign you have ever run.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard
+            label="Impressions"
+            value={(overview?.impressions ?? 0).toLocaleString()}
+            hint={`${(overview?.qualifiedImpressions ?? 0).toLocaleString()} qualified · ${percent(
+              overview?.viewRate,
+            )} actually looked at`}
+          />
+          <StatCard
+            label="Clicks"
+            value={(overview?.clicks ?? 0).toLocaleString()}
+            hint="Taps through to your link"
+          />
+          <StatCard
+            label="Click-through rate"
+            value={overview ? percent(overview.clickThroughRate) : '—'}
+            hint="Clicks per qualified impression"
+          />
+          <StatCard
+            label="Cost per click"
+            value={
+              overview?.costPerClickMicro ? formatCredits(overview.costPerClickMicro, 4) : '—'
+            }
+            hint={
+              overview?.costPerMilleMicro
+                ? `${formatCredits(overview.costPerMilleMicro, 2)} per 1,000 qualified`
+                : 'No clicks yet'
+            }
+          />
+          <StatCard
+            label="Spent"
+            value={formatCredits(overview?.spentMicro, 2)}
+            hint={`of ${formatCredits(overview?.budgetMicro, 2)} funded`}
+          />
+          <StatCard
+            label="Paid to developers"
+            value={formatCredits(overview?.rewardPaidMicro)}
+            hint="70% of what you were charged"
+            accent
+          />
+        </div>
+      </section>
 
       {overview && Number(overview.budgetMicro) > 0 && (
         <Card>
@@ -224,18 +274,18 @@ export default function AdvertiserDashboard() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
+            label="Impressions"
+            value={(insights?.totals.impressions ?? 0).toLocaleString()}
+            hint={`${(insights?.totals.qualified ?? 0).toLocaleString()} qualified · ${percent(
+              insights?.totals.viewRate,
+            )} view rate`}
+          />
+          <StatCard
             label="Click-through rate"
-            value={
-              insights ? `${(insights.totals.clickThroughRate * 100).toFixed(1)}%` : '—'
-            }
+            value={insights ? percent(insights.totals.clickThroughRate) : '—'}
             hint={`${(insights?.totals.clicks ?? 0).toLocaleString()} clicks on ${(
               insights?.totals.qualified ?? 0
             ).toLocaleString()} qualified`}
-          />
-          <StatCard
-            label="View rate"
-            value={insights ? `${(insights.totals.viewRate * 100).toFixed(1)}%` : '—'}
-            hint="Selected impressions a developer actually looked at"
           />
           <StatCard
             label="Cost per click"
@@ -303,11 +353,36 @@ export default function AdvertiserDashboard() {
                     </div>
                   </div>
 
-                  <div className="text-right text-sm tabular-nums">
-                    <div>{formatCredits(remaining, 2)} left</div>
-                    <div className="text-muted-foreground text-xs">
-                      {formatCredits(campaign.bidMicro)} per impression
-                    </div>
+                  {/* Delivery on the row itself: which campaign is being seen
+                      and clicked is the reason this list is opened, and it was
+                      previously only answerable one campaign at a time. */}
+                  <div className="flex shrink-0 flex-wrap items-start gap-x-6 gap-y-2 text-right text-sm tabular-nums">
+                    <RowMetric
+                      label="Impressions"
+                      value={campaign.metrics.impressions.toLocaleString()}
+                      hint={`${campaign.metrics.qualified.toLocaleString()} qualified`}
+                    />
+                    <RowMetric
+                      label="CTR"
+                      value={percent(campaign.metrics.clickThroughRate)}
+                      hint={`${campaign.metrics.clicks.toLocaleString()} click${
+                        campaign.metrics.clicks === 1 ? '' : 's'
+                      }`}
+                    />
+                    <RowMetric
+                      label="Cost per click"
+                      value={
+                        campaign.metrics.costPerClickMicro
+                          ? formatCredits(campaign.metrics.costPerClickMicro, 4)
+                          : '—'
+                      }
+                      hint={formatCredits(campaign.bidMicro) + ' bid'}
+                    />
+                    <RowMetric
+                      label="Remaining"
+                      value={formatCredits(remaining, 2)}
+                      hint={`${formatCredits(campaign.spentMicro, 2)} spent`}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -323,6 +398,25 @@ export default function AdvertiserDashboard() {
           </Card>
         )}
       </div>
+    </div>
+  );
+}
+
+/** One number on a campaign row. Label above, so four of them read as a table. */
+function RowMetric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="min-w-[84px] text-right">
+      <div className="text-muted-foreground text-[10px] tracking-wide uppercase">{label}</div>
+      <div className="text-sm font-medium tabular-nums">{value}</div>
+      {hint && <div className="text-muted-foreground text-[10px] tabular-nums">{hint}</div>}
     </div>
   );
 }

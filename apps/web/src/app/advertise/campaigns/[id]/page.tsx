@@ -258,16 +258,25 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
             <p className="text-muted-foreground mt-1 text-sm">Last 30 days.</p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* The funnel first — impressions, then clicks, then the two rates
+              derived from them — so a rate always has its counts beside it. */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard
+              label="Impressions"
+              value={insights.totals.impressions.toLocaleString()}
+              hint={`${insights.totals.qualified.toLocaleString()} qualified · ${(
+                insights.totals.viewRate * 100
+              ).toFixed(1)}% actually looked at`}
+            />
+            <StatCard
+              label="Clicks"
+              value={insights.totals.clicks.toLocaleString()}
+              hint="Taps through to your link"
+            />
             <StatCard
               label="Click-through rate"
               value={`${(insights.totals.clickThroughRate * 100).toFixed(1)}%`}
-              hint={`${insights.totals.clicks.toLocaleString()} clicks`}
-            />
-            <StatCard
-              label="View rate"
-              value={`${(insights.totals.viewRate * 100).toFixed(1)}%`}
-              hint={`${insights.totals.qualified.toLocaleString()} of ${insights.totals.impressions.toLocaleString()} looked at`}
+              hint="Clicks per qualified impression"
             />
             <StatCard
               label="Cost per click"
@@ -276,7 +285,16 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
                   ? formatCredits(insights.totals.costPerClickMicro, 4)
                   : '—'
               }
-              hint="Spend divided by clicks in the window"
+              hint={
+                insights.totals.costPerMilleMicro
+                  ? `${formatCredits(insights.totals.costPerMilleMicro, 2)} per 1,000 qualified`
+                  : 'No clicks in this window yet'
+              }
+            />
+            <StatCard
+              label="Spend in window"
+              value={formatCredits(insights.totals.spendMicro, 2)}
+              hint={`${formatCredits(insights.totals.rewardMicro, 2)} reached developers`}
             />
             <StatCard
               label="Average relevance"

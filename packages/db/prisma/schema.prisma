@@ -649,6 +649,8 @@ enum PaymentKind {
   x402_inference
   reward_payout
   plan_purchase
+  /// A user sending USDC on chain to buy credits.
+  credit_topup
 }
 
 enum PaymentStatus {

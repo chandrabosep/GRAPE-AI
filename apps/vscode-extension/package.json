@@ -65,6 +65,14 @@
       {
         "command": "aiMarketplace.openDashboard",
         "title": "AI Marketplace: Open Dashboard"
+      },
+      {
+        "command": "aiMarketplace.topUp",
+        "title": "AI Marketplace: Add Credits"
+      },
+      {
+        "command": "aiMarketplace.withdraw",
+        "title": "AI Marketplace: Withdraw Earnings"
       }
     ],
     "menus": {

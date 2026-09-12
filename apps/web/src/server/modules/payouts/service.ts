@@ -12,7 +12,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { hederaTestnet } from 'viem/chains';
 import { env } from '../../config/index';
-import { AppError } from '../../lib/errors';
+import { AppError } from '@aam/shared';
 import { debitPayout, withdrawableMicro } from '../credits/service';
 
 /**
@@ -38,7 +38,7 @@ function toTokenUnits(amountMicro: bigint): bigint {
 function poolAddress(): Hex {
   const address = env().REWARD_POOL_ADDRESS;
   if (!address) {
-    throw new AppError('unavailable', 'Withdrawals are not configured on this deployment');
+    throw new AppError('upstream_unavailable', 'Withdrawals are not configured on this deployment');
   }
   return getAddress(address);
 }
@@ -46,7 +46,7 @@ function poolAddress(): Hex {
 function operator() {
   const key = env().OPERATOR_PRIVATE_KEY;
   if (!key) {
-    throw new AppError('unavailable', 'Withdrawals are not configured on this deployment');
+    throw new AppError('upstream_unavailable', 'Withdrawals are not configured on this deployment');
   }
   return privateKeyToAccount((key.startsWith('0x') ? key : `0x${key}`) as Hex);
 }
@@ -81,14 +81,14 @@ export interface WithdrawResult {
 
 export async function withdraw(input: WithdrawInput): Promise<WithdrawResult> {
   if (input.amountMicro <= 0n) {
-    throw new AppError('bad_request', 'Withdrawal amount must be positive');
+    throw new AppError('validation_failed', 'Withdrawal amount must be positive');
   }
 
   let to: Hex;
   try {
     to = getAddress(input.to);
   } catch {
-    throw new AppError('bad_request', 'Not a valid EVM address');
+    throw new AppError('validation_failed', 'Not a valid EVM address');
   }
 
   // Checked before the debit purely so the caller gets a useful message; the
@@ -122,7 +122,7 @@ export async function withdraw(input: WithdrawInput): Promise<WithdrawResult> {
     // The debit stands. That is the safe direction to fail: the user is owed,
     // not overpaid, and the same payout id can be replayed to settle it.
     await recordPayment({ payoutId, userId: input.userId, to, amountMicro: input.amountMicro, txId: `failed:${payoutId}`, status: 'failed' });
-    throw new AppError('unavailable', 'Payout could not be submitted; it will be retried', {
+    throw new AppError('upstream_unavailable', 'Payout could not be submitted; it will be retried', {
       payoutId,
       cause: (cause as Error).message,
     });
@@ -134,7 +134,7 @@ export async function withdraw(input: WithdrawInput): Promise<WithdrawResult> {
   await recordPayment({ payoutId, userId: input.userId, to, amountMicro: input.amountMicro, txId: txHash, status });
 
   if (status === 'failed') {
-    throw new AppError('unavailable', 'Payout transaction reverted', { payoutId, txHash });
+    throw new AppError('upstream_unavailable', 'Payout transaction reverted', { payoutId, txHash });
   }
 
   return {

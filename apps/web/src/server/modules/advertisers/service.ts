@@ -59,11 +59,25 @@ export interface AdvertiserOverview {
   activeCampaigns: number;
   budgetMicro: bigint;
   spentMicro: bigint;
+  /** Impressions that won an auction, whether or not they were then confirmed. */
   impressions: number;
+  /** Of those, the ones a client confirmed were on screen. Only these are billed. */
   qualifiedImpressions: number;
   clicks: number;
+  /** Qualified over selected: how often a served ad was actually looked at. */
+  viewRate: number;
+  /** Clicks over qualified impressions, 0..1. */
+  clickThroughRate: number;
+  /** Spend per click, micro-USD. Null until there is a click to divide by. */
+  costPerClickMicro: bigint | null;
+  /** Spend per thousand qualified impressions, micro-USD. */
+  costPerMilleMicro: bigint | null;
   rewardPaidMicro: bigint;
   averageRelevance: number;
+}
+
+function ratio(numerator: number, denominator: number): number {
+  return denominator > 0 ? numerator / denominator : 0;
 }
 
 /**
@@ -90,6 +104,10 @@ export async function advertiserOverview(advertiserId: string): Promise<Advertis
       impressions: 0,
       qualifiedImpressions: 0,
       clicks: 0,
+      viewRate: 0,
+      clickThroughRate: 0,
+      costPerClickMicro: null,
+      costPerMilleMicro: null,
       rewardPaidMicro: 0n,
       averageRelevance: 0,
     };
@@ -111,14 +129,23 @@ export async function advertiserOverview(advertiserId: string): Promise<Advertis
     }),
   ]);
 
+  // Spend comes from the campaign rows, not from re-summing impressions: that
+  // column is what the budget bar and the ledger already agree on, so a cost per
+  // click derived from it can never disagree with the spend shown beside it.
+  const spentMicro = campaigns.reduce((sum, c) => sum + c.spentMicro, 0n);
+
   return {
     campaignCount: campaigns.length,
     activeCampaigns: campaigns.filter((c) => c.status === 'active').length,
     budgetMicro: campaigns.reduce((sum, c) => sum + c.budgetMicro, 0n),
-    spentMicro: campaigns.reduce((sum, c) => sum + c.spentMicro, 0n),
+    spentMicro,
     impressions,
     qualifiedImpressions: qualified,
     clicks,
+    viewRate: ratio(qualified, impressions),
+    clickThroughRate: ratio(clicks, qualified),
+    costPerClickMicro: clicks > 0 ? spentMicro / BigInt(clicks) : null,
+    costPerMilleMicro: qualified > 0 ? (spentMicro * 1000n) / BigInt(qualified) : null,
     rewardPaidMicro: rewards._sum.amountMicro ?? 0n,
     averageRelevance: Number(relevance._avg.scoreTotal ?? 0),
   };

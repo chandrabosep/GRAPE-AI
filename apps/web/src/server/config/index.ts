@@ -67,6 +67,12 @@ const envSchema = z.object({
   USDC_ADDRESS: z.string().default('0x0000000000000000000000000000000000001549'),
   OPERATOR_PRIVATE_KEY: z.string().optional(),
 
+  // Top-ups are verified against the mirror node, which speaks Hedera ids
+  // rather than EVM addresses — so the treasury and the token are configured
+  // in that form alongside their EVM equivalents above.
+  TREASURY_ACCOUNT_ID: z.string().regex(/^\d+\.\d+\.\d+$/).optional(),
+  USDC_TOKEN_ID: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.0.5449'),
+
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3001'),
 });
 

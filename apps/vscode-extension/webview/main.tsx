@@ -16,10 +16,16 @@ import { STYLES } from './styles';
  * Chat UI.
  *
  * The turn is the unit: a question, the streaming answer, and — as siblings of
- * the answer, never inside it — the two sponsored slots. The inline line sits
- * above the answer where the waiting happens; the card sits below it, under a
- * rule. Modelling it this way makes it structurally impossible to render an ad
- * as if the assistant wrote it.
+ * the answer, never inside it — the sponsored slot. Modelling it this way makes
+ * it structurally impossible to render an ad as if the assistant wrote it.
+ *
+ * A turn shows *one* ad at a time, never both. While the answer is still being
+ * produced the inline line sits above it, in the space the developer is already
+ * waiting in; once the answer is finished that line is retired and the banner
+ * card takes over below it. Two sponsored things competing for attention in a
+ * single turn is one too many, and the two formats were designed for different
+ * moments anyway — the line for dead time, the card for a developer who has
+ * finished reading.
  */
 
 /** Openers that actually reach a campaign, so the first try is never a dead end. */
@@ -370,88 +376,109 @@ function App() {
           </div>
         )}
 
-        {turns.map((turn, index) => (
-          <div className="turn" key={turn.id}>
-            <div className="question">
-              <div className="question-bubble">{turn.question}</div>
-            </div>
+        {turns.map((turn, index) => {
+          /**
+           * One slot at a time.
+           *
+           * While the turn is working — thinking, or streaming — the inline
+           * line is the sponsored slot; the card is held back even if the
+           * banner auction has already resolved. Once the answer is done the
+           * line is retired and the card takes its place.
+           *
+           * The exception is a turn that won no banner at all: pulling the
+           * line away then would leave the finished answer with nothing where
+           * an ad had just been, which reads as a glitch rather than as a
+           * handover. Either way, only ever one of the two is on screen.
+           */
+          const working = turn.streaming;
+          const showInlineAd = Boolean(turn.inlineAd) && (working || !turn.ad);
+          const showBannerAd = Boolean(turn.ad) && !working;
 
-            {/* Above the answer, where the waiting is. A sibling of it, never
-                inside it. */}
-            {turn.inlineAd && (
-              <InlineAd
-                ad={turn.inlineAd as SponsoredAd}
-                onVisible={(impressionId, visibleMs) =>
-                  vscode.postMessage({ type: 'adVisible', id: turn.id, impressionId, visibleMs })
-                }
-                onClick={(impressionId, url) =>
-                  vscode.postMessage({ type: 'adClick', id: turn.id, impressionId, url })
-                }
-                onDismiss={(impressionId) => {
-                  vscode.postMessage({ type: 'adDismiss', impressionId });
-                  patchTurn(turn.id, { inlineAd: null });
-                }}
-              />
-            )}
-
-            <ToolTrail
-              activities={turn.tools}
-              onApprove={(toolUseId) => vscode.postMessage({ type: 'approveWrite', toolUseId })}
-              onReject={(toolUseId) => vscode.postMessage({ type: 'rejectWrite', toolUseId })}
-              onReview={(toolUseId) => vscode.postMessage({ type: 'reviewWrite', toolUseId })}
-            />
-
-            <Answer text={turn.answer} streaming={turn.streaming} />
-
-            {turn.error && <div className="error">{turn.error}</div>}
-
-            {!turn.streaming && turn.answer && (
-              <div className="answer-actions">
-                <CopyButton
-                  label="Copy answer"
-                  onCopy={() => vscode.postMessage({ type: 'copy', text: turn.answer })}
-                />
-                <IconButton
-                  label="Insert answer at cursor"
-                  onClick={() => vscode.postMessage({ type: 'insertCode', code: turn.answer })}
-                >
-                  <InsertIcon />
-                </IconButton>
-                {index === turns.length - 1 && (
-                  <IconButton label="Regenerate answer" onClick={() => regenerate(turn)}>
-                    <RegenerateIcon />
-                  </IconButton>
-                )}
-                {/* What the answer cost, next to what the card earns: the whole
-                    product argument, stated in the two numbers themselves. */}
-                {turn.usage && (
-                  <span className="answer-cost">
-                    {turn.usage.totalTokens.toLocaleString()} tokens ·{' '}
-                    {formatCredits(turn.usage.costMicro)}
-                  </span>
-                )}
+          return (
+            <div className="turn" key={turn.id}>
+              <div className="question">
+                <div className="question-bubble">{turn.question}</div>
               </div>
-            )}
 
-            {/* A sibling of the answer, never inside it. */}
-            {turn.ad && (
-              <AdCard
-                ad={turn.ad as SponsoredAd}
-                rewardMicro={turn.rewardMicro}
-                onVisible={(impressionId, visibleMs) =>
-                  vscode.postMessage({ type: 'adVisible', id: turn.id, impressionId, visibleMs })
-                }
-                onClick={(impressionId, url) =>
-                  vscode.postMessage({ type: 'adClick', id: turn.id, impressionId, url })
-                }
-                onDismiss={(impressionId) => {
-                  vscode.postMessage({ type: 'adDismiss', impressionId });
-                  patchTurn(turn.id, { ad: null });
-                }}
+              {/* Above the answer, where the waiting is. A sibling of it, never
+                  inside it — and only while the turn is still working, so it is
+                  never on screen at the same time as the card below. */}
+              {showInlineAd && (
+                <InlineAd
+                  ad={turn.inlineAd as SponsoredAd}
+                  onVisible={(impressionId, visibleMs) =>
+                    vscode.postMessage({ type: 'adVisible', id: turn.id, impressionId, visibleMs })
+                  }
+                  onClick={(impressionId, url) =>
+                    vscode.postMessage({ type: 'adClick', id: turn.id, impressionId, url })
+                  }
+                  onDismiss={(impressionId) => {
+                    vscode.postMessage({ type: 'adDismiss', impressionId });
+                    patchTurn(turn.id, { inlineAd: null });
+                  }}
+                />
+              )}
+
+              <ToolTrail
+                activities={turn.tools}
+                onApprove={(toolUseId) => vscode.postMessage({ type: 'approveWrite', toolUseId })}
+                onReject={(toolUseId) => vscode.postMessage({ type: 'rejectWrite', toolUseId })}
+                onReview={(toolUseId) => vscode.postMessage({ type: 'reviewWrite', toolUseId })}
               />
-            )}
-          </div>
-        ))}
+
+              <Answer text={turn.answer} streaming={turn.streaming} />
+
+              {turn.error && <div className="error">{turn.error}</div>}
+
+              {!turn.streaming && turn.answer && (
+                <div className="answer-actions">
+                  <CopyButton
+                    label="Copy answer"
+                    onCopy={() => vscode.postMessage({ type: 'copy', text: turn.answer })}
+                  />
+                  <IconButton
+                    label="Insert answer at cursor"
+                    onClick={() => vscode.postMessage({ type: 'insertCode', code: turn.answer })}
+                  >
+                    <InsertIcon />
+                  </IconButton>
+                  {index === turns.length - 1 && (
+                    <IconButton label="Regenerate answer" onClick={() => regenerate(turn)}>
+                      <RegenerateIcon />
+                    </IconButton>
+                  )}
+                  {/* What the answer cost, next to what the card earns: the whole
+                      product argument, stated in the two numbers themselves. */}
+                  {turn.usage && (
+                    <span className="answer-cost">
+                      {turn.usage.totalTokens.toLocaleString()} tokens ·{' '}
+                      {formatCredits(turn.usage.costMicro)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* A sibling of the answer, never inside it. It takes over from
+                  the inline line once the answer is finished. */}
+              {showBannerAd && (
+                <AdCard
+                  ad={turn.ad as SponsoredAd}
+                  rewardMicro={turn.rewardMicro}
+                  onVisible={(impressionId, visibleMs) =>
+                    vscode.postMessage({ type: 'adVisible', id: turn.id, impressionId, visibleMs })
+                  }
+                  onClick={(impressionId, url) =>
+                    vscode.postMessage({ type: 'adClick', id: turn.id, impressionId, url })
+                  }
+                  onDismiss={(impressionId) => {
+                    vscode.postMessage({ type: 'adDismiss', impressionId });
+                    patchTurn(turn.id, { ad: null });
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {notice && <div className="toast">{notice}</div>}

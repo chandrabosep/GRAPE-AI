@@ -94,6 +94,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aiMarketplace.openDashboard', async () => {
       await vscode.env.openExternal(vscode.Uri.parse(`${apiUrl()}/app`));
     }),
+
+    // Money moves in the browser, not in the editor. Both of these open a web
+    // page rather than doing the transfer here, so the extension never holds a
+    // private key and never needs one.
+    vscode.commands.registerCommand('aiMarketplace.topUp', async () => {
+      await vscode.env.openExternal(vscode.Uri.parse(`${apiUrl()}/app/topup`));
+    }),
+
+    vscode.commands.registerCommand('aiMarketplace.withdraw', async () => {
+      await vscode.env.openExternal(vscode.Uri.parse(`${apiUrl()}/app/withdraw`));
+    }),
   );
 
   void statusBar.refresh();

@@ -301,3 +301,94 @@ async function topIntents(
 
   return grouped.map((row) => ({ intent: row.intent, impressions: row._count._all }));
 }
+
+/**
+ * Lifetime delivery and efficiency for a set of campaigns, keyed by campaign id.
+ *
+ * This is what the campaign list shows on each row, so that "is this one
+ * working" is answerable without opening it. Spend comes from the campaign's
+ * own `spentMicro` rather than being re-summed from impressions: that column is
+ * what the budget bar and the ledger already agree on, and a row whose cost per
+ * click disagreed with the spend shown beside it would be worse than no number.
+ */
+export interface CampaignMetrics {
+  /** Impressions that won an auction. */
+  impressions: number;
+  /** Of those, the ones a client confirmed were on screen. Only these are billed. */
+  qualified: number;
+  clicks: number;
+  /** Clicks over qualified impressions, 0..1. */
+  clickThroughRate: number;
+  /** Spend per click, micro-USD. Null until there is a click to divide by. */
+  costPerClickMicro: string | null;
+  /** Spend per thousand qualified impressions, micro-USD. */
+  costPerMilleMicro: string | null;
+}
+
+const EMPTY_METRICS: CampaignMetrics = {
+  impressions: 0,
+  qualified: 0,
+  clicks: 0,
+  clickThroughRate: 0,
+  costPerClickMicro: null,
+  costPerMilleMicro: null,
+};
+
+export function emptyCampaignMetrics(): CampaignMetrics {
+  return { ...EMPTY_METRICS };
+}
+
+export async function campaignMetrics(
+  campaigns: { id: string; spentMicro: bigint }[],
+): Promise<Map<string, CampaignMetrics>> {
+  const byCampaign = new Map<string, CampaignMetrics>();
+  if (campaigns.length === 0) return byCampaign;
+
+  const campaignIds = campaigns.map((c) => c.id);
+  const where = { campaignId: { in: campaignIds } };
+
+  const [served, qualified, clicks] = await Promise.all([
+    prisma.adImpression.groupBy({ by: ['campaignId'], where, _count: { _all: true } }),
+    prisma.adImpression.groupBy({
+      by: ['campaignId'],
+      where: { ...where, qualified: true },
+      _count: { _all: true },
+    }),
+    // Engagements carry an impression id rather than a campaign id, so the
+    // grouping happens here. Bounded by clicks, which is the smallest of the
+    // three counts by construction.
+    prisma.adEngagement.findMany({
+      where: { type: 'click', impression: where },
+      select: { impression: { select: { campaignId: true } } },
+    }),
+  ]);
+
+  const servedBy = new Map(served.map((row) => [row.campaignId, row._count._all]));
+  const qualifiedBy = new Map(qualified.map((row) => [row.campaignId, row._count._all]));
+  const clicksBy = new Map<string, number>();
+  for (const click of clicks) {
+    const id = click.impression.campaignId;
+    clicksBy.set(id, (clicksBy.get(id) ?? 0) + 1);
+  }
+
+  for (const campaign of campaigns) {
+    const impressions = servedBy.get(campaign.id) ?? 0;
+    const qualifiedCount = qualifiedBy.get(campaign.id) ?? 0;
+    const clickCount = clicksBy.get(campaign.id) ?? 0;
+
+    byCampaign.set(campaign.id, {
+      impressions,
+      qualified: qualifiedCount,
+      clicks: clickCount,
+      clickThroughRate: ratio(clickCount, qualifiedCount),
+      costPerClickMicro:
+        clickCount > 0 ? (campaign.spentMicro / BigInt(clickCount)).toString() : null,
+      costPerMilleMicro:
+        qualifiedCount > 0
+          ? ((campaign.spentMicro * 1000n) / BigInt(qualifiedCount)).toString()
+          : null,
+    });
+  }
+
+  return byCampaign;
+}
