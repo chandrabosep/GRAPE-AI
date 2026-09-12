@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { PixelQuilt } from '@/components/app/pixel-quilt';
 import { Eyebrow, Section, Shell, Stamp } from '@/components/app/section';
 
 const ACTORS = [
@@ -51,10 +52,22 @@ export default function LandingPage() {
        * a 55/45 split in front, and the boarding pass laid over the right of
        * the sky. Everything below it sits on the flat void with no dividers —
        * the rhythm comes from the section gap and the stamps, not from bands.
+       *
+       * The sky is a pixel quilt whose hot core sits in the top right, which
+       * is what decides this layout's two halves: the headline keeps the
+       * bottom-left quadrant, where the quilt has already fallen back to void
+       * black, and the boarding pass sits over the mid-violet band below the
+       * core, where white type still holds against frosted glass.
+       *
+       * The vapor trail that used to cross this sky is gone. One smooth
+       * hairline arc over hard-edged cells read as two unrelated drawings in
+       * the same frame, and between a streak and the quilt, the quilt is the
+       * thing carrying the hero.
        */}
       <section className="relative isolate overflow-hidden">
-        <div className="atmosphere" aria-hidden="true" />
-        <VaporTrail />
+        <div className="atmosphere" aria-hidden="true">
+          <PixelQuilt className="atmosphere__quilt" />
+        </div>
 
         <Shell className="relative grid gap-14 pt-24 pb-28 md:pt-32 md:pb-36 lg:grid-cols-[55fr_45fr] lg:items-center lg:gap-16">
           <div className="rise">
@@ -312,41 +325,6 @@ function Route() {
 }
 
 /* --- line glyphs ---------------------------------------------------------- */
-
-/**
- * The vapor trail.
- *
- * The source's hero photograph has a single aircraft light streaking across the
- * sky, and it is the image everyone remembers the page by. There is no
- * photograph here, so the streak is drawn instead: one hairline arc that draws
- * itself once on load and then stays put.
- */
-function VaporTrail() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 1200 400"
-      preserveAspectRatio="none"
-      className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] w-full opacity-70"
-    >
-      <defs>
-        <linearGradient id="trail-fade" x1="0" x2="1">
-          <stop offset="0%" stopColor="var(--color-signal-violet)" stopOpacity="0" />
-          <stop offset="55%" stopColor="var(--color-lavender-mist)" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="var(--color-almost-white)" stopOpacity="0.9" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M-40 300 C 260 250, 520 150, 900 70 S 1180 20, 1240 8"
-        fill="none"
-        stroke="url(#trail-fade)"
-        strokeWidth="1"
-        strokeDasharray="760"
-        className="trail"
-      />
-    </svg>
-  );
-}
 
 function Ticket() {
   return (

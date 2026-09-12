@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import type { SponsoredAd } from '@aam/shared';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import {
+  bannerAspectRatio,
+  creativeImageLayout,
+  type CreativeImageLayout,
+  type SponsoredAd,
+} from '@aam/shared';
 
 /**
  * The sponsored card.
@@ -13,6 +18,11 @@ import type { SponsoredAd } from '@aam/shared';
  * The dwell timer is what turns attention into money. The card must be
  * genuinely on screen for a full second before it is acknowledged, so scrolling
  * past earns nothing.
+ *
+ * Artwork comes in two shapes and the card sorts them out itself: a wide
+ * creative is drawn as a banner across the top, anything squarer stays the
+ * thumbnail beside the copy. See `creativeImageLayout` for why the image is
+ * asked rather than the advertiser.
  */
 
 const DWELL_MS = 1000;
@@ -56,6 +66,22 @@ export function AdCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  /**
+   * Null until the artwork has loaded and reported its own proportions. The
+   * slot stays out of the layout until then: reserving a 76px square and then
+   * growing it into a full-width banner is a visible lurch in a card that has
+   * only just animated in.
+   */
+  const [artwork, setArtwork] = useState<{
+    layout: CreativeImageLayout;
+    aspect: number;
+  } | null>(null);
+
+  // A reused instance must not keep the previous creative's measurements.
+  useEffect(() => {
+    setArtwork(null);
+    setImageFailed(false);
+  }, [ad.imageUrl]);
 
   useEffect(() => {
     const element = ref.current;
@@ -96,27 +122,42 @@ export function AdCard({
     return () => window.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
+  const measure = (event: SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    setArtwork({
+      layout: creativeImageLayout(naturalWidth, naturalHeight),
+      aspect: bannerAspectRatio(naturalWidth, naturalHeight),
+    });
+  };
+
   const showImage = Boolean(ad.imageUrl) && !imageFailed;
+  const isBanner = showImage && artwork?.layout === 'banner';
 
   return (
     <div className="ad-slot" ref={ref}>
       <div className="ad-rule" />
 
-      <div className="ad-card">
-        <div className="ad-media">
-          {showImage ? (
+      <div className={isBanner ? 'ad-card ad-card-banner' : 'ad-card'}>
+        {showImage ? (
+          <div
+            className={`ad-media ad-media-${artwork?.layout ?? 'pending'}`}
+            style={isBanner ? { aspectRatio: String(artwork?.aspect) } : undefined}
+          >
             <img
               src={ad.imageUrl ?? ''}
               alt=""
+              onLoad={measure}
               onError={() => setImageFailed(true)}
               onClick={() => onClick(ad.impressionId, ad.ctaUrl)}
             />
-          ) : (
+          </div>
+        ) : (
+          <div className="ad-media ad-media-thumbnail">
             <div className="ad-media-fallback" onClick={() => onClick(ad.impressionId, ad.ctaUrl)}>
               <AdvertiserMark name={ad.advertiserName} />
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="ad-content">
           <div className="ad-meta">

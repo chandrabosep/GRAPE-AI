@@ -1,8 +1,13 @@
+'use client';
+
+import { useEffect, useState, type SyntheticEvent } from 'react';
+import { bannerAspectRatio, creativeImageLayout, type CreativeImageLayout } from '@aam/shared';
+
 /**
  * The sponsored card as the developer actually sees it in VS Code.
  *
  * It exists so an advertiser is never shown a flattering mock-up: the structure
- * here — separator, thumbnail, advertiser name, permanent `Ad` badge, headline,
+ * here — separator, artwork, advertiser name, permanent `Ad` badge, headline,
  * body, call to action — mirrors `apps/vscode-extension/webview/AdCard.tsx`. If
  * one changes, the other should change with it, because a preview that lies is
  * worse than no preview.
@@ -13,6 +18,11 @@
  * and pretending otherwise by picking one theme would be its own kind of lie.
  * What the advertiser needs from this is how little room their copy gets and
  * what sits in front of it, and both survive the recolouring.
+ *
+ * The artwork layout is not mirrored by hand either: the same
+ * `creativeImageLayout` the card uses decides here whether the image they
+ * pasted is a banner or a thumbnail, so the preview cannot promise a banner the
+ * editor would draw as a 76px square.
  */
 
 interface Props {
@@ -44,23 +54,69 @@ export function SponsoredPreview({
 }: Props) {
   const mark = monogram(advertiserName || 'Advertiser');
 
+  const [artwork, setArtwork] = useState<{
+    layout: CreativeImageLayout;
+    aspect: number;
+  } | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  // The advertiser is typing this URL, so every keystroke is a different image.
+  useEffect(() => {
+    setArtwork(null);
+    setImageFailed(false);
+  }, [imageUrl]);
+
+  const measure = (event: SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    setArtwork({
+      layout: creativeImageLayout(naturalWidth, naturalHeight),
+      aspect: bannerAspectRatio(naturalWidth, naturalHeight),
+    });
+  };
+
+  const showImage = Boolean(imageUrl) && !imageFailed;
+  const isBanner = showImage && artwork?.layout === 'banner';
+
+  // Kept out of the layout until the image has reported its proportions, so a
+  // banner does not first appear as a square and then jump.
+  const mediaClass = !artwork
+    ? 'hidden'
+    : artwork.layout === 'banner'
+      ? 'bg-wash-strong w-full overflow-hidden rounded-lg'
+      : 'bg-wash-strong size-19 shrink-0 overflow-hidden rounded-lg';
+
   return (
     <div className="max-w-md space-y-3">
       <div className="bg-hairline h-px" />
 
-      <div className="border-hairline bg-wash flex items-start gap-3 rounded-[10.8px] border p-3">
-        <div className="bg-wash-strong flex size-19 shrink-0 items-center justify-center overflow-hidden rounded-lg">
-          {imageUrl ? (
-            // Creative artwork is advertiser-supplied, so it stays a plain img
-            // rather than going through the image optimiser.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={imageUrl} alt="" className="size-full object-cover" />
-          ) : (
+      <div
+        className={`border-hairline bg-wash flex rounded-[10.8px] border p-3 ${
+          isBanner ? 'flex-col gap-2.5' : 'items-start gap-3'
+        }`}
+      >
+        {showImage ? (
+          <div
+            className={mediaClass}
+            style={isBanner ? { aspectRatio: String(artwork?.aspect) } : undefined}
+          >
+            {/* Creative artwork is advertiser-supplied, so it stays a plain img
+                rather than going through the image optimiser. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl ?? ''}
+              alt=""
+              onLoad={measure}
+              onError={() => setImageFailed(true)}
+              className="size-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="bg-wash-strong flex size-19 shrink-0 items-center justify-center overflow-hidden rounded-lg">
             <span className="bg-wash-strong text-steel flex size-8 items-center justify-center rounded-full text-[11px]">
               {mark}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-center gap-1.5">

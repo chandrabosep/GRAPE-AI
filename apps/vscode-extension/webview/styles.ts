@@ -172,13 +172,30 @@ export const STYLES = `
   .ad-card:hover { border-color: var(--vscode-focusBorder); }
 
   .ad-media { flex: 0 0 auto; }
-  .ad-media img, .ad-media-fallback {
+  /* Held out of the layout until the artwork reports its own proportions, so
+     the slot appears once at its final size rather than reserving a square and
+     then growing into a banner. A display:none image still loads. */
+  .ad-media-pending { display: none; }
+
+  .ad-media-thumbnail img, .ad-media-fallback {
     width: 76px; height: 76px; border-radius: 9px; object-fit: cover;
     display: block; cursor: pointer;
     background: var(--vscode-textCodeBlock-background);
   }
   .ad-media-fallback { display: flex; align-items: center; justify-content: center; }
   .ad-media-fallback .ad-avatar { width: 30px; height: 30px; font-size: 12px; }
+
+  /* Artwork drawn as a wide strip spans the card instead of being cropped into
+     a 76px square. The aspect is set inline from the image's own dimensions, so
+     object-fit only crops for the extremes that get clamped. */
+  .ad-card-banner { flex-direction: column; align-items: stretch; gap: 10px; }
+  .ad-media-banner {
+    width: 100%; border-radius: 9px; overflow: hidden;
+    background: var(--vscode-textCodeBlock-background);
+  }
+  .ad-media-banner img {
+    width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;
+  }
 
   .ad-content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 

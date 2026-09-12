@@ -262,9 +262,13 @@
    *
    * The negative right margin cancels the trailing letter-space 0.2em adds
    * after the final glyph, so the stamp aligns optically to the grid instead
-   * of sitting one space short of it.
+   * of sitting one space short of it. `max-width: 100%` is not optional next
+   * to it: a negative right margin makes a block's used width *larger* than
+   * its container, and inside a grid or flex item that extra 4-5px sizes the
+   * track and scrolls the whole page sideways on a phone.
    */
   .stamp {
+    max-width: 100%;
     font-family: var(--font-stamp);
     font-weight: 400;
     text-transform: uppercase;
@@ -285,6 +289,7 @@
    * the page still has a hierarchy to read.
    */
   .stamp-md {
+    max-width: 100%;
     font-family: var(--font-stamp);
     font-weight: 400;
     text-transform: uppercase;
@@ -347,11 +352,15 @@
    *
    * The source is photographic — a twilight sky with violet cloud and one
    * aircraft light crossing it. There is no such photograph to ship here, so
-   * rather than fake one badly this keeps the media role and builds it from
-   * the two cosmic gradient tokens the system already defines for exactly
-   * this: "atmospheric graphic elements" and "radial glows". Three offset
-   * blooms plus a grain pass, because a single clean radial reads as a CSS
-   * gradient and a sky never does.
+   * the media role is filled by a pixel quilt instead: a coarse grid of flat
+   * violet tones, terraced into steps, drifting slowly. See
+   * `lib/pixel-quilt.ts` for what it is and where it came from.
+   *
+   * What stays in CSS is the wash underneath it — three offset blooms in the
+   * cosmic tokens, placed to agree with where the quilt's hot core sits. That
+   * wash is what a reader sees before hydration and all a reader without
+   * JavaScript ever sees, so it has to be a real composition on its own, not
+   * a grey box waiting for a canvas.
    */
   .atmosphere {
     position: absolute;
@@ -371,10 +380,37 @@
     inset: -25% -10% auto -10%;
     height: 135%;
     background:
-      radial-gradient(58% 52% at 74% 20%, color-mix(in srgb, var(--color-signal-violet) 30%, transparent) 0%, transparent 70%),
-      radial-gradient(72% 58% at 24% 4%, color-mix(in srgb, var(--color-cosmic-a) 32%, transparent) 0%, transparent 72%),
-      radial-gradient(95% 70% at 50% -10%, color-mix(in srgb, var(--color-cosmic-b) 60%, transparent) 0%, transparent 78%);
+      radial-gradient(52% 46% at 84% 12%, color-mix(in srgb, var(--color-signal-violet) 34%, transparent) 0%, transparent 70%),
+      radial-gradient(70% 56% at 56% 2%, color-mix(in srgb, var(--color-cosmic-a) 30%, transparent) 0%, transparent 72%),
+      radial-gradient(95% 70% at 70% -12%, color-mix(in srgb, var(--color-cosmic-b) 55%, transparent) 0%, transparent 78%);
     filter: blur(30px);
+  }
+
+  /*
+   * The quilt itself, over that wash.
+   *
+   * It fades in rather than appearing, because the canvas cannot paint until
+   * hydration and a hard cut from the blurred wash to hard-edged cells is the
+   * one moment the two layers would ever be caught disagreeing. Under
+   * prefers-reduced-motion the global rule below collapses the fade, which is
+   * correct — the quilt is a composition first, and its still frame is the
+   * real artwork rather than a degraded one.
+   */
+  .atmosphere__quilt {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    animation: quilt-in 0.7s ease-out both;
+  }
+  @keyframes quilt-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
   /* Grain. Without it the blooms band visibly on an OLED panel, which is the
      one place this design is most likely to be looked at. */
@@ -414,19 +450,6 @@
   }
   .rise {
     animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  /* The vapor trail: one light crossing the sky, drawn once on load. */
-  @keyframes trail {
-    from {
-      stroke-dashoffset: 760;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-  .trail {
-    animation: trail 2.6s cubic-bezier(0.33, 0, 0.2, 1) both;
   }
 }
 

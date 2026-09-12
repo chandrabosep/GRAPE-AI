@@ -38,6 +38,12 @@ const USD = (dollars: number) => BigInt(Math.round(dollars * 1_000_000));
  * Creative artwork is served by the web app, so a campaign image is a normal
  * URL the VS Code webview can load under its image CSP. Absolute, because the
  * extension renders these from a different origin than the one that stored them.
+ *
+ * Two shapes are seeded on purpose. The card picks its layout from the
+ * artwork's proportions, so the `-wide` 720x240 files exercise the banner that
+ * spans the top of the card and the 240x240 files exercise the thumbnail
+ * beside the copy; with only one shape seeded, half the renderer would go
+ * unseen in a demo.
  */
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001').replace(/\/$/, '');
 const creativeImage = (file: string) => `${APP_URL}/creatives/${file}.svg`;
@@ -192,7 +198,7 @@ async function main() {
         body: 'Managed Ethereum RPC with archive access and no rate-limit surprises. Free tier covers most testnet work.',
         ctaText: 'See the free tier',
         ctaUrl: 'https://example.com/northwind?utm_source=aam',
-        imageUrl: creativeImage('northwind-rpc'),
+        imageUrl: creativeImage('northwind-rpc-wide'),
         },
         inline: {
           headline: 'Managed Ethereum RPC, archive access included',
@@ -233,7 +239,7 @@ async function main() {
         body: 'Standardised subgraphs across lending and DEX protocols. Write the query once, point it anywhere.',
         ctaText: 'Read the docs',
         ctaUrl: 'https://example.com/lattice?utm_source=aam',
-        imageUrl: creativeImage('lattice-subgraph'),
+        imageUrl: creativeImage('lattice-subgraph-wide'),
         },
         inline: {
           headline: 'One subgraph schema across every lending protocol',
@@ -296,7 +302,7 @@ async function main() {
         body: 'Container hosting with preview environments per branch and no YAML to maintain.',
         ctaText: 'Deploy a test app',
         ctaUrl: 'https://example.com/meridian?utm_source=aam',
-        imageUrl: creativeImage('meridian-deploy'),
+        imageUrl: creativeImage('meridian-deploy-wide'),
         },
         inline: {
           headline: 'Dockerfile to production in a single command',

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" width="720" height="240" role="img" aria-label="Standardised subgraphs across protocols">
+  <defs>
+    <linearGradient id="ltw-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#150f2e"/><stop offset="100%" stop-color="#2a1d5c"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="240" fill="url(#ltw-bg)"/>
+  <g stroke="#a78bfa" stroke-width="3" opacity=".4" fill="none">
+    <path d="M360 92 L120 168"/><path d="M360 92 L240 168"/><path d="M360 92 L360 168"/>
+    <path d="M360 92 L480 168"/><path d="M360 92 L600 168"/>
+  </g>
+  <rect x="286" y="60" width="148" height="34" rx="12" fill="#a78bfa"/>
+  <g fill="#c4b5fd">
+    <rect x="76" y="168" width="88" height="32" rx="10"/>
+    <rect x="196" y="168" width="88" height="32" rx="10"/>
+    <rect x="316" y="168" width="88" height="32" rx="10"/>
+    <rect x="436" y="168" width="88" height="32" rx="10"/>
+    <rect x="556" y="168" width="88" height="32" rx="10"/>
+  </g>
+  <g fill="#2a1d5c" opacity=".55">
+    <rect x="92" y="180" width="56" height="8" rx="4"/>
+    <rect x="212" y="180" width="56" height="8" rx="4"/>
+    <rect x="332" y="180" width="56" height="8" rx="4"/>
+    <rect x="452" y="180" width="56" height="8" rx="4"/>
+    <rect x="572" y="180" width="56" height="8" rx="4"/>
+  </g>
+</svg>

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AI_INTENT_GROUPS } from '@aam/shared';
 import { ChipSelect } from '@/components/app/chip-select';
 import { Eyebrow, Shell, Stamp } from '@/components/app/section';
 import {
@@ -50,12 +51,29 @@ const USD = (dollars: number) => String(Math.round(dollars * 1_000_000));
  */
 const STEPS = [
   { id: 'basics', title: 'Campaign', hint: 'Name it and set what you will spend' },
-  { id: 'audience', title: 'Audience', hint: 'What they are doing, and who they are' },
+  { id: 'audience', title: 'Audience', hint: 'How wide this runs, and what it narrows to' },
   { id: 'onchain', title: 'Onchain', hint: 'Optional: match on real wallet history' },
   { id: 'creative', title: 'Creative', hint: 'The card shown under a finished answer' },
   { id: 'inline', title: 'Inline ad', hint: 'The line shown while the answer is thinking' },
   { id: 'review', title: 'Review', hint: 'Check it, then create it as a draft' },
 ] as const;
+
+/**
+ * Options for the onchain mode select.
+ *
+ * Passed to `Select` as `items` as well as being mapped into `SelectItem`s:
+ * Base UI resolves the trigger's label through `items`, and without it the
+ * closed trigger renders the raw stored value — "boost" — rather than the
+ * sentence the advertiser chose.
+ */
+const ONCHAIN_MODES = [
+  { value: 'off', label: 'Ignore onchain history' },
+  { value: 'boost', label: 'Prefer matching developers' },
+  { value: 'require', label: 'Only matching developers' },
+] as const;
+
+const labelOf = (options: readonly { value: string; label: string }[], value: string) =>
+  options.find((option) => option.value === value)?.label ?? value;
 
 /** A link is the one field where a typo silently wastes the whole budget. */
 function isHttpUrl(value: string): boolean {
@@ -84,9 +102,27 @@ export default function NewCampaignPage() {
   const [countries, setCountries] = useState<string[]>([]);
   const [personas, setPersonas] = useState<string[]>(['web3_developer']);
   const [interests, setInterests] = useState<string[]>([]);
-  const [technologies, setTechnologies] = useState<string[]>(['solidity', 'ethereum']);
   const [aiIntents, setAiIntents] = useState<string[]>(['smart_contract_deployment']);
-  const [minCommercialIntent, setMinCommercialIntent] = useState('low');
+
+  /**
+   * Whether the advertiser has asked to narrow at all.
+   *
+   * The step used to open on 28 coding tasks, which framed targeting as a
+   * developer survey you had to fill in before you could leave. An advertiser
+   * who does not recognise that vocabulary picks the first thing they do
+   * recognise, and a half-recognised guess targets worse than nothing at all.
+   * So the first question is how wide to run, and the closed vocabulary is what
+   * you get when the answer is "narrow it down".
+   *
+   * Seeded from the values above rather than hardcoded to `everyone`, because
+   * the builder ships with an example campaign that is already narrowed, and
+   * opening on "Everyone" while three dimensions are set would be a lie.
+   */
+  const [reach, setReach] = useState<'everyone' | 'narrow'>(
+    personas.length + aiIntents.length + interests.length + countries.length > 0
+      ? 'narrow'
+      : 'everyone',
+  );
 
   const [onchainMode, setOnchainMode] = useState<'off' | 'boost' | 'require'>('boost');
   const [protocolTypes, setProtocolTypes] = useState<string[]>([]);
@@ -100,7 +136,7 @@ export default function NewCampaignPage() {
   const [ctaUrl, setCtaUrl] = useState('https://example.com/northwind');
   // A path is accepted as well as a full URL; it is resolved against this origin
   // on submit, because the extension loads the artwork from a different one.
-  const [imageUrl, setImageUrl] = useState('/creatives/northwind-rpc.svg');
+  const [imageUrl, setImageUrl] = useState('/creatives/northwind-rpc-wide.svg');
 
   // The inline slot gets its own copy. Defaulted to something that reads like a
   // one-liner rather than a truncated banner, because that is the point of it.
@@ -115,11 +151,14 @@ export default function NewCampaignPage() {
       countries,
       personas,
       interests,
-      technologies,
+      // Neither is set by this builder any more. They stay in the payload
+      // because the targeting contract requires them, at the values that mean
+      // "do not filter on this".
+      technologies: [],
       intentCategories: [],
       aiIntents,
       models: [],
-      minCommercialIntent,
+      minCommercialIntent: 'low',
       onchainMode,
       onchainCriteria: {
         requireWalletActivity,
@@ -136,9 +175,7 @@ export default function NewCampaignPage() {
       countries,
       personas,
       interests,
-      technologies,
       aiIntents,
-      minCommercialIntent,
       onchainMode,
       protocolTypes,
       requireWalletActivity,
@@ -273,12 +310,25 @@ export default function NewCampaignPage() {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const whoCount = personas.length + interests.length + countries.length;
+
+  /** "Everyone" has to mean everyone, so choosing it clears the narrowing
+      instead of leaving it set behind a collapsed section. */
+  const reachEveryone = () => {
+    setReach('everyone');
+    setPersonas([]);
+    setInterests([]);
+    setCountries([]);
+    setAiIntents([]);
+  };
   const impressions = bid > 0 ? Math.floor(budget / bid) : 0;
   const rewardShare = config ? bid * config.allocation.reward : 0;
 
   return (
     <Shell className="grid gap-12 py-16 md:py-20 lg:grid-cols-[1fr_340px] lg:gap-16">
-      <div>
+      {/* `min-w-0` because a grid item defaults to min-width:auto, which lets a
+          wide child size the track instead of being wrapped or scrolled. */}
+      <div className="min-w-0">
         <Stamp
           as="h1"
           sub="Six short steps. You are charged per qualified impression, meaning attention the developer's client confirmed was on screen."
@@ -345,63 +395,115 @@ export default function NewCampaignPage() {
                     onChange={(e) => setDays(Number(e.target.value))}
                   />
                 </div>
-                <div className="space-y-2.5">
-                  <Label>Minimum commercial intent</Label>
-                  <Select
-                    value={minCommercialIntent}
-                    onValueChange={(value) => setMinCommercialIntent(value ?? 'low')}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low — any question</SelectItem>
-                      <SelectItem value="medium">Medium — integrating or deploying</SelectItem>
-                      <SelectItem value="high">High — comparing or choosing a tool</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
             )}
 
             {current.id === 'audience' && (
               <>
                 <Field
-                  label="AI intent"
-                  hint="What the developer is trying to do when your ad is considered."
+                  label="How wide should this run?"
+                  hint="Every dimension you leave empty matches everyone, so this is really one question: how much of the vocabulary do you want to answer?"
                 >
-                  <ChipSelect
-                    options={config?.taxonomy.intents ?? []}
-                    selected={aiIntents}
-                    onChange={setAiIntents}
-                    emptyLabel="any task"
-                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ReachOption
+                      active={reach === 'everyone'}
+                      onClick={reachEveryone}
+                      label="Everyone"
+                      detail="Considered on every request, wherever it comes from."
+                    />
+                    <ReachOption
+                      active={reach === 'narrow'}
+                      onClick={() => setReach('narrow')}
+                      label="Narrow it down"
+                      detail="Choose who they are, or what they are doing."
+                    />
+                  </div>
                 </Field>
-                <Field label="Technologies" hint="Derived from the question, not from a profile.">
-                  <ChipSelect
-                    options={config?.taxonomy.technologies ?? []}
-                    selected={technologies}
-                    onChange={setTechnologies}
-                    emptyLabel="any stack"
-                  />
-                </Field>
-                <Field label="Persona">
-                  <ChipSelect
-                    options={config?.taxonomy.personas ?? []}
-                    selected={personas}
-                    onChange={setPersonas}
-                  />
-                </Field>
-                <Field label="Interests">
-                  <ChipSelect
-                    options={config?.taxonomy.interests ?? []}
-                    selected={interests}
-                    onChange={setInterests}
-                  />
-                </Field>
-                <Field label="Countries">
-                  <ChipSelect options={COUNTRIES} selected={countries} onChange={setCountries} />
-                </Field>
+
+                {reach === 'everyone' ? (
+                  /* Breadth is a real choice here, not a skipped step, so it
+                     gets the one thing an advertiser needs to hear about it:
+                     matching everyone is not the same as winning anything. */
+                  <p className="text-steel text-sm leading-relaxed">
+                    Nothing is excluded — this campaign is considered on every request. It still has
+                    to clear the auction&rsquo;s relevance floor to be shown, and an untargeted
+                    campaign gives the request nothing to match on, so it is scored on bid alone and
+                    will usually lose to a narrower one. Breadth buys reach, not impressions.
+                  </p>
+                ) : (
+                  /* Ordered widest first. "Who they are" holds the dimensions
+                     that make sense without knowing the product's vocabulary;
+                     the 28 tasks are a drill-down for advertisers who want
+                     them, not the price of entry. */
+                  <div className="border-hairline border-t">
+                    <Disclosure
+                      label="Who they are"
+                      hint="Standing signals rather than the question in front of them: the role inferred from what they ask about over time, the interests on their profile, and the country the request came from."
+                      count={whoCount}
+                    >
+                      <Field label="Role">
+                        <ChipSelect
+                          options={config?.taxonomy.personas ?? []}
+                          selected={personas}
+                          onChange={setPersonas}
+                          emptyLabel="any developer"
+                        />
+                      </Field>
+                      <Field label="Interests">
+                        <ChipSelect
+                          options={config?.taxonomy.interests ?? []}
+                          selected={interests}
+                          onChange={setInterests}
+                          emptyLabel="any interest"
+                        />
+                      </Field>
+                      <Field label="Countries" hint="From request geography only.">
+                        <ChipSelect
+                          options={COUNTRIES}
+                          selected={countries}
+                          onChange={setCountries}
+                          emptyLabel="anywhere"
+                        />
+                      </Field>
+                    </Disclosure>
+
+                    <Disclosure
+                      label="What they are doing"
+                      hint="Derived from the question they asked, never from a stored profile."
+                      count={aiIntents.length}
+                    >
+                      <Field label="Task">
+                        <ChipSelect
+                          options={config?.taxonomy.intents ?? []}
+                          groups={AI_INTENT_GROUPS}
+                          selected={aiIntents}
+                          onChange={setAiIntents}
+                          emptyLabel="any task"
+                          noun="tasks"
+                        />
+                      </Field>
+                    </Disclosure>
+                  </div>
+                )}
+
+                {/* The consequence of every choice above, on the same screen as
+                    the choices. Hidden from `lg` up, where the sticky rail is
+                    already showing the same number a few inches to the right. */}
+                <div className="border-hairline flex flex-wrap items-baseline justify-between gap-3 border-t pt-5 lg:hidden">
+                  <span className="stamp-sm">Matching now</span>
+                  <span className="text-steel text-sm">
+                    {estimate?.suppressed ? (
+                      'Fewer than five developers — counts are hidden below that threshold'
+                    ) : (
+                      <>
+                        <span className="text-almost-white tabular-nums">
+                          {estimate?.eligibleUsers ?? '—'}
+                        </span>{' '}
+                        developers match this audience
+                      </>
+                    )}
+                  </span>
+                </div>
               </>
             )}
 
@@ -415,6 +517,7 @@ export default function NewCampaignPage() {
                 <div className="space-y-2.5">
                   <Label>How to use it</Label>
                   <Select
+                    items={ONCHAIN_MODES}
                     value={onchainMode}
                     onValueChange={(value) =>
                       setOnchainMode((value ?? 'off') as typeof onchainMode)
@@ -424,9 +527,11 @@ export default function NewCampaignPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="off">Ignore onchain history</SelectItem>
-                      <SelectItem value="boost">Prefer matching developers</SelectItem>
-                      <SelectItem value="require">Only matching developers</SelectItem>
+                      {ONCHAIN_MODES.map((mode) => (
+                        <SelectItem key={mode.value} value={mode.value}>
+                          {mode.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -502,8 +607,11 @@ export default function NewCampaignPage() {
                     onChange={(e) => setImageUrl(e.target.value)}
                   />
                   <p className="text-graphite mt-2 text-xs">
-                    Square artwork reads best: it is shown as a 76px thumbnail beside the copy.
-                    Leave empty and the card falls back to your initials.
+                    The card reads the shape of your artwork rather than asking you to pick a
+                    layout. Anything at least twice as wide as it is tall — 1200×400 is a good
+                    target — runs as a banner across the top of the card; squarer art stays a 76px
+                    thumbnail beside the copy. Leave it empty and the card falls back to your
+                    initials. The preview below updates either way.
                   </p>
                 </div>
               </div>
@@ -571,28 +679,17 @@ export default function NewCampaignPage() {
                     value={`$${bid.toFixed(4)} per qualified impression`}
                   />
                   <SummaryRow label="Runs for" value={`${days} days`} />
-                  <SummaryRow label="Minimum commercial intent" value={minCommercialIntent} />
                 </Summary>
 
                 <Summary label="Audience" onEdit={() => goTo(1)}>
-                  <SummaryChips label="AI intent" values={aiIntents} />
-                  <SummaryChips label="Technologies" values={technologies} />
-                  <SummaryChips label="Persona" values={personas} />
+                  <SummaryChips label="Role" values={personas} />
                   <SummaryChips label="Interests" values={interests} />
                   <SummaryChips label="Countries" values={countries} />
+                  <SummaryChips label="Task" values={aiIntents} />
                 </Summary>
 
                 <Summary label="Onchain" onEdit={() => goTo(2)}>
-                  <SummaryRow
-                    label="Mode"
-                    value={
-                      onchainMode === 'off'
-                        ? 'Not used'
-                        : onchainMode === 'boost'
-                          ? 'Prefer matching developers'
-                          : 'Only matching developers'
-                    }
-                  />
+                  <SummaryRow label="Mode" value={labelOf(ONCHAIN_MODES, onchainMode)} />
                   {onchainMode !== 'off' && (
                     <>
                       <SummaryChips label="Protocol types" values={protocolTypes} />
@@ -844,6 +941,96 @@ function Field({
       {hint && <p className="text-graphite mt-2.5 text-xs leading-relaxed">{hint}</p>}
       <div className="mt-4">{children}</div>
     </div>
+  );
+}
+
+/**
+ * One of the two answers to "how wide should this run?".
+ *
+ * A pair of pressed-state buttons rather than a `Select`, because the choice
+ * carries a consequence each option has to be able to state: a dropdown can
+ * show one label at a time, and the advertiser needs to weigh both.
+ */
+function ReachOption({
+  active,
+  onClick,
+  label,
+  detail,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  detail: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`focus-visible:ring-ring/70 rounded-[10.8px] border p-4 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none ${
+        active
+          ? 'border-signal-violet/50 bg-signal-violet/10'
+          : 'border-hairline hover:border-almost-white/40'
+      }`}
+    >
+      <div className={`text-[13px] ${active ? 'text-lavender-mist' : 'text-almost-white'}`}>
+        {label}
+      </div>
+      <div className="text-graphite mt-1.5 text-xs leading-relaxed">{detail}</div>
+    </button>
+  );
+}
+
+/**
+ * One folded dimension of the audience.
+ *
+ * `<details>` rather than React state: the browser already gets the keyboard,
+ * the expanded state and find-in-page right for this, and three of them on one
+ * step is three chances to get that wrong by hand.
+ *
+ * All three start shut, including ones already holding a selection. Opening on
+ * a selection sounds kinder but rebuilds the wall of chips this step exists to
+ * avoid — and nothing is hidden by it, because the count beside the label says
+ * what is in there and the review step lists every value before anything is
+ * created.
+ */
+function Disclosure({
+  label,
+  hint,
+  count,
+  children,
+}: {
+  label: string;
+  hint: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <details className="border-hairline group border-b last:border-b-0">
+      <summary className="flex cursor-pointer list-none items-center gap-3 py-5 [&::-webkit-details-marker]:hidden">
+        <svg
+          viewBox="0 0 12 12"
+          aria-hidden="true"
+          className="text-steel size-2.5 shrink-0 -rotate-90 transition-transform group-open:rotate-0"
+        >
+          <path d="M1.5 3.75 6 8.25l4.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+        <span className="text-almost-white flex-1 text-[13px]">{label}</span>
+        {/* A zero here is the honest part: it says there is something in this
+            section and you have chosen none of it. */}
+        <span
+          className={`shrink-0 text-[11px] tabular-nums ${
+            count > 0 ? 'text-lavender-mist' : 'text-graphite'
+          }`}
+        >
+          {count > 0 ? `${count} selected` : 'matches anyone'}
+        </span>
+      </summary>
+      <div className="space-y-8 pb-8">
+        <p className="text-graphite text-xs leading-relaxed">{hint}</p>
+        {children}
+      </div>
+    </details>
   );
 }
 
