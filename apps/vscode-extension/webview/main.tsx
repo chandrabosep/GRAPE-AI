@@ -20,8 +20,9 @@ import { STYLES } from './styles';
  * it structurally impossible to render an ad as if the assistant wrote it.
  *
  * A turn shows *one* ad at a time, never both. While the answer is still being
- * produced the inline line sits above it, in the space the developer is already
- * waiting in; once the answer is finished that line is retired and the banner
+ * produced the inline line sits at its tail, in the spot the blinking caret
+ * otherwise occupies — the one place the developer is already watching while
+ * they wait. Once the answer is finished that line is retired and the banner
  * card takes over below it. Two sponsored things competing for attention in a
  * single turn is one too many, and the two formats were designed for different
  * moments anyway — the line for dead time, the card for a developer who has
@@ -94,7 +95,23 @@ function formatCredits(micro: number | string): string {
  * re-parses the markdown of every earlier answer in the conversation, and a
  * long session gets visibly slower as it goes on.
  */
-const Answer = memo(function Answer({ text, streaming }: { text: string; streaming: boolean }) {
+const Answer = memo(function Answer({
+  text,
+  streaming,
+  caret,
+}: {
+  text: string;
+  streaming: boolean;
+  /**
+   * Whether the blinking caret is this answer's tail.
+   *
+   * It is not, when a sponsored line has taken that spot: the line *is* the
+   * "still working" signal then, and two of them side by side would just be
+   * noise. Passed as a boolean rather than as a node so the memo below keeps
+   * holding across the ad arriving.
+   */
+  caret: boolean;
+}) {
   const body = useMemo(
     () => (
       <Markdown
@@ -113,7 +130,7 @@ const Answer = memo(function Answer({ text, streaming }: { text: string; streami
   return (
     <div className="answer">
       {body}
-      {streaming && <span className="caret" />}
+      {streaming && caret && <span className="caret" />}
     </div>
   );
 });
@@ -393,9 +410,10 @@ function App() {
            * One slot at a time.
            *
            * While the turn is working — thinking, or streaming — the inline
-           * line is the sponsored slot; the card is held back even if the
-           * banner auction has already resolved. Once the answer is done the
-           * line is retired and the card takes its place.
+           * line is the sponsored slot, standing in for the caret at the tail
+           * of the answer; the card is held back even if the banner auction
+           * has already resolved. Once the answer is done the line is retired
+           * and the card takes its place.
            *
            * The exception is a turn that won no banner at all: pulling the
            * line away then would leave the finished answer with nothing where
@@ -412,12 +430,23 @@ function App() {
                 <div className="question-bubble">{turn.question}</div>
               </div>
 
-              {/* Above the answer, where the waiting is. A sibling of it, never
-                  inside it — and only while the turn is still working, so it is
-                  never on screen at the same time as the card below. */}
+              <ToolTrail
+                activities={turn.tools}
+                onApprove={(toolUseId) => vscode.postMessage({ type: 'approveWrite', toolUseId })}
+                onReject={(toolUseId) => vscode.postMessage({ type: 'rejectWrite', toolUseId })}
+                onReview={(toolUseId) => vscode.postMessage({ type: 'reviewWrite', toolUseId })}
+              />
+
+              <Answer text={turn.answer} streaming={turn.streaming} caret={!showInlineAd} />
+
+              {/* The tail of the answer that is still being written — exactly
+                  where the caret was blinking a moment ago, and gone the moment
+                  the answer is finished. A sibling of the answer, never inside
+                  it, and never on screen at the same time as the card below. */}
               {showInlineAd && (
                 <InlineAd
                   ad={turn.inlineAd as SponsoredAd}
+                  streaming={working}
                   alreadyAcknowledged={turn.restored}
                   onVisible={(impressionId, visibleMs) =>
                     vscode.postMessage({ type: 'adVisible', id: turn.id, impressionId, visibleMs })
@@ -431,15 +460,6 @@ function App() {
                   }}
                 />
               )}
-
-              <ToolTrail
-                activities={turn.tools}
-                onApprove={(toolUseId) => vscode.postMessage({ type: 'approveWrite', toolUseId })}
-                onReject={(toolUseId) => vscode.postMessage({ type: 'rejectWrite', toolUseId })}
-                onReview={(toolUseId) => vscode.postMessage({ type: 'reviewWrite', toolUseId })}
-              />
-
-              <Answer text={turn.answer} streaming={turn.streaming} />
 
               {turn.error && <div className="error">{turn.error}</div>}
 

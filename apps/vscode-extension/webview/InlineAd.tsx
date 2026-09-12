@@ -4,16 +4,20 @@ import type { SponsoredAd } from '@aam/shared';
 /**
  * The single-line sponsored slot.
  *
- * Shown beside the answer while it is still streaming — the moment the
- * developer is waiting and has nothing to read. That is the whole reason this
- * format exists: it fills dead time instead of competing with a finished
- * answer for attention.
+ * Shown at the tail of the answer while it is still streaming, in the spot the
+ * blinking caret would otherwise occupy — the moment the developer is waiting
+ * and has nothing to read, at the one point on screen they are already looking
+ * at. That is the whole reason this format exists: it fills dead time instead
+ * of competing with a finished answer for attention.
+ *
+ * Standing in for the caret means it also has to carry what the caret was
+ * saying: while `streaming` the marker keeps the same blink, so the line reads
+ * as "still writing" and not as the answer having stopped early.
  *
  * It is still an ad, and is labelled like one. The `Ad` badge is permanent, the
  * advertiser is named, and the line sits on its own row with a marker that
- * visually separates it from the thinking indicator above it. What changes
- * relative to the banner is how much room it takes, never how honestly it is
- * presented.
+ * visually separates it from the answer above it. What changes relative to the
+ * banner is how much room it takes, never how honestly it is presented.
  *
  * The same dwell rule applies: a full second genuinely on screen before the
  * impression is acknowledged, so an ad that flashes past during a fast answer
@@ -33,9 +37,22 @@ interface Props {
   alreadyAcknowledged?: boolean;
   onClick: (impressionId: string, url: string) => void;
   onDismiss: (impressionId: string) => void;
+  /**
+   * The answer is still being written, so this line is standing in for the
+   * caret and blinks like it. False once the turn is done and the line is only
+   * still here because no banner was won.
+   */
+  streaming?: boolean;
 }
 
-export function InlineAd({ ad, onVisible, onClick, onDismiss, alreadyAcknowledged }: Props) {
+export function InlineAd({
+  ad,
+  onVisible,
+  onClick,
+  onDismiss,
+  alreadyAcknowledged,
+  streaming,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const acknowledged = useRef(alreadyAcknowledged === true);
   const [dismissing, setDismissing] = useState(false);
@@ -70,7 +87,10 @@ export function InlineAd({ ad, onVisible, onClick, onDismiss, alreadyAcknowledge
   }, [ad.impressionId, onVisible]);
 
   return (
-    <div className={`inline-ad${dismissing ? ' leaving' : ''}`} ref={ref}>
+    <div
+      className={`inline-ad${streaming ? ' streaming' : ''}${dismissing ? ' leaving' : ''}`}
+      ref={ref}
+    >
       <span className="inline-ad-marker" aria-hidden="true" />
 
       <span className="inline-ad-badge">Ad</span>

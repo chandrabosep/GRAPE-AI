@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "graph:health": "node scripts/graph-health.mjs",
+    "creatives": "tsx scripts/render-quilt-creative.mts",
     "dev:token": "tsx scripts/dev-token.mts",
     "dev:topup": "tsx scripts/topup.mts"
   },

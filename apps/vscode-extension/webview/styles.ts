@@ -525,9 +525,11 @@ export const STYLES = `
      quieter than the card — but never quieter than honest: the Ad badge and the
      advertiser are not removable, and the left marker keeps it visually apart
      from the assistant's own output. */
+  /* Sits at the tail of the answer, standing in for the caret, so it hugs the
+     last line rather than floating a full turn-gap below it. */
   .inline-ad {
     display: flex; align-items: center; gap: 7px;
-    margin: 2px 0 8px;
+    margin: -6px 0 0;
     padding: 5px 7px 5px 0;
     border-radius: 7px;
     font-size: 11.5px;
@@ -540,6 +542,8 @@ export const STYLES = `
     flex: 0 0 auto; width: 2px; align-self: stretch; border-radius: 2px;
     background: var(--vscode-charts-orange, #d18616); opacity: .75;
   }
+  /* It replaced the caret, so it carries the caret's signal: still writing. */
+  .inline-ad.streaming .inline-ad-marker { animation: blink 1.1s step-end infinite; }
   .inline-ad-badge {
     flex: 0 0 auto;
     padding: 1px 5px; border-radius: 3px;
