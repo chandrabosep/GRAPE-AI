@@ -15,8 +15,11 @@ const schema = z.object({
 /**
  * Development sign-in.
  *
- * Signs in as a seeded user so the app is usable before Privy credentials
- * exist. Two hard gates, because this bypasses identity verification entirely:
+ * Signs in as an existing `seed:` account so the app is usable before Privy
+ * credentials exist. Nothing creates those accounts any more, so this answers
+ * only where one was made by hand.
+ *
+ * Two hard gates, because this bypasses identity verification entirely:
  * it refuses in production, and it refuses the moment Privy is configured, so it
  * cannot silently remain a back door once real auth is switched on.
  */
@@ -32,7 +35,7 @@ export const POST = route(async (request) => {
     include: { profile: true },
   });
   if (!user) {
-    throw new AppError('not_found', `No seeded user ${subject}. Run pnpm db:seed.`);
+    throw new AppError('not_found', `No user with subject ${subject}.`);
   }
 
   const session = await issueSession(user.id, 'web', 'dev sign-in');

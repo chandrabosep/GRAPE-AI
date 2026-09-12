@@ -14,7 +14,7 @@ for (const candidate of [join(here, '..', '..', '.env'), join(here, '.env')]) {
 /**
  * Prisma 7 config.
  *
- * The CLI (migrate, introspect, seed) talks to the DIRECT connection on 5432.
+ * The CLI (migrate, introspect) talks to the DIRECT connection on 5432.
  * The application talks to the pooled connection on 6543 through the driver
  * adapter in src/client.ts. Pointing migrations at pgbouncer breaks advisory
  * locks, so these two must stay separate.
@@ -23,7 +23,6 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
-    seed: 'tsx prisma/seed.ts',
   },
   datasource: {
     url: env('DIRECT_URL'),

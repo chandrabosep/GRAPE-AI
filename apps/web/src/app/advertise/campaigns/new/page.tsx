@@ -94,15 +94,15 @@ export default function NewCampaignPage() {
   /** How far the advertiser has been. Lets them jump back, never forward. */
   const [furthest, setFurthest] = useState(0);
 
-  const [name, setName] = useState('Ethereum Developer Launch');
+  const [name, setName] = useState('');
   const [budget, setBudget] = useState(100);
   const [bid, setBid] = useState(0.01);
   const [days, setDays] = useState(30);
 
   const [countries, setCountries] = useState<string[]>([]);
-  const [personas, setPersonas] = useState<string[]>(['web3_developer']);
+  const [personas, setPersonas] = useState<string[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
-  const [aiIntents, setAiIntents] = useState<string[]>(['smart_contract_deployment']);
+  const [aiIntents, setAiIntents] = useState<string[]>([]);
 
   /**
    * Whether the advertiser has asked to narrow at all.
@@ -114,9 +114,9 @@ export default function NewCampaignPage() {
    * So the first question is how wide to run, and the closed vocabulary is what
    * you get when the answer is "narrow it down".
    *
-   * Seeded from the values above rather than hardcoded to `everyone`, because
-   * the builder ships with an example campaign that is already narrowed, and
-   * opening on "Everyone" while three dimensions are set would be a lie.
+   * Derived from the values above rather than pinned to `everyone`, so that a
+   * draft restored with dimensions already set does not open on "Everyone" and
+   * contradict itself.
    */
   const [reach, setReach] = useState<'everyone' | 'narrow'>(
     personas.length + aiIntents.length + interests.length + countries.length > 0
@@ -128,23 +128,19 @@ export default function NewCampaignPage() {
   const [protocolTypes, setProtocolTypes] = useState<string[]>([]);
   const [requireWalletActivity, setRequireWalletActivity] = useState(true);
 
-  const [headline, setHeadline] = useState('Ship your contract without babysitting a node');
-  const [body, setBody] = useState(
-    'Managed Ethereum RPC with archive access and no rate-limit surprises.',
-  );
-  const [ctaText, setCtaText] = useState('See the free tier');
-  const [ctaUrl, setCtaUrl] = useState('https://example.com/northwind');
+  const [headline, setHeadline] = useState('');
+  const [body, setBody] = useState('');
+  const [ctaText, setCtaText] = useState('');
+  const [ctaUrl, setCtaUrl] = useState('');
   // A path is accepted as well as a full URL; it is resolved against this origin
   // on submit, because the extension loads the artwork from a different one.
-  const [imageUrl, setImageUrl] = useState('/creatives/northwind-rpc-wide.svg');
+  const [imageUrl, setImageUrl] = useState('');
 
-  // The inline slot gets its own copy. Defaulted to something that reads like a
-  // one-liner rather than a truncated banner, because that is the point of it.
+  // The inline slot gets its own copy: it has to read like a one-liner rather
+  // than a truncated banner, which is the whole point of the slot.
   const [runInline, setRunInline] = useState(true);
-  const [inlineHeadline, setInlineHeadline] = useState(
-    'Managed Ethereum RPC, archive access included',
-  );
-  const [inlineCta, setInlineCta] = useState('Free tier');
+  const [inlineHeadline, setInlineHeadline] = useState('');
+  const [inlineCta, setInlineCta] = useState('');
 
   const targeting = useMemo(
     () => ({
@@ -358,7 +354,12 @@ export default function NewCampaignPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Label htmlFor="name">Campaign name</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                  <Input
+                    id="name"
+                    value={name}
+                    placeholder="Spring developer launch"
+                    onChange={(e) => setName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2.5">
                   <Label htmlFor="budget">Budget (USD)</Label>
@@ -573,6 +574,7 @@ export default function NewCampaignPage() {
                   <Input
                     id="headline"
                     value={headline}
+                    placeholder="What your product does, in one line"
                     maxLength={90}
                     onChange={(e) => setHeadline(e.target.value)}
                   />
@@ -583,6 +585,7 @@ export default function NewCampaignPage() {
                   <Textarea
                     id="body"
                     value={body}
+                    placeholder="One or two sentences on why a developer should care."
                     maxLength={240}
                     onChange={(e) => setBody(e.target.value)}
                   />
@@ -591,11 +594,21 @@ export default function NewCampaignPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2.5">
                     <Label htmlFor="cta">Call to action</Label>
-                    <Input id="cta" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+                    <Input
+                      id="cta"
+                      value={ctaText}
+                      placeholder="Read the docs"
+                      onChange={(e) => setCtaText(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2.5">
                     <Label htmlFor="url">Link</Label>
-                    <Input id="url" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} />
+                    <Input
+                      id="url"
+                      value={ctaUrl}
+                      placeholder="https://example.com/docs"
+                      onChange={(e) => setCtaUrl(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2.5">
@@ -643,6 +656,7 @@ export default function NewCampaignPage() {
                       <Input
                         id="inline-headline"
                         value={inlineHeadline}
+                        placeholder="The same offer, short enough to read mid-answer"
                         maxLength={70}
                         onChange={(e) => setInlineHeadline(e.target.value)}
                       />
@@ -657,6 +671,7 @@ export default function NewCampaignPage() {
                       <Input
                         id="inline-cta"
                         value={inlineCta}
+                        placeholder="Read the docs"
                         maxLength={24}
                         onChange={(e) => setInlineCta(e.target.value)}
                       />

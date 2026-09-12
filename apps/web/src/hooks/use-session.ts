@@ -32,7 +32,7 @@ export function useMe() {
   });
 }
 
-/** Seeded accounts offered by the dev sign-in; empty once Privy is configured. */
+/** `seed:` accounts offered by the dev sign-in; empty unless one was made by hand. */
 export function useSeedUsers() {
   return useQuery<SeedUser[]>({
     queryKey: ['seed-users'],

@@ -19,7 +19,6 @@
     "db:generate": "pnpm --filter @aam/db db:generate",
     "db:migrate": "pnpm --filter @aam/db db:migrate",
     "db:push": "pnpm --filter @aam/db db:push",
-    "db:seed": "pnpm --filter @aam/db db:seed",
     "db:studio": "pnpm --filter @aam/db db:studio",
     "check:imports": "node scripts/check-imports.mjs",
     "db:dev": "node scripts/pglite-server.mjs"

@@ -7,9 +7,10 @@
  * that already has one is a confusing way to find that out. This pulls those
  * rows across so the local database is a superset rather than a fresh start.
  *
- * Only wallet-owned advertisers are copied: seeded accounts already exist
- * locally, courtesy of `pnpm db:seed`. Every write is keyed on the original id
- * and skipped when it is already present, so running it twice changes nothing.
+ * Only wallet-owned advertisers are copied; the demo accounts the hosted
+ * database may still carry are not wanted locally. Every write is keyed on the
+ * original id and skipped when it is already present, so running it twice
+ * changes nothing.
  *
  *   pnpm --filter @aam/db db:import-hosted
  *
@@ -75,8 +76,8 @@ const advertisers = await source.advertiser.findMany({
 });
 
 for (const advertiser of advertisers) {
-  // Seeded advertisers are recreated locally by `pnpm db:seed`; copying them
-  // would duplicate campaigns that are already competing in the auction.
+  // Demo advertisers left over in the hosted database are not real accounts;
+  // copying them would put simulated campaigns back into the auction.
   if (!advertiser.user.subject.startsWith('wallet:')) continue;
 
   // The local account is a different row with the same wallet, because signing
@@ -185,6 +186,11 @@ for (const advertiser of advertisers) {
         data: {
           id: creative.id,
           campaignId: campaign.id,
+          // Not optional: the column defaults to `banner`, so leaving this out
+          // lands every inline creative in the banner slot — and then trips the
+          // (campaign, format) unique index on the second creative of a
+          // campaign that runs both.
+          format: creative.format,
           headline: creative.headline,
           body: creative.body,
           ctaText: creative.ctaText,
