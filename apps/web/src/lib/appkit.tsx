@@ -2,7 +2,7 @@
 
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { arcTestnet, mainnet } from '@reown/appkit/networks';
+import { hederaTestnet } from '@reown/appkit/networks';
 import { WagmiProvider } from 'wagmi';
 import type { ReactNode } from 'react';
 
@@ -22,12 +22,20 @@ import type { ReactNode } from 'react';
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '';
 
 /**
- * Arc testnet is where campaign money lives, so it is the default and the first
- * network offered. Mainnet stays in the list because a developer's *signal*
- * wallet is a mainnet address with real history — signing in or linking one
- * must not require switching away from a chain they never transact on.
+ * One network, and it is Hedera testnet.
+ *
+ * Every dollar in this product lives there — credits, campaign funding, x402
+ * settlement and payouts — and it must be in this list for a wallet to be able
+ * to switch to it when someone buys credits. Offering a second network only
+ * creates a state where the app is connected to a chain it can do nothing on:
+ * the switch prompt arrives later, mid-payment, instead of at connect time.
+ *
+ * A mainnet *signal* wallet is unaffected. Sign-in and wallet linking are
+ * `personal_sign` signatures, which are chain-agnostic, and onchain signals are
+ * read from the indexers by address — so a mainnet address still links and
+ * still carries its history while the wallet sits on Hedera testnet.
  */
-const networks = [arcTestnet, mainnet] as const;
+const networks = [hederaTestnet] as const;
 
 export const wagmiAdapter = new WagmiAdapter({
   networks: [...networks],
@@ -40,10 +48,10 @@ if (projectId) {
   createAppKit({
     adapters: [wagmiAdapter],
     networks: [...networks],
-    defaultNetwork: arcTestnet,
+    defaultNetwork: hederaTestnet,
     projectId,
     metadata: {
-      name: 'AI Attention Marketplace',
+      name: 'GRAPE AI',
       description: 'Ads that pay for your AI.',
       url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001',
       icons: [],
