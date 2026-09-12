@@ -198,16 +198,27 @@ export const BLOCKCHAIN_TOOL_SPEC: ToolSpec = {
     'Query live blockchain data from The Graph protocol. Executes a GraphQL query ' +
     'against a Messari standardized subgraph and returns JSON. Use this when the ' +
     'developer asks about DeFi protocols, token stats, on-chain activity, or ENS.\n\n' +
-    'Protocols (lending): aave-v3 (mainnet/arbitrum-one/base), aave-v2 (mainnet), ' +
+    'This includes LIVE TOKEN PRICES. Any token traded on these DEXes has a current ' +
+    'USD price on-chain, so a price question is answerable — including BTC, via WBTC. ' +
+    'Do not tell the developer that prices are out of scope or that you lack market ' +
+    'data; query it.\n\n' +
+    'Protocols (lending): aave-v3 (mainnet/arbitrum-one), aave-v2 (mainnet), ' +
     'compound-v3 (mainnet), compound-v2 (mainnet)\n' +
     'Protocols (DEX): uniswap-v3 (mainnet/arbitrum-one/base), uniswap-v2 (mainnet), ' +
-    'sushiswap-v3 (mainnet/arbitrum-one), balancer-v2 (mainnet), curve (mainnet)\n' +
+    'sushiswap-v3 (mainnet/arbitrum-one), curve (mainnet)\n' +
     'Other: ens (mainnet)\n\n' +
     'Lending entities: protocols, markets, deposits, borrows, repays, withdraws, ' +
     'financialsDailySnapshots, usageMetricsDailySnapshots\n' +
-    'DEX entities: protocols, liquidityPools, swaps, financialsDailySnapshots, ' +
+    'DEX entities: protocols, liquidityPools, swaps, tokens, financialsDailySnapshots, ' +
     'usageMetricsDailySnapshots\n' +
     'ENS entities: domains, registrations\n\n' +
+    'Token prices: `token(id: "<lowercase contract address>") { symbol lastPriceUSD }` is ' +
+    'the reliable form. Querying `tokens(where: {symbol: "X"})` also works but a symbol ' +
+    'matches several entities and most carry a stale `lastPriceUSD` of "0", so always add ' +
+    '`orderBy: lastPriceBlockNumber, orderDirection: desc, first: 1` and treat a "0" as no ' +
+    'data rather than a real price. Mainnet: WBTC 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599, ' +
+    'WETH 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2, ' +
+    'USDC 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.\n\n' +
     'Addresses must be lowercase. Timestamps are BigInt strings (Unix seconds). ' +
     'Request first: 1–10 for lists. All amounts are in wei or the token\'s smallest unit.',
   inputSchema: {

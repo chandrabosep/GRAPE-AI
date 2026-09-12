@@ -7,9 +7,11 @@
  * generation.
  *
  * IDs were verified as published and un-deprecated on the decentralized network
- * on 2026-09-09. They still need a runtime health probe before being trusted for
- * a demo — `pnpm --filter @aam/web graph:health` runs it — because "published"
- * is not "freshly indexed".
+ * on 2026-09-09, and every entry below was confirmed on 2026-09-12 to answer a
+ * real data query, not merely `_meta`. That distinction matters: a deployment
+ * can report a block height and still fail every actual query, which is how
+ * balancer-v2 passed a health check for as long as the check only read `_meta`.
+ * `pnpm --filter @aam/web graph:health` now probes real data.
  *
  * A caveat worth knowing: messari/subgraphs has been unmaintained since March
  * 2025 and these deployments were last published in 2024. They are live and
@@ -135,14 +137,11 @@ export const SUBGRAPH_SOURCES: SubgraphSource[] = [
     subgraphId: '3oHCddbQGTi42kPZBwyGzD2JzZR33zK2MwXtxAerNJy2',
     schema: 'messari-dex-4',
   },
-  {
-    key: 'balancer-v2-ethereum',
-    protocol: 'balancer-v2',
-    type: 'dex',
-    chain: 'mainnet',
-    subgraphId: '794H6CNzdGF5YfBK9nPsUgGn7EBbdJSCTjgcKPEPyFnn',
-    schema: 'messari-dex-1',
-  },
+  // balancer-v2-ethereum removed: every indexer serving it returns
+  // `no attestation: indexing_error`. Its `_meta` still answers, at block
+  // 17670216, which is why a health probe that only reads `_meta` called it
+  // healthy — but no data query has succeeded against it. See the note on
+  // probing below.
   {
     key: 'curve-ethereum',
     protocol: 'curve',

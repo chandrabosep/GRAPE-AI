@@ -14,15 +14,27 @@ import { logger } from '../../lib/logger';
  * rather than `token-api`.
  */
 
-const DEFAULT_TIMEOUT_MS = 3_000;
+const DEFAULT_TIMEOUT_MS = 5_000;
 
+/**
+ * The plan's hard ceiling on rows per request. Exceeding it is rejected with
+ * `403 Parameter 'limit' exceeds maximum of 10 items` rather than truncated, so
+ * breadth has to come from paging instead of one large request.
+ */
+const MAX_LIMIT = 10;
+
+/** Up to 30 transfers per direction — enough to clear the active-trader bar. */
+const MAX_PAGES = 3;
+
+/** Field names as the API actually returns them. */
 interface Erc20Transfer {
   from: string;
   to: string;
   contract: string;
   amount: string;
-  block_number: number;
-  timestamp: string;
+  block_num: number;
+  datetime: string;
+  timestamp: number;
 }
 
 export interface SubstreamsSignals {
@@ -82,6 +94,43 @@ async function get<T>(
 }
 
 /**
+ * Pages one direction of transfers up to `MAX_PAGES`.
+ *
+ * A short page means the history is exhausted, so paging stops there rather
+ * than spending two more requests to learn the same thing.
+ */
+async function fetchTransferPages(
+  params: Record<string, string>,
+): Promise<{ ok: boolean; rows: Erc20Transfer[]; latencyMs: number; error?: string }> {
+  const rows: Erc20Transfer[] = [];
+  let latencyMs = 0;
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const result = await get<{ data?: Erc20Transfer[] }>('/v1/evm/transfers', {
+      ...params,
+      limit: String(MAX_LIMIT),
+      page: String(page),
+    });
+    latencyMs += result.latencyMs;
+
+    if (!result.ok) {
+      // Failing on the first page means this direction went unanswered. Failing
+      // later just caps the window, and what we already have is still valid.
+      if (page === 1) {
+        return { ok: false, rows, latencyMs, ...(result.error ? { error: result.error } : {}) };
+      }
+      return { ok: true, rows, latencyMs };
+    }
+
+    const batch = result.data?.data ?? [];
+    rows.push(...batch);
+    if (batch.length < MAX_LIMIT) break;
+  }
+
+  return { ok: true, rows, latencyMs };
+}
+
+/**
  * Substreams-backed ERC-20 transfer analysis for one address.
  *
  * Returns activity metrics derived from the `erc20-transfers` Substreams
@@ -97,18 +146,8 @@ export async function fetchSubstreamsSignals(
   const addr = address.toLowerCase();
 
   const [outbound, inbound] = await Promise.all([
-    get<{ data?: Erc20Transfer[] }>('/v1/evm/transfers', {
-      network,
-      from_address: addr,
-      start_time: sinceIso,
-      limit: '100',
-    }),
-    get<{ data?: Erc20Transfer[] }>('/v1/evm/transfers', {
-      network,
-      to_address: addr,
-      start_time: sinceIso,
-      limit: '100',
-    }),
+    fetchTransferPages({ network, from_address: addr, start_time: sinceIso }),
+    fetchTransferPages({ network, to_address: addr, start_time: sinceIso }),
   ]);
 
   const latencyMs = Math.max(outbound.latencyMs, inbound.latencyMs);
@@ -127,10 +166,7 @@ export async function fetchSubstreamsSignals(
     };
   }
 
-  const allTransfers = [
-    ...(outbound.data?.data ?? []),
-    ...(inbound.data?.data ?? []),
-  ];
+  const allTransfers = [...outbound.rows, ...inbound.rows];
 
   const tokens = new Set<string>();
   const counterparties = new Set<string>();
@@ -145,12 +181,19 @@ export async function fetchSubstreamsSignals(
   const uniqueTokens = tokens.size;
   const uniqueCounterparties = counterparties.size;
 
+  // One direction answering is a usable partial result, but say so.
+  const halfAnswered = !outbound.ok || !inbound.ok;
+  const error = halfAnswered
+    ? `partial: ${(outbound.ok ? inbound.error : outbound.error) ?? 'one direction failed'}`
+    : undefined;
+
   return {
-    ok: true,
+    ok: !halfAnswered,
     transferCount,
     uniqueTokens,
     uniqueCounterparties,
     isActiveTrader: transferCount >= 10 && uniqueTokens >= 3,
     latencyMs,
+    ...(error ? { error } : {}),
   };
 }
