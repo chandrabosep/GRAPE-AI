@@ -4,6 +4,7 @@ import { economics, env } from '../../config/index';
 import { logger } from '../../lib/logger';
 import { queryEnsOwnership, queryProtocolTouch, type ProtocolTouch } from './queries';
 import { ENS_SUBGRAPH_ID, sourcesForChains, type SubgraphSource } from './sources';
+import { fetchSubstreamsSignals } from './substreams';
 import { fetchTokenApiSignals } from './token-api';
 
 /**
@@ -84,10 +85,11 @@ export async function computeSignals(
   const subgraphSources: SubgraphSource[] = sourcesForChains(chains);
   const sources: SignalSource[] = [];
 
-  const [touches, ens, tokenApi] = await Promise.all([
+  const [touches, ens, tokenApi, substreams] = await Promise.all([
     Promise.allSettled(subgraphSources.map((source) => queryProtocolTouch(source, address, since))),
     queryEnsOwnership(ENS_SUBGRAPH_ID, address).catch(() => null),
     fetchTokenApiSignals(address, chains[0] ?? 'mainnet', sinceIso).catch(() => null),
+    fetchSubstreamsSignals(address, chains[0] ?? 'mainnet', sinceIso).catch(() => null),
   ]);
 
   const signals = emptySignals(windowDays);
@@ -152,6 +154,19 @@ export async function computeSignals(
     if (tokenApi.recentTransfer) activeChains.add(chains[0] ?? 'mainnet');
   }
 
+  if (substreams) {
+    sources.push({
+      product: 'substreams',
+      reference: 'pinax.erc20-transfers',
+      ok: substreams.ok,
+      latencyMs: substreams.latencyMs,
+      ...(substreams.error ? { error: substreams.error } : {}),
+    });
+    if (substreams.ok && substreams.isActiveTrader) {
+      activeChains.add(chains[0] ?? 'mainnet');
+    }
+  }
+
   signals.protocols = [...protocols];
   signals.protocolTypes = [...protocolTypes];
   signals.chains = [...activeChains];
@@ -171,7 +186,9 @@ export async function computeSignals(
     (tokenApi?.recentTransfer ?? false);
 
   signals.ethereumActivity = signals.walletActivity && activeChains.has('mainnet');
-  signals.activityScore = computeActivityScore(protocols.size, signals.lastActivityDaysAgo, windowDays);
+
+  const substreamsBoost = substreams?.ok && substreams.isActiveTrader ? 0.1 : 0;
+  signals.activityScore = Math.min(1, computeActivityScore(protocols.size, signals.lastActivityDaysAgo, windowDays) + substreamsBoost);
 
   return { signals, sources };
 }

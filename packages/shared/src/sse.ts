@@ -84,16 +84,24 @@ export const chatStreamEventSchema = z.discriminatedUnion('type', [
   /**
    * The model wants to run an editor tool.
    *
-   * The turn ends here: the server cannot execute anything, so it hands the
-   * request to the client and stops. The client runs the tool and starts a new
-   * request carrying the result, which is what makes the agent loop work over a
-   * one-way stream.
+   * Client tools (read_file, write_file, …) end the turn: the client executes
+   * them and starts a new request carrying the result. Server tools
+   * (query_blockchain) are executed on the server and their results arrive as
+   * `tool_result` events below — the client records them in history so the model
+   * sees its own results on the next hop.
    */
   z.object({
     type: z.literal('tool_use'),
     toolUseId: z.string(),
     name: z.string(),
     input: z.unknown(),
+  }),
+  z.object({
+    type: z.literal('tool_result'),
+    toolUseId: z.string(),
+    name: z.string(),
+    content: z.string(),
+    isError: z.boolean(),
   }),
   z.object({ type: z.literal('usage'), usage: usageEventSchema }),
   z.object({ type: z.literal('reward'), reward: rewardEventSchema }),
