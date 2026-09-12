@@ -1,4 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
+import { CopyButton, IconButton } from './IconButton';
+import { InsertIcon } from './icons';
 
 /**
  * A deliberately small markdown renderer.
@@ -237,12 +239,13 @@ export function Markdown({ text, onCopyCode, onInsertCode }: Props) {
                       function into someone's file is worse than waiting. */}
                   {block.closed && (
                     <span className="code-actions">
-                      <button className="ghost" onClick={() => onCopyCode(block.code)}>
-                        Copy
-                      </button>
-                      <button className="ghost" onClick={() => onInsertCode(block.code)}>
-                        Insert
-                      </button>
+                      <CopyButton label="Copy code" onCopy={() => onCopyCode(block.code)} />
+                      <IconButton
+                        label="Insert code at cursor"
+                        onClick={() => onInsertCode(block.code)}
+                      >
+                        <InsertIcon />
+                      </IconButton>
                     </span>
                   )}
                 </div>

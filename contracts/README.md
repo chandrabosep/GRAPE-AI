@@ -47,31 +47,39 @@ export PRIVATE_KEY=0x...          # deployer, becomes owner
 export OPERATOR_ADDRESS=0x...     # backend
 export PLATFORM_WALLET=0x...
 export TREASURY_WALLET=0x...
-export USDC_ADDRESS=0x3600000000000000000000000000000000000000
-forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast
+export USDC_ADDRESS=0x0000000000000000000000000000000000068cda
+forge script script/Deploy.s.sol --rpc-url https://testnet.hashio.io/api --broadcast
 ```
 
 The script prints the three addresses to paste into the root `.env`.
 
-## Arc testnet
+## Hedera testnet
 
-The target chain is **Arc testnet (5042002)**, Circle's stablecoin L1, and the
-token is **real testnet USDC** rather than the mock. Two properties of Arc
-matter here:
+The target chain is **Hedera testnet (296)**, reached over the HashIO JSON-RPC
+relay — the same network the x402 agent payments settle on, so the project has
+one chain rather than two.
 
-- **USDC is the native gas token.** Deployment and every settlement transaction
-  is paid for in the same asset the campaign is denominated in — a deploy costs
-  about `0.074 USDC` at 42 gwei. Fund the deployer at
-  <https://faucet.circle.com>. There is no second gas asset to hold.
-- **The same balance is exposed as a 6-decimal ERC-20** at
-  `0x3600000000000000000000000000000000000000`, so `CampaignVault` and
-  `RewardPool` use it through the plain `IERC20` interface with no wrapper, and
-  one token base unit is exactly one micro-USD in the ledger. No conversion
-  exists anywhere in the codebase, which is the point.
+The token is **HTS USDC**, `0.0.429274`, which the EVM reaches through its alias
+`0x0000000000000000000000000000000000068cda`. It answers the ordinary ERC-20
+interface, so `CampaignVault` and `RewardPool` hold it through plain `IERC20`
+with no wrapper, and its 6 decimals mean one token base unit is exactly one
+micro-USD in the ledger. No conversion exists anywhere in the codebase, which is
+the point.
 
-Verified against the live RPC on 2026-09-12: `eth_chainId` → `0x4cef52`
-(5042002), `decimals()` → `6`, `symbol()` → `USDC`, and `forge script`
-simulates the full deployment cleanly against live chain state.
+Verified against the live RPC on 2026-09-12: `eth_chainId` → `0x128` (296),
+`decimals()` → `6`, `symbol()` → `USDC`.
 
-Note that the Arc docs list the chain ID hex as `0x4CA812`, which does not match
-the decimal they give; the chain itself answers `0x4cef52`. Trust the chain.
+Gas is paid in **HBAR**, not in the token being moved, so the deployer needs an
+HBAR balance — get one at <https://portal.hedera.com>.
+
+### The association caveat
+
+Hedera requires an account to be associated with an HTS token before it can
+receive it. Contracts created through the EVM get automatic association slots,
+but this is the one Hedera-specific behaviour that has no equivalent on other
+EVM chains, so **verify it with a real transfer before trusting a deployment**:
+a vault that cannot receive USDC fails at funding time, not at deploy time.
+
+If association gets in the way, leaving `USDC_ADDRESS` unset deploys `MockUSDC`
+— a plain ERC-20 with no association rules — and everything else behaves
+identically. That is the fallback, not the default.

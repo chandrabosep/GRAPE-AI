@@ -13,15 +13,24 @@
 export const STYLES = `
   * { box-sizing: border-box; }
 
-  body {
+  /* VS Code injects 20px of horizontal body padding into every webview, which
+     in a narrow sidebar eats a sixth of the width and leaves the topbar rule
+     and the composer floating in gutters. The panel draws its own edges, so
+     take the full width back and let each section own its padding. */
+  html, body {
+    height: 100%;
     margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  body {
     font-family: var(--vscode-font-family);
     font-size: var(--vscode-font-size);
     color: var(--vscode-foreground);
     background: transparent;
     -webkit-font-smoothing: antialiased;
   }
-  #root { display: flex; flex-direction: column; height: 100vh; }
+  #root { display: flex; flex-direction: column; height: 100%; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(4px); }
@@ -120,13 +129,13 @@ export const STYLES = `
   }
   .code-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 4px 6px 4px 10px;
+    padding: 2px 4px 2px 10px;
     font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
     color: var(--vscode-descriptionForeground);
     background: var(--vscode-editorWidget-background);
     border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25));
   }
-  .code-actions { display: flex; gap: 2px; }
+  .code-actions { display: flex; gap: 1px; }
   .code-block pre {
     margin: 0; padding: 10px 12px; overflow-x: auto;
     background: var(--vscode-textCodeBlock-background);
@@ -138,17 +147,11 @@ export const STYLES = `
   }
 
   /* --- what the user can do with an answer --- */
-  .answer-actions { display: flex; gap: 2px; align-items: center; margin-top: -2px; }
+  .answer-actions { display: flex; gap: 1px; align-items: center; margin-top: -4px; margin-left: -4px; }
   .answer-cost {
     margin-left: auto; padding-right: 2px;
     font-size: 11px; font-variant-numeric: tabular-nums;
     color: var(--vscode-descriptionForeground); opacity: .85;
-  }
-
-  .ad-skipped {
-    font-size: 11px; line-height: 1.5; padding-top: 9px;
-    color: var(--vscode-descriptionForeground); opacity: .8;
-    border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,.18));
   }
 
   /* --- sponsored: intentionally distinct from everything above it --- */
@@ -283,6 +286,15 @@ export const STYLES = `
     background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.16));
     color: var(--vscode-foreground);
   }
+  /* Icon-only actions. The square target stays finger-sized even though the
+     glyph inside it is 14px, so the row is no harder to hit than the words it
+     replaced. */
+  button.ghost.action {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; padding: 0; border-radius: 5px;
+  }
+  button.ghost.action.copied { color: var(--vscode-charts-green, #4caf50); }
+  button.ghost.action.copied:hover:not(:disabled) { color: var(--vscode-charts-green, #4caf50); }
   button.stop {
     border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.4));
     padding: 5px 12px;

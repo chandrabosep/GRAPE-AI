@@ -364,7 +364,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             this.post({ type: 'ad', id, ad: event.ad });
             break;
           case 'ad_skipped':
-            this.post({ type: 'adSkipped', id, format: event.format, reason: event.reason });
+            // The panel no longer narrates an empty slot, so there is nothing
+            // to forward. The server still records the reason.
             break;
           case 'usage':
             this.post({

@@ -1,4 +1,4 @@
-import type { AdSkippedReason, CreativeFormat, SponsoredAd } from '@aam/shared';
+import type { SponsoredAd } from '@aam/shared';
 
 /** Typed message contract between the extension host and the webview. */
 
@@ -39,7 +39,6 @@ export interface PersistedTurn {
   ad: SponsoredAd | null;
   /** The single line shown beside the answer while it streamed. */
   inlineAd: SponsoredAd | null;
-  adSkipped: AdSkippedReason | null;
   rewardMicro: number | null;
   usage: { totalTokens: number; costMicro: number } | null;
   /** Which model answered. Shown per turn, because it can change mid-session. */
@@ -125,7 +124,6 @@ export type HostToWebview =
   | { type: 'restore'; sessionId: string; turns: PersistedTurn[] }
   | { type: 'delta'; id: string; text: string }
   | { type: 'ad'; id: string; ad: SponsoredAd }
-  | { type: 'adSkipped'; id: string; format: CreativeFormat; reason: AdSkippedReason }
   /** A tool call started, finished, or is waiting on the developer. */
   | { type: 'tool'; id: string; activity: ToolActivity }
   | { type: 'reward'; id: string; amountMicro: number; balanceMicro: number }

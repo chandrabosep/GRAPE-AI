@@ -1,9 +1,11 @@
 import { StrictMode, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { AdSkippedReason, SponsoredAd } from '@aam/shared';
+import type { SponsoredAd } from '@aam/shared';
 import type { HostState, PersistedTurn, ToolActivity } from '../src/protocol';
 import { AdCard } from './AdCard';
 import { InlineAd } from './InlineAd';
+import { CopyButton, IconButton } from './IconButton';
+import { InsertIcon, RegenerateIcon } from './icons';
 import { Markdown } from './markdown';
 import { ToolTrail } from './ToolTrail';
 import { ModelMenu } from './ModelMenu';
@@ -19,24 +21,6 @@ import { STYLES } from './styles';
  * rule. Modelling it this way makes it structurally impossible to render an ad
  * as if the assistant wrote it.
  */
-
-/**
- * Why no card was shown, in the developer's terms.
- *
- * An empty slot with no explanation is indistinguishable from a broken
- * product — which is exactly how it reads the first time you ask the assistant
- * something casual and nothing appears.
- */
-const SKIP_TEXT: Record<AdSkippedReason, string> = {
-  below_relevance_floor: 'No sponsored card: nothing was relevant enough to this question.',
-  no_campaigns: 'No sponsored card: no campaign is currently running.',
-  frequency_capped: 'No sponsored card: you have seen the matching advertisers recently.',
-  audience_excluded: 'No sponsored card: no campaign is targeting this kind of question.',
-  onchain_required:
-    'No sponsored card: the matching campaign needs a linked wallet with onchain history.',
-  budget_exhausted: 'No sponsored card: the matching campaigns are out of budget.',
-  ads_disabled: 'Sponsored cards are turned off for your account.',
-};
 
 /** Openers that actually reach a campaign, so the first try is never a dead end. */
 const SUGGESTIONS = [
@@ -63,7 +47,6 @@ function emptyTurn(id: string, question: string): Turn {
     tools: [],
     ad: null,
     inlineAd: null,
-    adSkipped: null,
     rewardMicro: null,
     usage: null,
     model: null,
@@ -204,13 +187,8 @@ function App() {
             message.id,
             (message.ad as SponsoredAd).format === 'inline'
               ? { inlineAd: message.ad }
-              : { ad: message.ad, adSkipped: null },
+              : { ad: message.ad },
           );
-          break;
-        case 'adSkipped':
-          // Only the banner's absence is worth explaining. Narrating a missing
-          // one-liner would take more room than the ad would have.
-          if (message.format === 'banner') patchTurn(message.id, { adSkipped: message.reason });
           break;
         case 'tool':
           // Keyed by tool-use id so a call updates in place as it runs, needs a
@@ -429,22 +407,20 @@ function App() {
 
             {!turn.streaming && turn.answer && (
               <div className="answer-actions">
-                <button
-                  className="ghost"
-                  onClick={() => vscode.postMessage({ type: 'copy', text: turn.answer })}
-                >
-                  Copy
-                </button>
-                <button
-                  className="ghost"
+                <CopyButton
+                  label="Copy answer"
+                  onCopy={() => vscode.postMessage({ type: 'copy', text: turn.answer })}
+                />
+                <IconButton
+                  label="Insert answer at cursor"
                   onClick={() => vscode.postMessage({ type: 'insertCode', code: turn.answer })}
                 >
-                  Insert
-                </button>
+                  <InsertIcon />
+                </IconButton>
                 {index === turns.length - 1 && (
-                  <button className="ghost" onClick={() => regenerate(turn)}>
-                    Regenerate
-                  </button>
+                  <IconButton label="Regenerate answer" onClick={() => regenerate(turn)}>
+                    <RegenerateIcon />
+                  </IconButton>
                 )}
                 {/* What the answer cost, next to what the card earns: the whole
                     product argument, stated in the two numbers themselves. */}
@@ -455,11 +431,6 @@ function App() {
                   </span>
                 )}
               </div>
-            )}
-
-            {/* Why the slot is empty. Silence here reads as a broken pipeline. */}
-            {!turn.ad && turn.adSkipped && !turn.streaming && (
-              <div className="ad-skipped">{SKIP_TEXT[turn.adSkipped]}</div>
             )}
 
             {/* A sibling of the answer, never inside it. */}

@@ -23,10 +23,10 @@ import {RewardPool} from "../src/RewardPool.sol";
  *   TREASURY_WALLET   receives the treasury share
  *   USDC_ADDRESS      real token to settle in; deploys MockUSDC when unset
  *
- * On Arc testnet (chain 5042002) USDC is the native gas token and is also
- * exposed as a 6-decimal ERC-20 at 0x3600000000000000000000000000000000000000,
- * so pass that as USDC_ADDRESS and no mock is deployed. Gas is paid in USDC
- * too, so the deployer needs a balance from https://faucet.circle.com.
+ * On Hedera testnet (chain 296) the token is HTS USDC 0.0.429274, which the EVM
+ * reaches at its alias 0x0000000000000000000000000000000000068cda with 6
+ * decimals — pass that as USDC_ADDRESS and no mock is deployed. Gas is paid in
+ * HBAR, so fund the deployer at https://portal.hedera.com.
  */
 contract Deploy is Script {
     function run() external {
