@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @aam/db db:generate && pnpm exec esbuild src/handler.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/handler.js --banner:js=\"import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);\"",
+  "buildCommand": "pnpm --filter @aam/db db:generate && npx --yes esbuild@0.28.2 src/handler.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/handler.js --banner:js=\"import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);\"",
   "outputDirectory": "public",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": {
