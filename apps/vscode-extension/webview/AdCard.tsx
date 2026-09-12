@@ -21,6 +21,12 @@ interface Props {
   ad: SponsoredAd;
   rewardMicro: number | null;
   onVisible: (impressionId: string, visibleMs: number) => void;
+  /**
+   * This card came back from a saved conversation, so its impression was
+   * already reported when it was first shown. Without this the observer fires
+   * again on every reopen and re-acknowledges attention from days ago.
+   */
+  alreadyAcknowledged?: boolean;
   onClick: (impressionId: string, url: string) => void;
   onDismiss: (impressionId: string) => void;
 }
@@ -37,9 +43,16 @@ function AdvertiserMark({ name }: { name: string }) {
   return <span className="ad-avatar">{initials}</span>;
 }
 
-export function AdCard({ ad, rewardMicro, onVisible, onClick, onDismiss }: Props) {
+export function AdCard({
+  ad,
+  rewardMicro,
+  onVisible,
+  onClick,
+  onDismiss,
+  alreadyAcknowledged,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const acknowledged = useRef(false);
+  const acknowledged = useRef(alreadyAcknowledged === true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);

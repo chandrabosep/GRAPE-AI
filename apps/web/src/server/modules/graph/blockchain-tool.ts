@@ -20,6 +20,8 @@ const MAX_RESULT_CHARS = 8_000;
 export interface ToolResult {
   content: string;
   isError: boolean;
+  /** Round trip to the gateway, for the client to show beside the call. */
+  latencyMs?: number;
 }
 
 export async function executeBlockchainQuery(input: unknown): Promise<ToolResult> {
@@ -55,6 +57,7 @@ export async function executeBlockchainQuery(input: unknown): Promise<ToolResult
     return {
       content: `Graph query failed: ${result.error ?? 'unknown error'} (${result.latencyMs}ms)`,
       isError: true,
+      latencyMs: result.latencyMs,
     };
   }
 
@@ -66,5 +69,6 @@ export async function executeBlockchainQuery(input: unknown): Promise<ToolResult
   return {
     content: `[${protocol}/${chain}, ${result.latencyMs}ms]\n${json}`,
     isError: false,
+    latencyMs: result.latencyMs,
   };
 }

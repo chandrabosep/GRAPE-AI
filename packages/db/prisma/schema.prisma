@@ -404,6 +404,12 @@ model AdImpression {
   creative   AdCreative @relation(fields: [creativeId], references: [id])
 
   requestId String  @map("request_id")
+  /// The conversation this was shown in, as the client knows it.
+  ///
+  /// Needed so "how many ads has this conversation already shown" can actually
+  /// be asked. Nullable because impressions recorded before this column existed
+  /// belong to no known session, and must not count against a new one.
+  sessionId String? @map("session_id")
   intentId  String? @map("intent_id")
 
   /// Denormalised from the creative so per-format reporting never needs a join.
@@ -433,6 +439,7 @@ model AdImpression {
   @@index([campaignId, createdAt])
   @@index([campaignId, format, createdAt])
   @@index([requestId])
+  @@index([userId, sessionId])
   @@map("ad_impressions")
 }
 

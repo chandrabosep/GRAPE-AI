@@ -77,6 +77,21 @@ export async function confirmImpression(
     return { granted: false, reason: 'already_rewarded', amountMicro: 0n, balanceMicro: null };
   }
 
+  // Attention is confirmed once, and `viewedAt` is set on every outcome —
+  // qualified or disqualified — so this is the record of a decision having been
+  // made.
+  //
+  // Without it, an impression that was correctly refused at the time is still
+  // open for re-evaluation later. Reopening an old conversation remounts its ad
+  // card and the client acknowledges it again, and by then the gates that
+  // refused it no longer apply: the daily cap has reset, the 60-second spacing
+  // has long passed, the duplicate-prompt window has expired. The refusal would
+  // quietly turn into a payment, repeatable by reopening the conversation. The
+  // advertiser was charged once, so the decision is made once too.
+  if (impression.viewedAt !== null) {
+    return NO_REWARD(impression.disqualifyReason ?? 'already_evaluated');
+  }
+
   // Below the dwell threshold the card was not meaningfully seen.
   const MIN_VISIBLE_MS = 1000;
   if (visibleMs < MIN_VISIBLE_MS) {

@@ -40,9 +40,28 @@ export interface AccountSummary {
   creditBalanceMicro: string;
   withdrawableMicro: string;
   todayTokens: number;
+  /** Null when the deployment does not expose an email for the account. */
+  email: string | null;
+  displayName: string | null;
+  todayCostMicro: string;
+  requestsToday: number;
+}
+
+/**
+ * The deployment's public numbers.
+ *
+ * Only the payout threshold is used so far, and it is what turns earnings into
+ * a bar with a real end rather than a number that just grows. Fetched rather
+ * than hardcoded for the same reason the model catalog is: a client-side copy
+ * of a server-side rule goes stale silently.
+ */
+export interface PublicConfig {
+  minPayoutMicro: number;
 }
 
 export class ApiClient {
+  private publicConfig: PublicConfig | undefined;
+
   constructor(
     private readonly baseUrl: () => string,
     private readonly auth: AuthManager,
@@ -53,15 +72,42 @@ export class ApiClient {
     if (!response?.ok) return null;
 
     const body = (await response.json()) as {
+      user?: { email?: string | null; displayName?: string | null };
       credits: { balanceMicro: string; withdrawableMicro: string };
-      usageToday: { todayTokens: number };
+      usageToday: { todayTokens: number; todayCostMicro?: string; requestCount?: number };
     };
 
     return {
       creditBalanceMicro: body.credits.balanceMicro,
       withdrawableMicro: body.credits.withdrawableMicro,
       todayTokens: body.usageToday.todayTokens,
+      email: body.user?.email ?? null,
+      displayName: body.user?.displayName ?? null,
+      todayCostMicro: body.usageToday.todayCostMicro ?? '0',
+      requestsToday: body.usageToday.requestCount ?? 0,
     };
+  }
+
+  /**
+   * Public configuration, fetched once per window.
+   *
+   * Unauthenticated and effectively constant for the life of a deployment, so
+   * there is nothing to gain from asking again.
+   */
+  async config(): Promise<PublicConfig | null> {
+    if (this.publicConfig !== undefined) return this.publicConfig;
+
+    const response = await this.request('/api/v1/config/public', { method: 'GET' });
+    if (!response?.ok) return null;
+
+    const body = (await response.json()) as { credits?: { minPayoutMicro?: number } };
+    const minPayoutMicro = body.credits?.minPayoutMicro;
+    // Cache only a real answer, so a transient failure does not pin the panel
+    // to a missing threshold for the rest of the session.
+    if (typeof minPayoutMicro !== 'number') return null;
+
+    this.publicConfig = { minPayoutMicro };
+    return this.publicConfig;
   }
 
   /**

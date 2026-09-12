@@ -25,13 +25,19 @@ const DWELL_MS = 1000;
 interface Props {
   ad: SponsoredAd;
   onVisible: (impressionId: string, visibleMs: number) => void;
+  /**
+   * This card came back from a saved conversation, so its impression was
+   * already reported when it was first shown. Without this the observer fires
+   * again on every reopen and re-acknowledges attention from days ago.
+   */
+  alreadyAcknowledged?: boolean;
   onClick: (impressionId: string, url: string) => void;
   onDismiss: (impressionId: string) => void;
 }
 
-export function InlineAd({ ad, onVisible, onClick, onDismiss }: Props) {
+export function InlineAd({ ad, onVisible, onClick, onDismiss, alreadyAcknowledged }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const acknowledged = useRef(false);
+  const acknowledged = useRef(alreadyAcknowledged === true);
   const [dismissing, setDismissing] = useState(false);
 
   useEffect(() => {

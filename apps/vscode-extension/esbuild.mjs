@@ -35,6 +35,17 @@ const configs = [
     target: 'es2022',
     format: 'iife',
   },
+  // The account panel is a second webview, so it gets its own bundle. Sharing
+  // one with the chat would make every panel pay for the chat's markdown
+  // renderer and streaming UI just to draw a list.
+  {
+    ...shared,
+    entryPoints: ['webview/account.tsx'],
+    outfile: 'dist/account.js',
+    platform: 'browser',
+    target: 'es2022',
+    format: 'iife',
+  },
 ];
 
 if (watch) {

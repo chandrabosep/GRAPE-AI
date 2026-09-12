@@ -90,3 +90,30 @@ export async function isDuplicatePrompt(
   });
   return count > 0;
 }
+
+/**
+ * Upgrades a record written from the rules stage once the LLM stage lands.
+ *
+ * The inline slot is ranked before the classifier has answered, so the record
+ * its impression points at has to exist by then. Updating that same row rather
+ * than writing a second one keeps one request to one derived intent — which is
+ * what the advertiser-facing aggregates count.
+ */
+export async function refineIntentRecord(
+  intentId: string,
+  intent: AIIntent,
+  classifier: 'rules' | 'llm' | 'merged',
+): Promise<void> {
+  await prisma.aiIntentRecord.update({
+    where: { id: intentId },
+    data: {
+      category: intent.category,
+      intent: intent.intent,
+      technologies: intent.technologies,
+      persona: intent.persona,
+      commercialIntent: intent.commercialIntent,
+      confidence: intent.confidence,
+      classifier,
+    },
+  });
+}

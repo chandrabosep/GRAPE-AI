@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
+import { AccountViewProvider } from './account-view';
 import { ApiClient } from './api';
 import { AuthManager } from './auth';
 import { ChatViewProvider, PROPOSED_SCHEME, proposedContentProvider } from './chat-view';
+import { SessionCoordinator } from './session-coordinator';
 import { StatusBar } from './status-bar';
 
 /**
@@ -23,7 +25,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const auth = new AuthManager(context, apiUrl);
   const api = new ApiClient(apiUrl, auth);
-  const chat = new ChatViewProvider(context, auth, api, apiUrl);
+
+  // One store, shared. Both views can open and rename conversations, and two
+  // independent stores over the same globalState would not see each other's
+  // writes.
+  const sessions = new SessionCoordinator(context.globalState);
+
+  const chat = new ChatViewProvider(context, auth, api, apiUrl, sessions);
+  const account = new AccountViewProvider(context, auth, api, sessions);
   const statusBar = new StatusBar(auth, api);
 
   context.subscriptions.push(
@@ -41,8 +50,21 @@ export function activate(context: vscode.ExtensionContext): void {
       proposedContentProvider,
     ),
 
-    vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chat, {
-      webviewOptions: { retainContextWhenHidden: true },
+    // The chat is an editor tab, created on demand rather than registered as a
+    // view. Only the account panel lives in the sidebar.
+    //
+    // No `retainContextWhenHidden` on it: it holds nothing a reload would lose,
+    // and keeping a webview alive in the background for a list that is cheap to
+    // redraw is the kind of cost that has no visible return.
+    vscode.window.registerWebviewViewProvider(AccountViewProvider.viewType, account),
+
+    // Brings the chat tab back to life after a window reload, rather than
+    // leaving the blank tab the editor would otherwise restore.
+    vscode.window.registerWebviewPanelSerializer(ChatViewProvider.viewType, {
+      deserializeWebviewPanel: (panel) => {
+        chat.restore(panel);
+        return Promise.resolve();
+      },
     }),
 
     vscode.commands.registerCommand('aiMarketplace.signIn', async () => {
@@ -50,6 +72,7 @@ export function activate(context: vscode.ExtensionContext): void {
         await auth.signIn();
         void vscode.window.showInformationMessage('Signed in to AI Marketplace.');
         await statusBar.refresh();
+        account.refresh();
       } catch (error) {
         void vscode.window.showErrorMessage(
           error instanceof Error ? error.message : 'Sign-in failed.',
@@ -71,11 +94,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aiMarketplace.signOut', async () => {
       await auth.signOut();
       await statusBar.refresh();
+      account.refresh();
       void vscode.window.showInformationMessage('Signed out.');
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.openChat', async () => {
-      await vscode.commands.executeCommand('aiMarketplace.chat.focus');
+    vscode.commands.registerCommand('aiMarketplace.openChat', () => {
+      chat.open();
     }),
 
     vscode.commands.registerCommand('aiMarketplace.newChat', async () => {
@@ -104,6 +128,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aiMarketplace.withdraw', async () => {
       await vscode.env.openExternal(vscode.Uri.parse(`${apiUrl()}/app/withdraw`));
+    }),
+
+    vscode.commands.registerCommand('aiMarketplace.openAccount', async () => {
+      await vscode.commands.executeCommand('aiMarketplace.account.focus');
     }),
   );
 

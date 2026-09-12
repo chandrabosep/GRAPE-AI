@@ -56,9 +56,16 @@ async function loadFrequency(userId: string, sessionId: string | null): Promise<
       where: { userId, createdAt: { gte: new Date(now - DAY_MS) } },
       _count: { _all: true },
     }),
+    // Scoped to the conversation, which is what `maxAdsPerSession` means.
+    // This took `sessionId` and then counted every impression the user had in
+    // 24 hours regardless of it, so a limit of 10 per conversation silently
+    // behaved as 10 per day and ads stopped for the rest of the day.
+    //
+    // Still time-bounded, so a client that reuses one session id forever cannot
+    // accumulate its way to a permanent block.
     sessionId
       ? prisma.adImpression.count({
-          where: { userId, createdAt: { gte: new Date(now - DAY_MS) } },
+          where: { userId, sessionId, createdAt: { gte: new Date(now - DAY_MS) } },
         })
       : Promise.resolve(0),
   ]);
@@ -310,6 +317,7 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
       creativeId: winner.campaign.creative.id,
       requestId: input.requestId,
       intentId: input.intentId,
+      sessionId: input.sessionId,
       format: input.format,
       // What was actually reserved, recorded now. Reading the charge back off
       // today's config would misreport a campaign that ran under an older one.

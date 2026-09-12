@@ -32,8 +32,8 @@
       "aiMarketplace": [
         {
           "type": "webview",
-          "id": "aiMarketplace.chat",
-          "name": "Chat"
+          "id": "aiMarketplace.account",
+          "name": "Account & Sessions"
         }
       ]
     },
@@ -73,6 +73,10 @@
       {
         "command": "aiMarketplace.withdraw",
         "title": "AI Marketplace: Withdraw Earnings"
+      },
+      {
+        "command": "aiMarketplace.openAccount",
+        "title": "AI Marketplace: Open Account & Sessions"
       }
     ],
     "menus": {

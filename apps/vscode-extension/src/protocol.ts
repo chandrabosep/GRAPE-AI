@@ -25,8 +25,17 @@ export interface ToolActivity {
   /** What it acted on — a path, or a query. */
   summary: string;
   status: 'running' | 'done' | 'error' | 'awaiting-approval' | 'applied' | 'rejected';
-  /** An error message, or a diff stat like "+12 −3". */
+  /** An error message, a diff stat like "+12 −3", or a latency. */
   detail?: string;
+  /**
+   * The GraphQL a subgraph call ran, revealed when the row is expanded.
+   *
+   * Only server tools carry this. A file read names its file and that is the
+   * whole of what it did; a Graph query's target says almost nothing without
+   * the query itself, which is the part that shows the number in the answer
+   * was fetched rather than guessed.
+   */
+  query?: string;
 }
 
 export interface PersistedTurn {
@@ -117,6 +126,46 @@ export interface HostState {
   sessions: SessionSummary[];
   activeSessionId: string | null;
 }
+
+/**
+ * What the account panel renders.
+ *
+ * `null` for a figure means "not known yet", which is not the same as zero and
+ * must not render as `$0.00` — a balance that blinks to nothing while a request
+ * is in flight reads as money lost. `offline` says the last fetch failed, so
+ * the panel can keep showing the previous figures and mark them as stale rather
+ * than replacing them with zeros.
+ */
+export interface AccountState {
+  signedIn: boolean;
+  offline: boolean;
+  email: string | null;
+  /** Shown when there is no email — a wallet-only account still has a name. */
+  displayName: string | null;
+  creditBalanceMicro: string | null;
+  withdrawableMicro: string | null;
+  /** The withdrawal threshold, which is what makes the earnings bar meaningful. */
+  minPayoutMicro: number | null;
+  todayTokens: number | null;
+  todayCostMicro: string | null;
+  requestsToday: number | null;
+  sessions: SessionSummary[];
+  activeSessionId: string | null;
+}
+
+export type AccountWebviewToHost =
+  | { type: 'ready' }
+  | { type: 'refresh' }
+  | { type: 'newSession' }
+  | { type: 'switchSession'; sessionId: string }
+  | { type: 'renameSession'; sessionId: string; title: string }
+  | { type: 'deleteSession'; sessionId: string }
+  | { type: 'signIn' }
+  | { type: 'openDashboard' }
+  | { type: 'topUp' }
+  | { type: 'withdraw' };
+
+export type AccountHostToWebview = { type: 'account'; state: AccountState };
 
 export type HostToWebview =
   | { type: 'state'; state: HostState }

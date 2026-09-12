@@ -12,11 +12,11 @@ import type {
   PersistedTurn,
   WebviewToHost,
 } from './protocol';
-import { SessionStore } from './sessions';
+import type { SessionCoordinator } from './session-coordinator';
 import { applyWrite, diffSummary, runTool, type PendingWrite } from './tools';
 
 /**
- * The chat sidebar.
+ * The chat, as an editor tab.
  *
  * A custom webview rather than a Chat Participant, because the participant API
  * can only emit markdown and cannot render the sponsored slots as visually
@@ -33,16 +33,17 @@ const ACCOUNT_TTL_MS = 10_000;
 
 const MODEL_KEY = 'aiMarketplace.model';
 
-export class ChatViewProvider implements vscode.WebviewViewProvider {
+export class ChatViewProvider {
+  /** Also the webview panel's type id, which VS Code uses to restore the tab. */
   static readonly viewType = 'aiMarketplace.chat';
 
-  private view: vscode.WebviewView | undefined;
+  private panel: vscode.WebviewPanel | undefined;
   private pending: HostToWebview[] = [];
   private history: ChatMessage[] = [];
   private inFlight: AbortController | null = null;
   private account: { value: Awaited<ReturnType<ApiClient['me']>>; at: number } | null = null;
 
-  private readonly sessions: SessionStore;
+  private readonly sessions: SessionCoordinator;
   /** Writes the model has proposed, keyed by tool-use id, awaiting a decision. */
   private readonly pendingWrites = new Map<
     string,
@@ -58,9 +59,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly auth: AuthManager,
     private readonly api: ApiClient,
     private readonly apiUrl: () => string,
+    sessions: SessionCoordinator,
   ) {
     this.extensionUri = context.extensionUri;
-    this.sessions = new SessionStore(context.globalState);
+    this.sessions = sessions;
+
+    // The account panel can open, rename or delete a conversation. Rather than
+    // the two views calling each other, both act on the coordinator and this
+    // reacts to whatever came out of it — including its own writes, which
+    // reconcile to a no-op.
+    context.subscriptions.push(this.sessions.onDidChange(() => void this.reconcile()));
 
     auth.onDidChange(() => {
       // A sign-in or sign-out changes what the account shows; the cache must not
@@ -71,36 +79,93 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  resolveWebviewView(view: vscode.WebviewView): void {
-    this.view = view;
+  /**
+   * Opens the chat as an editor tab, or reveals the one already open.
+   *
+   * An editor tab rather than a sidebar view: the transcript is the thing the
+   * developer actually reads, and it was competing with the account panel for a
+   * few hundred pixels. Here it gets the full editor, and the tab carries the
+   * conversation's name so the window title says which chat is open.
+   *
+   * One tab, reused. The conversation is switched inside it rather than opened
+   * beside it, because everything downstream of here — the transcript, the
+   * request in flight, the pending writes — is per-instance state, and a second
+   * tab would need a second set of all of it.
+   */
+  open(): void {
+    if (this.panel) {
+      this.panel.reveal(undefined, false);
+      return;
+    }
 
-    view.webview.options = {
+    this.adopt(
+      vscode.window.createWebviewPanel(
+        ChatViewProvider.viewType,
+        this.session?.title ?? 'AI Chat',
+        { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
+        this.webviewOptions(),
+      ),
+    );
+  }
+
+  /**
+   * Takes over a tab the editor restored after a window reload.
+   *
+   * Without this the reopened tab is a dead webview: VS Code puts the tab back
+   * because it was open when the window closed, but nothing has wired up its
+   * HTML or its messages, so it renders blank. The conversation itself survives
+   * in the session store, so adopting the tab is enough to bring it back.
+   */
+  restore(panel: vscode.WebviewPanel): void {
+    // A second chat tab cannot be served by this single instance, so the stale
+    // one goes rather than being left blank and confusing.
+    if (this.panel && this.panel !== panel) panel.dispose();
+    else this.adopt(panel);
+  }
+
+  private webviewOptions(): vscode.WebviewOptions & vscode.WebviewPanelOptions {
+    return {
       enableScripts: true,
+      // The tab can be backgrounded mid-answer, and a hidden webview that got
+      // torn down would lose the rest of the response.
+      retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist')],
     };
+  }
 
-    view.webview.html = this.html(view.webview);
+  /** Wires a panel up, however it came into existence. */
+  private adopt(panel: vscode.WebviewPanel): void {
+    panel.webview.options = this.webviewOptions();
+    panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.svg');
+    panel.webview.html = this.html(panel.webview);
 
-    view.webview.onDidReceiveMessage((message: WebviewToHost) => {
+    panel.webview.onDidReceiveMessage((message: WebviewToHost) => {
       void this.handleMessage(message);
     });
 
-    view.onDidChangeVisibility(() => {
-      if (view.visible) this.flush();
+    panel.onDidChangeViewState(() => {
+      if (panel.visible) this.flush();
     });
 
+    panel.onDidDispose(() => {
+      // Closing the tab must not leave an answer streaming into nothing.
+      this.inFlight?.abort();
+      this.panel = undefined;
+    });
+
+    this.panel = panel;
     void this.pushState();
   }
 
-  /** Focuses the chat and pre-fills a prompt, used by editor context commands. */
+  /** Opens the chat and pre-fills a prompt, used by editor context commands. */
   async ask(text: string): Promise<void> {
-    await vscode.commands.executeCommand('aiMarketplace.chat.focus');
+    this.open();
     await this.handleMessage({ type: 'send', id: randomUUID(), text });
   }
 
   /** Starts a fresh conversation, used by the command palette and the toolbar. */
   async newSession(): Promise<void> {
-    await vscode.commands.executeCommand('aiMarketplace.chat.focus');
+    this.open();
     await this.startNewSession();
   }
 
@@ -120,47 +185,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         await this.pushState();
         return;
 
+      // These four only write. The coordinator announces the change and
+      // `reconcile` does the reloading, so opening a conversation behaves
+      // identically whether it was clicked here or in the account panel.
       case 'newSession':
         await this.startNewSession();
         return;
 
-      case 'switchSession': {
-        // A half-finished answer belongs to the conversation being left, not the
-        // one being opened.
-        this.inFlight?.abort();
-
-        const target = this.sessions.get(message.sessionId);
-        if (!target) return;
-
-        this.session = target;
-        await this.sessions.setActive(target.id);
-        this.history = replayHistory(target.turns);
-        this.post({ type: 'restore', sessionId: target.id, turns: target.turns });
-        await this.pushState();
+      case 'switchSession':
+        if (!this.sessions.get(message.sessionId)) return;
+        await this.sessions.setActive(message.sessionId);
         return;
-      }
 
       case 'renameSession':
         await this.sessions.rename(message.sessionId, message.title);
-        if (this.session?.id === message.sessionId) {
-          this.session = this.sessions.get(message.sessionId);
-        }
-        await this.pushState();
         return;
 
-      case 'deleteSession': {
-        const wasActive = this.session?.id === message.sessionId;
-        if (wasActive) this.inFlight?.abort();
-
-        const next = await this.sessions.remove(message.sessionId);
-        if (wasActive && next) {
-          this.session = next;
-          this.history = replayHistory(next.turns);
-          this.post({ type: 'restore', sessionId: next.id, turns: next.turns });
-        }
-        await this.pushState();
+      case 'deleteSession':
+        await this.sessions.remove(message.sessionId);
         return;
-      }
 
       case 'selectModel':
         await this.context.globalState.update(MODEL_KEY, message.modelId);
@@ -256,10 +299,42 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async startNewSession(): Promise<void> {
-    this.inFlight?.abort();
-    this.session = await this.sessions.create();
-    this.history = [];
-    this.post({ type: 'restore', sessionId: this.session.id, turns: [] });
+    // `create` makes the new conversation active, which reconcile then opens.
+    await this.sessions.create();
+  }
+
+  /**
+   * Brings the panel in line with the coordinator.
+   *
+   * Called after any session change, from either view. The guard is what makes
+   * it safe to run on our own writes: if the open conversation is already the
+   * active one there is nothing to restore, and only the header and the
+   * switcher need refreshing.
+   */
+  private async reconcile(): Promise<void> {
+    const activeId = this.sessions.activeId();
+
+    if (activeId !== null && activeId !== this.session?.id) {
+      // A half-finished answer belongs to the conversation being left, not the
+      // one being opened.
+      this.inFlight?.abort();
+
+      const target = this.sessions.get(activeId);
+      if (target) {
+        this.session = target;
+        this.history = replayHistory(target.turns);
+        this.post({ type: 'restore', sessionId: target.id, turns: target.turns });
+      }
+    } else if (this.session) {
+      // Same conversation, but its title or turn count may have moved.
+      this.session = this.sessions.get(this.session.id) ?? this.session;
+    }
+
+    // The tab is how the developer knows which conversation they are in, and
+    // an untitled one gets its name from its first question, so this has to
+    // follow every change rather than being set once at open().
+    if (this.panel && this.session) this.panel.title = this.session.title;
+
     await this.pushState();
   }
 
@@ -375,6 +450,24 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
               toolUseId: event.toolUseId,
               content: event.content,
               isError: event.isError,
+            });
+            break;
+          case 'server_tool':
+            // Presentational only: the server already ran it and the model has
+            // already seen the result, so this touches the trail and nothing
+            // else. Keyed by tool-use id, so the running row becomes the
+            // finished one in place instead of stacking up as two.
+            this.post({
+              type: 'tool',
+              id,
+              activity: {
+                id: event.toolUseId,
+                name: event.name,
+                summary: event.summary,
+                status: event.status,
+                ...(event.detail ? { detail: event.detail } : {}),
+                ...(event.query ? { query: event.query } : {}),
+              },
             });
             break;
           case 'ad':
@@ -687,17 +780,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private post(message: HostToWebview): void {
     // Buffer while hidden: postMessage to a hidden webview is dropped.
-    if (!this.view?.visible) {
+    if (!this.panel?.visible) {
       this.pending.push(message);
       return;
     }
-    void this.view.webview.postMessage(message);
+    void this.panel.webview.postMessage(message);
   }
 
   private flush(): void {
     const queued = this.pending;
     this.pending = [];
-    for (const message of queued) void this.view?.webview.postMessage(message);
+    for (const message of queued) void this.panel?.webview.postMessage(message);
   }
 
   private html(webview: vscode.Webview): string {

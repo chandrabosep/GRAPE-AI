@@ -38,6 +38,14 @@ const SUGGESTIONS = [
 interface Turn extends PersistedTurn {
   error: string | null;
   streaming: boolean;
+  /**
+   * Loaded from a saved conversation rather than produced in this session.
+   *
+   * Its sponsored slots were already acknowledged when they were first shown,
+   * so they must not be acknowledged again on reopen. Runtime only — stripped
+   * before the turn is written back.
+   */
+  restored: boolean;
 }
 
 declare function acquireVsCodeApi(): { postMessage: (message: unknown) => void };
@@ -58,6 +66,7 @@ function emptyTurn(id: string, question: string): Turn {
     model: null,
     error: null,
     streaming: true,
+    restored: false,
   };
 }
 
@@ -70,6 +79,7 @@ function hydrate(turn: PersistedTurn): Turn {
     model: turn.model ?? null,
     error: null,
     streaming: false,
+    restored: true,
   };
 }
 
@@ -270,7 +280,9 @@ function App() {
       if (sessionId.current !== owner) return;
       vscode.postMessage({
         type: 'persist',
-        turns: turns.map(({ error: _error, streaming: _streaming, ...rest }) => rest),
+        turns: turns.map(
+          ({ error: _error, streaming: _streaming, restored: _restored, ...rest }) => rest,
+        ),
       });
     }, 400);
     return () => clearTimeout(timer);
@@ -406,6 +418,7 @@ function App() {
               {showInlineAd && (
                 <InlineAd
                   ad={turn.inlineAd as SponsoredAd}
+                  alreadyAcknowledged={turn.restored}
                   onVisible={(impressionId, visibleMs) =>
                     vscode.postMessage({ type: 'adVisible', id: turn.id, impressionId, visibleMs })
                   }
@@ -464,6 +477,7 @@ function App() {
                 <AdCard
                   ad={turn.ad as SponsoredAd}
                   rewardMicro={turn.rewardMicro}
+                  alreadyAcknowledged={turn.restored}
                   onVisible={(impressionId, visibleMs) =>
                     vscode.postMessage({ type: 'adVisible', id: turn.id, impressionId, visibleMs })
                   }

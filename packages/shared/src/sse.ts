@@ -103,6 +103,30 @@ export const chatStreamEventSchema = z.discriminatedUnion('type', [
     content: z.string(),
     isError: z.boolean(),
   }),
+  /**
+   * A server-side tool running, for the client to show.
+   *
+   * Purely presentational, and deliberately not `tool_use`/`tool_result`: those
+   * two carry history semantics — a client that receives them is expected to
+   * execute the call or record the result — and a server tool needs neither. It
+   * has already been run on the server, and the model has already seen the
+   * answer. What the developer has not seen is that it happened at all, which
+   * is the whole point of this event: an answer quoting a live price is
+   * indistinguishable from an answer inventing one unless the query is on
+   * screen. Carries the query itself, never any part of the prompt.
+   */
+  z.object({
+    type: z.literal('server_tool'),
+    toolUseId: z.string(),
+    name: z.string(),
+    status: z.enum(['running', 'done', 'error']),
+    /** Human-readable target, e.g. "uniswap-v3 · mainnet". */
+    summary: z.string(),
+    /** Latency once finished, or why it failed. */
+    detail: z.string().optional(),
+    /** The GraphQL the model wrote, shown when the row is expanded. */
+    query: z.string().optional(),
+  }),
   z.object({ type: z.literal('usage'), usage: usageEventSchema }),
   z.object({ type: z.literal('reward'), reward: rewardEventSchema }),
   z.object({ type: z.literal('done'), stopReason: z.string().nullable() }),

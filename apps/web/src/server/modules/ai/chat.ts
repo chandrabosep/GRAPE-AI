@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatRequest, CreativeFormat } from '@aam/shared';
+import type { AIIntent, ChatMessage, ChatRequest, CreativeFormat } from '@aam/shared';
 import { AppError, TOOL_SPECS, BLOCKCHAIN_TOOL_SPEC, isServerSideTool, messageText } from '@aam/shared';
 import type { ClientKind } from '@aam/db';
 import type { ToolSpec } from '@aam/shared';
@@ -8,7 +8,7 @@ import { logger } from '../../lib/logger';
 import { selectAd, type AdSelection } from '../ads/service';
 import { executeBlockchainQuery } from '../graph/blockchain-tool';
 import { getSignalsForUser, isGraphConfigured } from '../graph/service';
-import { classify, persistIntent } from '../intent/service';
+import { classify, persistIntent, refineIntentRecord } from '../intent/service';
 import { authorizeSpend, recordUsage, resolveSession, touchSession } from '../usage/service';
 import type { UserWithProfile } from '../users/service';
 import { aiProvider, resolveModel } from './provider';
@@ -156,8 +156,9 @@ async function runChat(
    * sequence rather than together: the banner is told which campaign the inline
    * slot already took, so one advertiser cannot occupy both slots of a single
    * answer. Sequencing costs nothing that the developer can perceive, because
-   * the inline auction is the one that has to be fast and the banner is not
-   * shown until the answer is finished anyway.
+   * the inline auction is the one that has to be fast — it has to land inside
+   * the pause before the first token — and the banner is not shown until the
+   * answer is finished anyway.
    */
   const slots = resolveAds(body, ctx, classification, model, question);
 
@@ -194,7 +195,8 @@ async function runChat(
   const flushBanner = () => flushSlot('banner', slots.banner);
 
   // The inline line belongs beside the thinking indicator, so it is sent the
-  // moment it is ready rather than waiting for the first token.
+  // moment it is ready rather than waiting for the first token — and its
+  // auction is deliberately built not to outlast that window.
   void flushInline();
 
   const allTools = body.tools ? buildToolList() : undefined;
@@ -296,7 +298,7 @@ async function runChat(
         const results = await Promise.all(
           serverToolCalls.map(async (call) => ({
             call,
-            result: await executeBlockchainQuery(call.input),
+            result: await runServerTool(stream, call),
           })),
         );
         for (const { call, result } of results) {
@@ -319,7 +321,7 @@ async function runChat(
     const toolResults = await Promise.all(
       serverToolCalls.map(async (call) => ({
         call,
-        result: await executeBlockchainQuery(call.input),
+        result: await runServerTool(stream, call),
       })),
     );
 
@@ -357,6 +359,65 @@ async function runChat(
   stream.send({ type: 'done', stopReason });
 }
 
+/**
+ * Runs one server-side tool, narrating it to the client as it goes.
+ *
+ * A server tool is invisible by construction: the model asks for it, the server
+ * answers it, and the developer sees only an answer that somehow knows the
+ * price of WBTC. That is exactly the shape of a hallucination, so the call is
+ * announced before it runs and closed out after — the same trail the editor
+ * tools already leave, for the same reason.
+ *
+ * Nothing here can fail the turn. If the announcement cannot be sent the query
+ * still runs; the developer loses a line of provenance, not an answer.
+ */
+async function runServerTool(
+  stream: ReturnType<typeof createSSEStream>,
+  call: { toolUseId: string; name: string; input: unknown },
+): Promise<Awaited<ReturnType<typeof executeBlockchainQuery>>> {
+  const input = (call.input ?? {}) as { protocol?: string; chain?: string; query?: string };
+  const summary = [input.protocol ?? 'the graph', input.chain ?? 'mainnet'].join(' · ');
+
+  if (!stream.closed) {
+    stream.send({
+      type: 'server_tool',
+      toolUseId: call.toolUseId,
+      name: call.name,
+      status: 'running',
+      summary,
+      ...(typeof input.query === 'string' ? { query: input.query } : {}),
+    });
+  }
+
+  const result = await executeBlockchainQuery(call.input);
+
+  if (!stream.closed) {
+    stream.send({
+      type: 'server_tool',
+      toolUseId: call.toolUseId,
+      name: call.name,
+      status: result.isError ? 'error' : 'done',
+      summary,
+      // On success the latency is the interesting part; on failure the reason
+      // is, and the reason is already the whole of `content`.
+      detail: result.isError
+        ? firstLine(result.content)
+        : result.latencyMs !== undefined
+          ? `${result.latencyMs}ms`
+          : undefined,
+      ...(typeof input.query === 'string' ? { query: input.query } : {}),
+    });
+  }
+
+  return result;
+}
+
+/** Tool errors are multi-line; a trail row has space for the first one. */
+function firstLine(text: string): string {
+  const line = text.split('\n', 1)[0] ?? text;
+  return line.length > 160 ? `${line.slice(0, 159)}…` : line;
+}
+
 interface AdSlots {
   inline: Promise<AdSelection>;
   banner: Promise<AdSelection>;
@@ -365,11 +426,17 @@ interface AdSlots {
 /**
  * Resolves both sponsored slots for this request.
  *
- * Waits for the refined intent because ad relevance is the entire point, but is
- * wrapped so that any failure — classification, targeting, the database — costs
- * the user nothing more than a missing card. The shared preparation runs once
- * and both auctions read it, so adding the second slot costs one extra ranking
- * pass rather than a second classification and a second Graph lookup.
+ * The two slots are ranked against two different intents on purpose. The inline
+ * line belongs in the pause before the first token, which is over in well under
+ * a second — so it is ranked on the rules intent, which is already in hand, and
+ * never waits for the classifier. The banner is not shown until the answer is
+ * finished, so it can afford the classifier's deadline and gets the sharper
+ * targeting for it.
+ *
+ * Both read one shared preparation and one shared intent record, so the second
+ * slot still costs one extra ranking pass rather than a second classification
+ * and a second Graph lookup. Any failure — classification, targeting, the
+ * database — costs the user nothing more than a missing card.
  */
 function resolveAds(
   body: ChatRequest,
@@ -383,7 +450,7 @@ function resolveAds(
     return { inline: Promise.resolve(disabled), banner: Promise.resolve(disabled) };
   }
 
-  const prepared = prepareAdContext(body, ctx, classification, model, promptText);
+  const prepared = prepareAdContext(body, ctx, classification.immediate, 'rules', model, promptText);
 
   const inline = prepared
     .then((context) => (context ? selectAd({ ...context, format: 'inline' }) : FAILED_SLOT))
@@ -392,7 +459,31 @@ function resolveAds(
       return FAILED_SLOT;
     });
 
-  const banner = Promise.all([prepared, inline])
+  /**
+   * The same context, with the classifier's answer folded in.
+   *
+   * The intent row was written from the rules pass — the inline impression
+   * already points at it — so the refinement updates that row instead of
+   * creating a second one. The update is fire-and-forget: the banner auction
+   * has no reason to wait on bookkeeping.
+   */
+  const refined = Promise.all([prepared, classification.refined, classification.classifier])
+    .then(([context, intent, classifier]) => {
+      if (!context) return null;
+      const intentId = context.intentId;
+      if (classifier !== 'rules' && intentId) {
+        void refineIntentRecord(intentId, intent, classifier).catch((error: unknown) => {
+          logger.warn({ err: error, requestId: ctx.requestId }, 'failed to refine intent record');
+        });
+      }
+      return { ...context, intent };
+    })
+    .catch((error: unknown) => {
+      logger.error({ err: error, requestId: ctx.requestId }, 'intent refinement failed');
+      return null;
+    });
+
+  const banner = Promise.all([refined, inline])
     .then(([context, inlineSelection]) => {
       if (!context) return FAILED_SLOT;
       // Whoever took the inline slot is out of the running for the banner, so a
@@ -418,42 +509,42 @@ const FAILED_SLOT: AdSelection = { ad: null, reason: null, advertiserId: null };
 type PreparedAdContext = Omit<Parameters<typeof selectAd>[0], 'format' | 'excludeAdvertiserIds'>;
 
 /**
- * The work both auctions share: classify the question, record the derived
- * intent, and fetch onchain signals. Doing this once is what keeps a second
- * slot cheap.
+ * The work both auctions share: record the derived intent and fetch onchain
+ * signals. Doing this once is what keeps a second slot cheap.
+ *
+ * Nothing here waits on the classifier — the caller decides which intent to
+ * prepare against — so the inline slot can be ranked in the time it takes to
+ * write one row and read one cached one.
  */
 async function prepareAdContext(
   body: ChatRequest,
   ctx: ChatContext,
-  classification: ReturnType<typeof classify>,
+  intent: AIIntent,
+  classifier: 'rules' | 'merged',
   model: string,
   promptText: string,
 ): Promise<PreparedAdContext | null> {
   try {
-    const [intent, classifier] = await Promise.all([
-      classification.refined,
-      classification.classifier,
+    const [intentId, onchain] = await Promise.all([
+      persistIntent({
+        requestId: ctx.requestId,
+        userId: ctx.user.id,
+        intent,
+        classifier,
+        promptText,
+        languageId: body.context?.languageId ?? null,
+      }),
+      // Onchain audience signals from The Graph. Cached, so this is normally a
+      // single indexed read; a miss costs one parallel fan-out. Failure yields
+      // null, which correctly makes "require" campaigns ineligible rather than
+      // letting them match on missing data.
+      isGraphConfigured()
+        ? getSignalsForUser(ctx.user.id).catch((error: unknown) => {
+            logger.warn({ err: error, userId: ctx.user.id }, 'onchain signals unavailable');
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
-
-    const intentId = await persistIntent({
-      requestId: ctx.requestId,
-      userId: ctx.user.id,
-      intent,
-      classifier,
-      promptText,
-      languageId: body.context?.languageId ?? null,
-    });
-
-    // Onchain audience signals from The Graph. Cached, so this is normally a
-    // single indexed read; a miss costs one parallel fan-out. Failure yields
-    // null, which correctly makes "require" campaigns ineligible rather than
-    // letting them match on missing data.
-    const onchain = isGraphConfigured()
-      ? await getSignalsForUser(ctx.user.id).catch((error: unknown) => {
-          logger.warn({ err: error, userId: ctx.user.id }, 'onchain signals unavailable');
-          return null;
-        })
-      : null;
 
     return {
       user: ctx.user,

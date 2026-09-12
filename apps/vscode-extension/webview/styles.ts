@@ -586,6 +586,40 @@ export const STYLES = `
     color: var(--vscode-errorForeground, #f14c4c);
   }
 
+  /* A row that can be opened. It is a button so it is reachable by keyboard,
+     and stripped back to a row so it does not look like one. */
+  .tool-group { display: flex; flex-direction: column; }
+  .tool-line.expandable {
+    width: calc(100% + 8px);
+    background: none; border: none; border-radius: 4px;
+    margin: 0 -4px; padding: 2px 4px;
+    font-family: inherit; font-size: 11px; text-align: left;
+    cursor: pointer;
+  }
+  .tool-line.expandable:hover {
+    background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.1));
+  }
+  .tool-expand {
+    flex: 0 0 auto; font-size: 11px; opacity: .55;
+    transition: transform .12s ease-out;
+  }
+  .tool-expand.open { transform: rotate(90deg); }
+
+  /* The query itself. Monospaced and scrollable rather than wrapped: GraphQL
+     read at a width that reflows is harder to check than no GraphQL at all. */
+  .tool-query {
+    margin: 4px 0 2px;
+    padding: 8px 10px;
+    max-height: 220px; overflow: auto;
+    border-radius: 5px;
+    border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.22));
+    background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.08));
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-editor-font-family);
+    font-size: 10.5px; line-height: 1.5;
+    white-space: pre; tab-size: 2;
+  }
+
   /* The one thing here that has not happened yet, and says so. */
   .tool-approval {
     margin: 6px 0;
@@ -626,5 +660,21 @@ export const STYLES = `
   .tool-approval-all-count {
     flex: 1 1 auto; font-size: 11px; font-weight: 600;
     color: var(--vscode-foreground);
+  }
+
+  /* --- wide layouts ------------------------------------------------------- */
+  /* The chat is an editor tab now, so it is as wide as the editor rather than as
+     narrow as a sidebar. A 1200px line of prose is unreadable and a composer
+     stretched that far reads as a form, so the content column is capped and
+     centred. In a narrow window the cap is never reached, so none of this
+     changes anything there.
+
+     The full-bleed chrome is deliberately left alone: the topbar's rule and the
+     composer's top border still span the whole tab, the way an editor's own
+     edges do. Only what is read is constrained. */
+  .turn, .empty, .composer-box, .composer-hint {
+    width: 100%;
+    max-width: 820px;
+    margin-inline: auto;
   }
 `;
