@@ -4,12 +4,166 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Midnight terminal with violet beacons.
+ *
+ * The whole system is one idea: a near-black void, paper-white type, and a
+ * single violet flare that is rationed like runway lighting. Elevation comes
+ * from hairline strokes, never shadows — there is exactly one shadow in this
+ * file and it belongs to the nav.
+ *
+ * Dark only, on purpose. The source has no light variant, and inventing one
+ * would mean choosing nine colours the reference never sanctions. `.dark` is
+ * still pinned on <html> so the `dark:` variants inside the shadcn primitives
+ * keep resolving.
+ *
+ * Token layering, because Tailwind v4 makes the distinction load-bearing:
+ *   @theme        — brand constants. Real custom properties AND utilities
+ *                   (`text-signal-violet`, `font-stamp`, `rounded-card`).
+ *   :root         — values that are never a utility (hairlines, washes).
+ *   :root/.dark   — the shadcn semantic layer, pointed at the brand.
+ *   @theme inline — semantic aliases, inlined so they resolve at the use site.
+ */
+
+/* --- brand constants ----------------------------------------------------- */
+
+@theme {
+  --color-near-black: #090909;
+  --color-almost-white: #f7f9fa;
+  --color-soft-white: #f0f0f0;
+  --color-steel: #828384;
+  --color-graphite: #474747;
+  --color-iron: #423738;
+  --color-ash: #6b6b6b;
+  --color-signal-violet: #af50ff;
+  --color-lavender-mist: #e1bdff;
+
+  /* Atmosphere. Only ever a wash or a bloom, never a fill behind text — these
+     two carry the "celestial" half of the brand. */
+  --color-cosmic-a: #6c4bd6;
+  --color-cosmic-b: #401860;
+
+  --radius-card: 19.2px;
+  --radius-pill: 1584px;
+  --radius-button: 8px;
+  --radius-control: 6px;
+
+  --spacing-section: 120px;
+
+  /* The nav's single hairline lift — the one sanctioned shadow. */
+  --shadow-nav: rgba(16, 24, 40, 0.05) 0px 1px 2px 0px;
+}
+
+:root {
+  /*
+   * Hairlines, in the 10–20% band the system allows.
+   *
+   * Two steps rather than one: a stroke repeated down forty table rows reads
+   * twice as heavy as the same stroke drawn once, so repeated structure takes
+   * the low end and single emphasis strokes take the high end.
+   */
+  --hairline: rgba(247, 249, 250, 0.12);
+  --hairline-strong: rgba(247, 249, 250, 0.2);
+
+  /* The faint pink wash, specified exactly for the boarding-pass card and the
+     pill CTAs. It is the one warm note in an otherwise cold palette. */
+  --wash-glass: rgba(237, 195, 196, 0.05);
+  /* The neutral wash, for surfaces that must read as a surface without
+     leaving the void. */
+  --wash-neutral: rgba(247, 249, 250, 0.04);
+  --wash-neutral-strong: rgba(247, 249, 250, 0.08);
+
+  --nav-bg: rgba(51, 50, 72, 0.7);
+}
+
+/* --- shadcn semantics, pointed at the brand ------------------------------ */
+
+:root,
+.dark {
+  color-scheme: dark;
+
+  --background: var(--color-near-black);
+  --foreground: var(--color-almost-white);
+
+  /* Cards are transparent by default. The system's cards are defined by their
+     stroke and their spacing, not by a fill — a filled card here reads as a
+     foreign object floating on the void. */
+  --card: transparent;
+  --card-foreground: var(--color-almost-white);
+  --popover: #121212;
+  --popover-foreground: var(--color-almost-white);
+
+  --primary: var(--color-signal-violet);
+  /*
+   * White on violet measures 3.64:1 — it clears AA for large text and for UI
+   * component boundaries, but not the 4.5:1 body-text bar. The source
+   * specifies white and it is the brand, so it stays; what makes that safe is
+   * that the violet fill is only ever used on the large primary action.
+   * Compact controls in this system are outlined or ghost, never filled.
+   */
+  --primary-foreground: var(--color-almost-white);
+
+  --secondary: var(--wash-neutral-strong);
+  --secondary-foreground: var(--color-almost-white);
+
+  --muted: var(--wash-neutral);
+  --muted-foreground: var(--color-steel);
+
+  --accent: var(--wash-neutral-strong);
+  --accent-foreground: var(--color-almost-white);
+
+  /*
+   * The one colour outside the palette.
+   *
+   * "Don't introduce a third colour" is a rule about decoration, and an error
+   * that does not read as an error is a worse failure than an off-brand hue.
+   * It is confined to text, icons and 1px strokes — never a surface — so the
+   * page never actually shows a red area.
+   */
+  --destructive: oklch(0.7 0.17 24);
+
+  --border: var(--hairline);
+  --input: var(--hairline-strong);
+  /* Focus is an accent stroke, one of the three sanctioned uses of the violet. */
+  --ring: var(--color-signal-violet);
+
+  --radius: 8px;
+
+  --sidebar: var(--color-near-black);
+  --sidebar-foreground: var(--color-almost-white);
+  --sidebar-primary: var(--color-signal-violet);
+  --sidebar-primary-foreground: var(--color-almost-white);
+  --sidebar-accent: var(--wash-neutral-strong);
+  --sidebar-accent-foreground: var(--color-almost-white);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--color-signal-violet);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+
+  /*
+   * Substitutes, since Whyte Inktrap, Whyte Inktrap Mono and GrandSlang are
+   * all licensed faces. Each one keeps the job the source gives it:
+   *   Inter          — the geometric workhorse (DESIGN.md's first substitute).
+   *   JetBrains Mono — the stamped-letterhead voice; it holds up at 0.2em.
+   *   Playfair Display — the display italic. The Refero source names it; the
+   *     other candidate, Lora, is a text serif that reads bookish rather than
+   *     editorial once it is 88px tall.
+   */
+  --font-sans: var(--font-whyte), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-whyte-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-stamp: var(--font-whyte-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: var(--font-grandslang), ui-serif, Georgia, serif;
+  --font-heading: var(--font-whyte), ui-sans-serif, system-ui, sans-serif;
+
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-wash: var(--wash-neutral);
+  --color-wash-strong: var(--wash-neutral-strong);
+  --color-wash-glass: var(--wash-glass);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -18,11 +172,6 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -39,92 +188,254 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* The system has two button radii and one card radius. Every shadcn
+     `rounded-*` the primitives already use is remapped onto those, so the
+     untouched components land on-system without being rewritten. */
+  --radius-sm: 6px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10.8px;
+  --radius-2xl: 19.2px;
+  --radius-3xl: 19.2px;
+  --radius-4xl: 99px;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    outline-color: color-mix(in srgb, var(--color-signal-violet) 60%, transparent);
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    background: var(--color-near-black);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    /* Weight 300 carries the larger sizes and creates the editorial lightness
+       that pairs with the display italic. */
+    font-weight: 300;
+  }
+
+  /* A changing figure must not make the text around it jitter as digits swap
+     width, and every figure in this product changes. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-signal-violet) 35%, transparent);
+    color: var(--color-almost-white);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--hairline-strong);
+    border: 3px solid var(--color-near-black);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-graphite);
+  }
+}
+
+@layer components {
+  /* --- signature type ----------------------------------------------------- */
+
+  /*
+   * The stamped section heading: the loudest move in the system.
+   *
+   * 74px monospace, uppercase, 0.2em tracking — the breath between letters IS
+   * the heading style, so there is no rule, no colour and no weight change to
+   * help it. It scales fluidly because 74px at 0.2em needs ~900px to sit on
+   * one line and the source insists it stays one line.
+   *
+   * The negative right margin cancels the trailing letter-space 0.2em adds
+   * after the final glyph, so the stamp aligns optically to the grid instead
+   * of sitting one space short of it.
+   */
+  .stamp {
+    font-family: var(--font-stamp);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    line-height: 0.9;
+    color: var(--color-soft-white);
+    font-size: clamp(1.375rem, 6vw, 4.625rem);
+    margin-right: -0.2em;
+  }
+
+  /*
+   * The stamp at section scale, for headings inside a product page.
+   *
+   * The full 74px stamp is a page-level signpost: it works on the marketing
+   * page where a section IS the page, and it shouts on a dashboard where four
+   * of them stack down one screen and every one of them is the same size as
+   * the page title. Same voice, same 0.2em breath, two thirds the scale — so
+   * the page still has a hierarchy to read.
+   */
+  .stamp-md {
+    font-family: var(--font-stamp);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    line-height: 1.1;
+    color: var(--color-soft-white);
+    font-size: clamp(0.9375rem, 2.4vw, 1.5rem);
+    margin-right: -0.2em;
+  }
+
+  /* The same voice at label scale: boarding-pass stamps, table headers,
+     eyebrow lines. 0.18em at 10px is the source's own caption tracking. */
+  .stamp-sm {
+    font-family: var(--font-stamp);
+    font-weight: 400;
+    font-size: 10px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--color-steel);
+  }
+
+  /*
+   * The display italic, reserved for the hero and its two or three echoes.
+   * Never below 32px — the warmth collapses at small sizes and it starts to
+   * read as a mistake rather than a choice.
+   */
+  .display-serif {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    line-height: 0.85;
+  }
+
+  /* --- surfaces ---------------------------------------------------------- */
+
+  /*
+   * The seamless hairline grid.
+   *
+   * Metric tiles share single strokes instead of each carrying its own border,
+   * so a row of figures reads as one instrument panel rather than four
+   * floating cards. The 1px gap over a hairline background draws the interior
+   * rules; the children paint the canvas back over everything else.
+   */
+  .frame {
+    display: grid;
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+  .frame > * {
+    background: var(--color-near-black);
+  }
+
+  /*
+   * Atmosphere behind the hero.
+   *
+   * The source is photographic — a twilight sky with violet cloud and one
+   * aircraft light crossing it. There is no such photograph to ship here, so
+   * rather than fake one badly this keeps the media role and builds it from
+   * the two cosmic gradient tokens the system already defines for exactly
+   * this: "atmospheric graphic elements" and "radial glows". Three offset
+   * blooms plus a grain pass, because a single clean radial reads as a CSS
+   * gradient and a sky never does.
+   */
+  .atmosphere {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* The sky has to end somewhere, and a hard edge across the full width
+       reads as a rendering fault rather than a horizon. Fading the last third
+       of it into the canvas is what makes the hero and the page below feel
+       like one surface. */
+    -webkit-mask-image: linear-gradient(to bottom, black 58%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 58%, transparent 100%);
+  }
+  .atmosphere::before {
+    content: "";
+    position: absolute;
+    inset: -25% -10% auto -10%;
+    height: 135%;
+    background:
+      radial-gradient(58% 52% at 74% 20%, color-mix(in srgb, var(--color-signal-violet) 30%, transparent) 0%, transparent 70%),
+      radial-gradient(72% 58% at 24% 4%, color-mix(in srgb, var(--color-cosmic-a) 32%, transparent) 0%, transparent 72%),
+      radial-gradient(95% 70% at 50% -10%, color-mix(in srgb, var(--color-cosmic-b) 60%, transparent) 0%, transparent 78%);
+    filter: blur(30px);
+  }
+  /* Grain. Without it the blooms band visibly on an OLED panel, which is the
+     one place this design is most likely to be looked at. */
+  .atmosphere::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.2;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* The one violet surface per page. A bloom, not a block: the fill falls off
+     so it reads as light rather than paint. */
+  .bloom {
+    background: radial-gradient(
+      120% 120% at 12% 0%,
+      color-mix(in srgb, var(--color-signal-violet) 88%, white) 0%,
+      var(--color-signal-violet) 42%,
+      color-mix(in srgb, var(--color-signal-violet) 68%, var(--color-cosmic-b)) 100%
+    );
+  }
+
+  /* --- motion ------------------------------------------------------------ */
+
+  /* One shared entrance: short, small travel, never delaying content that is
+     already on screen beyond a beat. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .rise {
+    animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* The vapor trail: one light crossing the sky, drawn once on load. */
+  @keyframes trail {
+    from {
+      stroke-dashoffset: 760;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .trail {
+    animation: trail 2.6s cubic-bezier(0.33, 0, 0.2, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

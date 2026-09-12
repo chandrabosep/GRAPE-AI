@@ -22,12 +22,15 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 
   // wagmi sits inside the query client: AppKit's adapter uses react-query.
-  // The theme follows the OS by default — the dark palette already exists in
-  // globals.css, and a developer tool that ignores a dark desktop looks wrong
-  // next to the editor it is meant to sit beside.
+  //
+  // The theme is forced dark rather than following the OS. This palette is a
+  // midnight canvas with one violet flare and has no light counterpart; a
+  // light mode would mean inventing nine colours the design system never
+  // sanctions. ThemeProvider stays because AppKit's modal reads the resolved
+  // theme from it — dropping it would leave the wallet dialog light.
   return (
     <QueryClientProvider client={client}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <ThemeProvider attribute="class" forcedTheme="dark" enableSystem={false} disableTransitionOnChange>
         <AppKitProvider>{children}</AppKitProvider>
       </ThemeProvider>
     </QueryClientProvider>

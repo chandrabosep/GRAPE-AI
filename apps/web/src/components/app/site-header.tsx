@@ -37,6 +37,11 @@ const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)
  * connected but not signed in, and signed in. Signing out has to tear down both
  * — clearing only our session left the wallet connected, which made the app look
  * signed out while refusing to sign in again.
+ *
+ * Visually this is the frosted bar: a translucent plum strip with a 10px
+ * backdrop blur over the void. The blur is the design — it is what lets the
+ * hero's atmosphere breathe through the navigation instead of being cut off by
+ * it, so the bar must stay translucent even though a solid one would be easier.
  */
 export function SiteHeader() {
   const pathname = usePathname();
@@ -106,43 +111,75 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="border-border/60 bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-6">
-        <Link href="/" className="text-sm font-semibold tracking-tight">
-          AI Attention Marketplace
+    <header
+      className="border-ash/60 sticky top-0 z-40 border-b backdrop-blur-[10px]"
+      style={{ background: 'var(--nav-bg)' }}
+    >
+      <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center gap-4 px-6 md:gap-8 md:px-10">
+        {/* `min-w-0` and the truncate are what stop the wordmark forcing the
+            bar wider than a phone: without them the row's intrinsic width is
+            brand + nav + two buttons, and the page scrolls sideways. */}
+        <Link
+          href="/"
+          className="text-almost-white min-w-0 truncate text-[15px] font-medium tracking-[-0.01em]"
+        >
+          {/* The wordmark carries the one italic echo outside the hero — small
+              enough to be a signature, large enough to survive the serif. The
+              display word is dropped rather than truncated on a phone: "AI
+              Attention" is a name, "AI Attention Mar…" is a bug. */}
+          AI Attention{' '}
+          <span className="display-serif hidden text-[19px] sm:inline">Marketplace</span>
         </Link>
 
-        <nav className="hidden items-center gap-1 sm:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                pathname.startsWith(item.href)
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-7 sm:flex">
+          {NAV.map((item) => {
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                // The active item is marked by a 1px violet rule under the
+                // label, which is the source's own active-nav gesture and the
+                // page's single sanctioned violet stroke.
+                className={`relative py-1.5 text-[12px] tracking-[0.07em] uppercase transition-colors ${
+                  active
+                    ? 'text-almost-white after:bg-signal-violet after:absolute after:inset-x-0 after:-bottom-px after:h-px after:content-[""]'
+                    : 'text-steel hover:text-almost-white'
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex shrink-0 items-center gap-3">
           {me ? (
             <>
-              <span className="text-muted-foreground hidden text-sm tabular-nums sm:inline">
-                {formatCredits(me.credits.balanceMicro)} credits
-              </span>
+              <Link
+                href="/app/topup"
+                className="text-steel hover:text-almost-white hidden text-[13px] tabular-nums transition-colors sm:inline"
+              >
+                {formatCredits(me.credits.balanceMicro)}{' '}
+                <span className="text-graphite">credits</span>
+              </Link>
               <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+                <DropdownMenuTrigger render={<Button variant="secondary" size="sm" />}>
                   {address ? short(address) : (me.user.displayName ?? 'Account')}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                      {me.user.roles.join(', ')}
+                    <DropdownMenuLabel className="stamp-sm px-2 py-1.5">
+                      {me.user.roles.join(' · ')}
                     </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem render={<Link href="/app/topup" />}>
+                      Add credits
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/app/withdraw" />}>
+                      Withdraw earnings
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => void open({ view: 'Account' })}>
                       Wallet
@@ -157,9 +194,7 @@ export function SiteHeader() {
           ) : isConnected && address ? (
             // Connected, but the signature was never completed.
             <>
-              <span className="text-muted-foreground hidden text-sm sm:inline">
-                {short(address)}
-              </span>
+              <span className="text-steel hidden text-[13px] sm:inline">{short(address)}</span>
               <Button size="sm" onClick={() => void authenticate()} disabled={busy}>
                 {busy ? 'Check your wallet…' : 'Sign in'}
               </Button>
@@ -174,11 +209,13 @@ export function SiteHeader() {
                   disappears on its own rather than needing a flag. */}
               {(seedUsers ?? []).length > 0 && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
+                  <DropdownMenuTrigger
+                    render={<Button variant="ghost" size="sm" className="hidden sm:inline-flex" />}
+                  >
                     Dev sign-in
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                    <DropdownMenuLabel className="stamp-sm px-2 py-1.5">
                       Seeded accounts
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -187,12 +224,14 @@ export function SiteHeader() {
                         key={user.subject}
                         onSelect={() => {
                           void signInAs(user.subject)
-                            .then(() => toast.success(`Signed in as ${user.displayName ?? user.subject}`))
+                            .then(() =>
+                              toast.success(`Signed in as ${user.displayName ?? user.subject}`),
+                            )
                             .catch((error: Error) => toast.error(error.message));
                         }}
                       >
                         {user.displayName ?? user.subject}
-                        <span className="text-muted-foreground ml-2 text-xs">
+                        <span className="text-graphite ml-2 text-[11px]">
                           {user.roles.includes('advertiser') ? 'advertiser' : 'developer'}
                         </span>
                       </DropdownMenuItem>
@@ -200,6 +239,7 @@ export function SiteHeader() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+              {/* The one filled violet action in the chrome. */}
               <Button size="sm" onClick={() => void connect()} disabled={busy}>
                 {busy ? 'Connecting…' : 'Connect Wallet'}
               </Button>

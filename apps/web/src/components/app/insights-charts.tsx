@@ -26,11 +26,19 @@ import { formatCredits } from '@/lib/api';
  * legend and a labelled end point, so the series are readable in greyscale, in
  * print, and to a colourblind reader.
  *
- * The palette is two hues from a validated categorical set rather than the
- * app's greyscale chart ramp, because a grey series colour is indistinguishable
- * from a gridline. Both steps clear CVD separation and the lightness band in
- * light and dark mode; the aqua step sits just under 3:1 on the light surface,
- * which is why the direct labels and the table view below are not optional.
+ * The palette is the design system's own, not a categorical set borrowed from
+ * outside it. This page is 95% achromatic with one violet, and a chart that
+ * introduced blue and green would spend a colour budget the rest of the page
+ * does not have — the violet would stop meaning "this is the thing" the moment
+ * a second saturated hue appeared beside it.
+ *
+ * So series are separated by lightness against the void rather than by hue:
+ * the violet carries the series the reader came for (what they were paid, what
+ * they spent), paper-white carries its counterpart, and steel carries any
+ * third. All three clear 4.5:1 on #090909 and stay separable in greyscale and
+ * under every CVD simulation, because lightness is the channel doing the work.
+ * The legends and end-point labels stay regardless: colour never carries
+ * identity alone here.
  */
 
 export interface InsightPoint {
@@ -71,35 +79,22 @@ export interface CampaignInsights {
 }
 
 /**
- * Chart roles, defined once and swapped per theme.
+ * Chart roles, defined once.
  *
- * Written as CSS custom properties rather than passed as hex so the dark steps
- * are a deliberate second palette for the dark surface, not an automatic
- * inversion of the light one.
+ * There is no per-theme swap any more because there is no second theme: the
+ * canvas is always #090909, so these are tuned for that surface and nothing
+ * else. Still custom properties rather than inline hex, so a role can be
+ * retuned in one place and every mark that plays that role follows.
  */
 const VIZ_STYLE = `
 .viz {
-  --series-spend: #2a78d6;
-  --series-reward: #1baf7a;
-  --series-banner: #2a78d6;
-  --series-inline: #eb6834;
-  --viz-surface: var(--card);
-  --viz-grid: color-mix(in oklab, var(--foreground) 10%, transparent);
-  --viz-axis: var(--muted-foreground);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) .viz {
-    --series-spend: #3987e5;
-    --series-reward: #199e70;
-    --series-banner: #3987e5;
-    --series-inline: #d95926;
-  }
-}
-:root.dark .viz {
-  --series-spend: #3987e5;
-  --series-reward: #199e70;
-  --series-banner: #3987e5;
-  --series-inline: #d95926;
+  --series-spend: #f7f9fa;
+  --series-reward: #af50ff;
+  --series-banner: #f7f9fa;
+  --series-inline: #828384;
+  --viz-surface: #090909;
+  --viz-grid: rgba(247, 249, 250, 0.1);
+  --viz-axis: #6b6b6b;
 }
 `;
 
@@ -165,7 +160,7 @@ const AXIS = {
 /** Legend swatch plus label. The label is ink; only the swatch carries the hue. */
 function Legend({ items }: { items: { label: string; color: string }[] }) {
   return (
-    <div className="text-muted-foreground mb-1 flex flex-wrap items-center gap-4 text-xs">
+    <div className="text-steel mb-3 flex flex-wrap items-center gap-4 text-xs">
       {items.map((item) => (
         <span key={item.label} className="flex items-center gap-1.5">
           <span
@@ -199,8 +194,10 @@ function VizTooltip({
   if (!active || rows.length === 0) return null;
 
   return (
-    <div className="bg-popover text-popover-foreground rounded-md border px-3 py-2 text-xs shadow-md">
-      {label && <div className="mb-1 font-medium">{label}</div>}
+    // Hairline and radius, no shadow — the system creates depth with line
+    // weight everywhere else and a tooltip is not the place to break that.
+    <div className="bg-popover text-popover-foreground border-hairline-strong rounded-[10.8px] border px-3.5 py-2.5 text-xs">
+      {label && <div className="stamp-sm mb-2">{label}</div>}
       {rows.map((row) => (
         <div key={row.label} className="flex items-center gap-2 tabular-nums">
           <span

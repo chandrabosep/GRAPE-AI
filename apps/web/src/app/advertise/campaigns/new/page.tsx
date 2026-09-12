@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ChipSelect } from '@/components/app/chip-select';
+import { Eyebrow, Shell, Stamp } from '@/components/app/section';
 import {
   InlineSponsoredPreview,
   SponsoredPreview,
@@ -252,9 +252,12 @@ export default function NewCampaignPage() {
 
   if (!me?.user.roles.includes('advertiser')) {
     return (
-      <div className="text-muted-foreground mx-auto max-w-5xl px-6 py-24 text-center text-sm">
-        Sign in as an advertiser to create a campaign.
-      </div>
+      <Shell className="py-28 md:py-36">
+        <Eyebrow>Not available</Eyebrow>
+        <h1 className="display-serif text-almost-white mt-8 text-[clamp(2rem,5vw,3.5rem)] text-balance">
+          Sign in as an advertiser to create a campaign
+        </h1>
+      </Shell>
     );
   }
 
@@ -274,37 +277,40 @@ export default function NewCampaignPage() {
   const rewardShare = config ? bid * config.allocation.reward : 0;
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 lg:grid-cols-[1fr_340px]">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">New campaign</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Six short steps. You are charged per qualified impression, meaning attention the
-            developer&apos;s client confirmed was on screen.
-          </p>
+    <Shell className="grid gap-12 py-16 md:py-20 lg:grid-cols-[1fr_340px] lg:gap-16">
+      <div>
+        <Stamp
+          as="h1"
+          sub="Six short steps. You are charged per qualified impression, meaning attention the developer's client confirmed was on screen."
+        >
+          New campaign
+        </Stamp>
+
+        <div className="mt-12">
+          <Stepper current={step} furthest={furthest} onJump={goTo} />
         </div>
 
-        <Stepper current={step} furthest={furthest} onJump={goTo} />
+        {/* The step itself is not a card. It is the page — one question at a
+            time, framed by the hairline above it and the actions below. */}
+        <div className="border-hairline mt-12 border-t pt-10">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="text-almost-white text-2xl font-light tracking-[-0.02em]">
+              {current.title}
+            </h2>
+            <span className="stamp-sm shrink-0">
+              {String(step + 1).padStart(2, '0')} / {String(STEPS.length).padStart(2, '0')}
+            </span>
+          </div>
+          <p className="text-steel mt-3 text-sm">{current.hint}</p>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-baseline justify-between gap-4">
-              <CardTitle className="text-base">{current.title}</CardTitle>
-              <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                Step {step + 1} of {STEPS.length}
-              </span>
-            </div>
-            <p className="text-muted-foreground text-sm">{current.hint}</p>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
+          <div className="mt-10 space-y-8">
             {current.id === 'basics' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Label htmlFor="name">Campaign name</Label>
                   <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
-                <div>
+                <div className="space-y-2.5">
                   <Label htmlFor="budget">Budget (USD)</Label>
                   <Input
                     id="budget"
@@ -315,7 +321,7 @@ export default function NewCampaignPage() {
                     onChange={(e) => setBudget(Number(e.target.value))}
                   />
                 </div>
-                <div>
+                <div className="space-y-2.5">
                   <Label htmlFor="bid">Bid per impression (USD)</Label>
                   <Input
                     id="bid"
@@ -325,11 +331,11 @@ export default function NewCampaignPage() {
                     value={bid}
                     onChange={(e) => setBid(Number(e.target.value))}
                   />
-                  <p className="text-muted-foreground mt-1.5 text-xs">
+                  <p className="text-graphite mt-2 text-xs">
                     Buys about {impressions.toLocaleString()} qualified impressions.
                   </p>
                 </div>
-                <div>
+                <div className="space-y-2.5">
                   <Label htmlFor="days">Runs for (days)</Label>
                   <Input
                     id="days"
@@ -339,7 +345,7 @@ export default function NewCampaignPage() {
                     onChange={(e) => setDays(Number(e.target.value))}
                   />
                 </div>
-                <div>
+                <div className="space-y-2.5">
                   <Label>Minimum commercial intent</Label>
                   <Select
                     value={minCommercialIntent}
@@ -401,12 +407,12 @@ export default function NewCampaignPage() {
 
             {current.id === 'onchain' && (
               <>
-                <p className="text-muted-foreground text-sm leading-relaxed">
+                <p className="text-steel text-sm leading-relaxed">
                   Derived from The Graph using one query shape across Aave, Compound and Uniswap.
                   Developers are matched on protocol interaction, never on balances or addresses.
                 </p>
 
-                <div>
+                <div className="space-y-2.5">
                   <Label>How to use it</Label>
                   <Select
                     value={onchainMode}
@@ -435,16 +441,17 @@ export default function NewCampaignPage() {
                         emptyLabel="any protocol"
                       />
                     </Field>
-                    <label className="flex items-center gap-2 text-sm">
+                    <label className="text-almost-white flex items-center gap-2.5 text-sm">
                       <input
                         type="checkbox"
+                        className="accent-signal-violet size-4"
                         checked={requireWalletActivity}
                         onChange={(e) => setRequireWalletActivity(e.target.checked)}
                       />
                       Has any recent onchain activity
                     </label>
                     {onchainMode === 'require' && (
-                      <p className="text-muted-foreground text-xs leading-relaxed">
+                      <p className="text-graphite text-xs leading-relaxed">
                         In require mode a developer with no linked wallet is ineligible, so reach
                         will be smaller and much more qualified.
                       </p>
@@ -456,7 +463,7 @@ export default function NewCampaignPage() {
 
             {current.id === 'creative' && (
               <div className="grid gap-4">
-                <div>
+                <div className="space-y-2.5">
                   <Label htmlFor="headline">Headline</Label>
                   <Input
                     id="headline"
@@ -466,7 +473,7 @@ export default function NewCampaignPage() {
                   />
                   <Counter value={headline.length} max={90} />
                 </div>
-                <div>
+                <div className="space-y-2.5">
                   <Label htmlFor="body">Body</Label>
                   <Textarea
                     id="body"
@@ -477,16 +484,16 @@ export default function NewCampaignPage() {
                   <Counter value={body.length} max={240} />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
+                  <div className="space-y-2.5">
                     <Label htmlFor="cta">Call to action</Label>
                     <Input id="cta" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
                   </div>
-                  <div>
+                  <div className="space-y-2.5">
                     <Label htmlFor="url">Link</Label>
                     <Input id="url" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} />
                   </div>
                 </div>
-                <div>
+                <div className="space-y-2.5">
                   <Label htmlFor="image">Image</Label>
                   <Input
                     id="image"
@@ -494,7 +501,7 @@ export default function NewCampaignPage() {
                     placeholder="https://… or /creatives/your-art.svg"
                     onChange={(e) => setImageUrl(e.target.value)}
                   />
-                  <p className="text-muted-foreground mt-1.5 text-xs">
+                  <p className="text-graphite mt-2 text-xs">
                     Square artwork reads best: it is shown as a 76px thumbnail beside the copy.
                     Leave empty and the card falls back to your initials.
                   </p>
@@ -504,16 +511,17 @@ export default function NewCampaignPage() {
 
             {current.id === 'inline' && (
               <div className="grid gap-4">
-                <p className="text-muted-foreground text-sm leading-relaxed">
+                <p className="text-steel text-sm leading-relaxed">
                   One line shown while the answer is still being written — the moment the developer
                   is waiting. It is a separate auction from the card, billed at 30% of your bid.
                   The two never appear at once: the line is retired the moment the answer is
                   finished, and the card takes its place.
                 </p>
 
-                <label className="flex items-center gap-2 text-sm">
+                <label className="text-almost-white flex items-center gap-2.5 text-sm">
                   <input
                     type="checkbox"
+                    className="accent-signal-violet size-4"
                     checked={runInline}
                     onChange={(e) => setRunInline(e.target.checked)}
                   />
@@ -522,7 +530,7 @@ export default function NewCampaignPage() {
 
                 {runInline && (
                   <>
-                    <div>
+                    <div className="space-y-2.5">
                       <Label htmlFor="inline-headline">Message</Label>
                       <Input
                         id="inline-headline"
@@ -530,13 +538,13 @@ export default function NewCampaignPage() {
                         maxLength={70}
                         onChange={(e) => setInlineHeadline(e.target.value)}
                       />
-                      <p className="text-muted-foreground mt-1.5 text-xs">
+                      <p className="text-graphite mt-2 text-xs">
                         {inlineHeadline.length}/70. Write it as a useful aside, not a pitch — it
                         sits next to an answer the developer asked for, and is truncated rather
                         than wrapped.
                       </p>
                     </div>
-                    <div>
+                    <div className="space-y-2.5">
                       <Label htmlFor="inline-cta">Link text</Label>
                       <Input
                         id="inline-cta"
@@ -544,7 +552,7 @@ export default function NewCampaignPage() {
                         maxLength={24}
                         onChange={(e) => setInlineCta(e.target.value)}
                       />
-                      <p className="text-muted-foreground mt-1.5 text-xs">
+                      <p className="text-graphite mt-2 text-xs">
                         Points at the same destination as your card.
                       </p>
                     </div>
@@ -603,26 +611,26 @@ export default function NewCampaignPage() {
                 </Summary>
 
                 {allProblems.length > 0 ? (
-                  <div className="border-destructive/40 bg-destructive/5 rounded-lg border p-4">
-                    <p className="text-destructive text-sm font-medium">
+                  <div className="border-destructive/45 rounded-[10.8px] border p-5">
+                    <p className="text-destructive text-[13px] font-medium">
                       Fix these before creating the campaign
                     </p>
-                    <ul className="mt-2 space-y-1">
+                    <ul className="mt-3 space-y-1.5">
                       {allProblems.map(({ step: s, p }) => (
-                        <li key={`${s.id}-${p}`} className="text-sm">
+                        <li key={`${s.id}-${p}`} className="text-[13px]">
                           <button
-                            className="underline underline-offset-4"
+                            className="text-almost-white underline underline-offset-4"
                             onClick={() => goTo(STEPS.indexOf(s))}
                           >
                             {s.title}
                           </button>
-                          <span className="text-muted-foreground"> — {p}</span>
+                          <span className="text-steel"> — {p}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-sm leading-relaxed">
+                  <p className="text-steel text-sm leading-relaxed">
                     This is created as a draft. Nothing is served and nothing is charged until you
                     fund it and launch it from the campaign page.
                   </p>
@@ -635,16 +643,16 @@ export default function NewCampaignPage() {
             {problems.length > 0 && current.id !== 'review' && (
               <ul className="space-y-1">
                 {problems.map((problem) => (
-                  <li key={problem} className="text-destructive text-sm">
+                  <li key={problem} className="text-destructive text-[13px]">
                     {problem}
                   </li>
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="border-hairline mt-12 flex flex-wrap items-center gap-3 border-t pt-8">
           {step > 0 ? (
             <Button variant="outline" size="lg" onClick={() => goTo(step - 1)}>
               Back
@@ -669,7 +677,7 @@ export default function NewCampaignPage() {
             </Button>
           )}
 
-          <span className="text-muted-foreground ml-auto text-xs">
+          <span className="stamp-sm ml-auto">
             {STEPS.length - step - 1} step{STEPS.length - step - 1 === 1 ? '' : 's'} left
           </span>
         </div>
@@ -677,40 +685,32 @@ export default function NewCampaignPage() {
 
       {/* Live consequences of the current step, so the sidebar is never a
           reference panel the advertiser has to translate for themselves. */}
-      <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Estimated reach</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {estimate?.suppressed ? (
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Fewer than five developers match. Counts are hidden below that threshold so an
-                estimate cannot identify anyone.
-              </p>
-            ) : (
-              <>
-                <div className="text-2xl font-semibold tabular-nums">
-                  {estimate?.eligibleUsers ?? '—'}
-                </div>
-                <p className="text-muted-foreground text-xs">developers currently match</p>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(estimate?.byOnchainSignal ?? {}).map(([signal, count]) => (
-                    <Badge key={signal} variant="secondary" className="text-[10px]">
-                      {signal} · {count}
-                    </Badge>
-                  ))}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+      <aside className="space-y-10 lg:sticky lg:top-24 lg:self-start">
+        <Panel label="Estimated reach">
+          {estimate?.suppressed ? (
+            <p className="text-steel text-xs leading-relaxed">
+              Fewer than five developers match. Counts are hidden below that threshold so an
+              estimate cannot identify anyone.
+            </p>
+          ) : (
+            <>
+              <div className="text-almost-white text-[32px] leading-none font-light tracking-[-0.02em] tabular-nums">
+                {estimate?.eligibleUsers ?? '—'}
+              </div>
+              <p className="text-steel mt-2.5 text-xs">developers currently match</p>
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {Object.entries(estimate?.byOnchainSignal ?? {}).map(([signal, count]) => (
+                  <Badge key={signal} variant="secondary">
+                    {signal} · {count}
+                  </Badge>
+                ))}
+              </div>
+            </>
+          )}
+        </Panel>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">What it buys</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+        <Panel label="What it buys">
+          <div className="space-y-3.5">
             <Row label="Qualified impressions" value={impressions.toLocaleString()} />
             <Row label="Per impression" value={`$${bid.toFixed(4)}`} />
             <Row
@@ -719,14 +719,10 @@ export default function NewCampaignPage() {
               accent
               hint={config ? `${(config.allocation.reward * 100).toFixed(0)}% of your spend` : ''}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Preview</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Panel label="Preview">
             {/* Whichever slot the current step is about, shown on its own —
                 exactly as the developer sees it, one ad at a time. */}
             {current.id === 'inline' && runInline ? (
@@ -736,7 +732,7 @@ export default function NewCampaignPage() {
                   ctaText={inlineCta}
                   advertiserName={me?.user.displayName ?? 'Your company'}
                 />
-                <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+                <p className="text-graphite mt-4 text-xs leading-relaxed">
                   Shown while the answer is still being written, and retired the moment it
                   finishes.
                 </p>
@@ -753,15 +749,30 @@ export default function NewCampaignPage() {
                     config ? Math.round(bid * config.allocation.reward * 1_000_000) : null
                   }
                 />
-                <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+                <p className="text-graphite mt-4 text-xs leading-relaxed">
                   This is exactly how it appears under a finished answer, never inside it.
                 </p>
               </>
             )}
-          </CardContent>
-        </Card>
+        </Panel>
       </aside>
-    </div>
+    </Shell>
+  );
+}
+
+/**
+ * A sidebar panel: a stamped label, a hairline, and the content.
+ *
+ * Not a card, because three cards stacked in a 340px rail turn the sidebar into
+ * a column of boxes — the rule and the label are enough to say where one panel
+ * ends and the next begins.
+ */
+function Panel({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section>
+      <div className="stamp-sm">{label}</div>
+      <div className="border-hairline mt-4 border-t pt-5">{children}</div>
+    </section>
   );
 }
 
@@ -782,37 +793,33 @@ function Stepper({
   onJump: (index: number) => void;
 }) {
   return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-2">
+    <ol className="flex flex-wrap items-center gap-x-2.5 gap-y-3">
       {STEPS.map((step, index) => {
         const state = index === current ? 'current' : index < current ? 'done' : 'todo';
         const reachable = index <= furthest;
 
         return (
-          <li key={step.id} className="flex items-center gap-2">
+          <li key={step.id} className="flex items-center gap-2.5">
             <button
               type="button"
               disabled={!reachable}
               onClick={() => onJump(index)}
               aria-current={state === 'current' ? 'step' : undefined}
-              className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              className={`focus-visible:ring-ring/70 flex items-center gap-2 rounded-4xl border px-3 py-1.5 text-[11px] transition-colors focus-visible:ring-2 focus-visible:outline-none ${
                 state === 'current'
-                  ? 'border-foreground bg-foreground text-background'
+                  ? 'border-signal-violet/50 bg-signal-violet/10 text-lavender-mist'
                   : state === 'done'
-                    ? 'border-border text-foreground hover:border-foreground/40'
-                    : 'border-border text-muted-foreground'
+                    ? 'border-hairline text-almost-white hover:border-almost-white/40'
+                    : 'border-hairline text-graphite'
               } ${reachable ? 'cursor-pointer' : 'cursor-default'}`}
             >
-              <span
-                className={`flex size-4 items-center justify-center rounded-full text-[10px] tabular-nums ${
-                  state === 'current' ? 'bg-background/20' : 'bg-muted'
-                }`}
-              >
-                {index + 1}
+              <span className="font-mono text-[10px] tabular-nums">
+                {String(index + 1).padStart(2, '0')}
               </span>
               {step.title}
             </button>
             {index < STEPS.length - 1 && (
-              <span aria-hidden="true" className="bg-border hidden h-px w-4 sm:block" />
+              <span aria-hidden="true" className="bg-hairline hidden h-px w-4 sm:block" />
             )}
           </li>
         );
@@ -833,9 +840,9 @@ function Field({
 }) {
   return (
     <div>
-      <Label className="mb-1 block">{label}</Label>
-      {hint && <p className="text-muted-foreground mb-2 text-xs">{hint}</p>}
-      {children}
+      <Label>{label}</Label>
+      {hint && <p className="text-graphite mt-2.5 text-xs leading-relaxed">{hint}</p>}
+      <div className="mt-4">{children}</div>
     </div>
   );
 }
@@ -843,7 +850,7 @@ function Field({
 /** How much room is left, where a field is truncated rather than wrapped. */
 function Counter({ value, max }: { value: number; max: number }) {
   return (
-    <p className="text-muted-foreground mt-1.5 text-xs tabular-nums">
+    <p className="text-graphite mt-2 text-xs tabular-nums">
       {value}/{max}
     </p>
   );
@@ -859,17 +866,17 @@ function Summary({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border p-4">
-      <div className="mb-3 flex items-center justify-between gap-4">
-        <div className="text-muted-foreground text-xs tracking-wide uppercase">{label}</div>
+    <div className="border-hairline border-t pt-5">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="stamp-sm">{label}</div>
         <button
-          className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4"
+          className="text-steel hover:text-almost-white text-xs underline underline-offset-4 transition-colors"
           onClick={onEdit}
         >
           Edit
         </button>
       </div>
-      <div className="space-y-2">{children}</div>
+      <div className="space-y-2.5">{children}</div>
     </div>
   );
 }
@@ -877,8 +884,8 @@ function Summary({
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 text-sm">
-      <span className="text-muted-foreground shrink-0 text-xs">{label}</span>
-      <span className="truncate text-right">{value}</span>
+      <span className="text-steel shrink-0 text-xs">{label}</span>
+      <span className="text-almost-white truncate text-right">{value}</span>
     </div>
   );
 }
@@ -886,13 +893,13 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 function SummaryChips({ label, values }: { label: string; values: string[] }) {
   return (
     <div className="flex items-baseline justify-between gap-4 text-sm">
-      <span className="text-muted-foreground shrink-0 text-xs">{label}</span>
+      <span className="text-steel shrink-0 text-xs">{label}</span>
       {values.length === 0 ? (
-        <span className="text-muted-foreground text-right">Anyone</span>
+        <span className="text-graphite text-right text-xs">Anyone</span>
       ) : (
-        <span className="flex flex-wrap justify-end gap-1">
+        <span className="flex flex-wrap justify-end gap-1.5">
           {values.map((value) => (
-            <Badge key={value} variant="secondary" className="text-[10px]">
+            <Badge key={value} variant="secondary">
               {value.replace(/_/g, ' ')}
             </Badge>
           ))}
@@ -915,13 +922,13 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <div>
-        <div className="text-muted-foreground text-xs">{label}</div>
-        {hint && <div className="text-muted-foreground text-[10px]">{hint}</div>}
+      <div className="min-w-0">
+        <div className="text-steel text-xs">{label}</div>
+        {hint && <div className="text-graphite mt-0.5 text-[10px]">{hint}</div>}
       </div>
-      <div
-        className={`tabular-nums ${accent ? 'font-medium text-emerald-600 dark:text-emerald-400' : ''}`}
-      >
+      {/* The developer's share is the number this whole rail exists to show, so
+          it is the one figure allowed the accent. */}
+      <div className={`shrink-0 text-sm tabular-nums ${accent ? 'text-signal-violet' : 'text-almost-white'}`}>
         {value}
       </div>
     </div>

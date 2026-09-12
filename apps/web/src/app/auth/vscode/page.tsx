@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Eyebrow, Shell } from '@/components/app/section';
 import { api } from '@/lib/api';
 import { useMe } from '@/hooks/use-session';
 
@@ -70,42 +70,42 @@ export default function VsCodeAuthPage({ searchParams }: PageProps<'/auth/vscode
 
   if (!state || !redirect) {
     return (
-      <Shell title="Missing sign-in request">
+      <Handoff title="Missing sign-in request">
         <p>
           This page is opened by the VS Code extension. Run{' '}
           <Code>AI Marketplace: Sign In</Code> from the command palette instead.
         </p>
-      </Shell>
+      </Handoff>
     );
   }
 
   if (!isAllowedCallback(redirect)) {
     return (
-      <Shell title="Unrecognised editor">
+      <Handoff title="Unrecognised editor">
         <p>
           That callback does not point at a supported editor, so the sign-in was stopped. Supported:{' '}
           {ALLOWED_SCHEMES.join(', ')}.
         </p>
-      </Shell>
+      </Handoff>
     );
   }
 
-  if (isLoading) return <Shell title="Checking your session">{null}</Shell>;
+  if (isLoading) return <Handoff title="Checking your session">{null}</Handoff>;
 
   if (!me) {
     return (
-      <Shell title="Sign in to continue">
+      <Handoff title="Sign in to continue">
         <p>
           The extension is waiting. Sign in from the header — <strong>Connect Wallet</strong>, or{' '}
           <strong>Dev sign-in</strong> when running locally — and this page will hand your editor a
           sign-in code automatically.
         </p>
-      </Shell>
+      </Handoff>
     );
   }
 
   return (
-    <Shell title={code ? 'Returning you to your editor' : 'Preparing your editor sign-in'}>
+    <Handoff title={code ? 'Returning you to your editor' : 'Preparing your editor sign-in'}>
       {mint.isError && (
         <p className="text-destructive">
           Could not create a sign-in code. Close this tab and try signing in again.
@@ -120,11 +120,13 @@ export default function VsCodeAuthPage({ searchParams }: PageProps<'/auth/vscode
             <Code>AI Marketplace: Paste Sign-In Code</Code>.
           </p>
 
-          <div className="bg-muted flex items-center gap-3 rounded-md p-3">
-            <code className="flex-1 font-mono text-xs break-all">{code}</code>
+          <div className="border-hairline bg-wash flex items-center gap-3 rounded-[10.8px] border p-3.5">
+            <code className="text-lavender-mist min-w-0 flex-1 font-mono text-xs break-all">
+              {code}
+            </code>
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 void navigator.clipboard.writeText(code);
                 setCopied(true);
@@ -134,28 +136,38 @@ export default function VsCodeAuthPage({ searchParams }: PageProps<'/auth/vscode
             </Button>
           </div>
 
-          <p className="text-muted-foreground text-xs">
+          <p className="text-graphite text-xs">
             This code expires in five minutes and can be used once.
           </p>
         </>
       )}
+    </Handoff>
+  );
+}
+
+/**
+ * The handoff shell.
+ *
+ * Deliberately not a card. This page is a waypoint between two applications —
+ * it is read once, for two seconds, and then the browser leaves — so it gets
+ * the plainest form the system has: an eyebrow, a display line, and the text.
+ */
+function Handoff({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Shell className="max-w-xl py-28 md:py-36">
+      <Eyebrow>Editor sign-in</Eyebrow>
+      <h1 className="display-serif text-almost-white mt-7 text-[clamp(2rem,5.5vw,3.5rem)] text-balance">
+        {title}
+      </h1>
+      <div className="text-steel mt-8 space-y-5 text-[15px] leading-relaxed">{children}</div>
     </Shell>
   );
 }
 
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mx-auto max-w-lg px-6 py-24">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm leading-relaxed">{children}</CardContent>
-      </Card>
-    </div>
-  );
-}
-
 function Code({ children }: { children: React.ReactNode }) {
-  return <code className="bg-muted rounded px-1 py-0.5 text-xs">{children}</code>;
+  return (
+    <code className="border-hairline text-lavender-mist rounded border px-1.5 py-0.5 font-mono text-xs">
+      {children}
+    </code>
+  );
 }

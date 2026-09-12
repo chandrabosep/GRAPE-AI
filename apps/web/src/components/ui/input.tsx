@@ -2,13 +2,22 @@ import * as React from "react"
 import { Input as InputPrimitive } from "@base-ui/react/input"
 import { cn } from "cn"
 
+/*
+ * Fields are a baseline, not a box.
+ *
+ * A filled input on this canvas reads as a lighter rectangle floating on the
+ * void, which is the one thing the system forbids. So the field is transparent
+ * with a hairline underline; focus swaps the underline to the violet accent
+ * stroke. The full border only comes back on an invalid field, where the extra
+ * weight is the message.
+ */
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <InputPrimitive
       type={type}
       data-slot="input"
       className={cn(
-        "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        "border-hairline-strong text-almost-white placeholder:text-graphite focus-visible:border-signal-violet aria-invalid:border-destructive h-10 w-full min-w-0 rounded-none border-0 border-b bg-transparent px-0 py-2 text-base transition-colors outline-none disabled:pointer-events-none disabled:opacity-40 md:text-sm",
         className
       )}
       {...props}

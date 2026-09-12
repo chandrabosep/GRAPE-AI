@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -12,7 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { StatCard } from '@/components/app/stat-card';
+import { Metric, MetricGrid } from '@/components/app/metric';
+import { Eyebrow, Shell, Stamp } from '@/components/app/section';
 import { api, formatCredits } from '@/lib/api';
 import { useMe } from '@/hooks/use-session';
 
@@ -54,143 +56,180 @@ export default function UserDashboard() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-6xl space-y-4 px-6 py-10">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28" />
-          ))}
-        </div>
-      </div>
+      <Shell className="space-y-8 py-16">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-36 w-full" />
+      </Shell>
     );
   }
 
-  if (!me) {
-    return (
-      <div className="mx-auto max-w-6xl px-6 py-24 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in to see your dashboard</h1>
-        <p className="text-muted-foreground mx-auto mt-3 max-w-md text-sm leading-relaxed">
-          Connect your wallet from the header to see your credits, earnings and usage.
-        </p>
-      </div>
-    );
-  }
+  if (!me) return <SignedOut />;
 
   const earned = (ledger?.transactions ?? []).filter((t) => t.type === 'reward_earned');
   const earnedTotal = earned.reduce((sum, t) => sum + Number(t.amountMicro), 0);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-6 py-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {me.user.displayName ?? 'Your dashboard'}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Credits are the only currency. They pay for inference, and sponsored content pays them
-          back.
-        </p>
+    <Shell className="py-16 md:py-20">
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        {/*
+         * The stamp says "Your ledger", not the account name.
+         *
+         * A stamp is a signpost for what the page is, and it is set at 74px in
+         * letterspaced monospace — a name is neither, and an arbitrary-length
+         * one ("Northwind RPC [simulated]") wraps into a two-line shout that
+         * tells the reader nothing about where they are. The name belongs in
+         * the line underneath, where it is an attribute of the page rather than
+         * its title.
+         */}
+        <Stamp
+          as="h1"
+          sub={
+            <>
+              {me.user.displayName ? `${me.user.displayName} · ` : ''}Credits are the only
+              currency. They pay for inference, and sponsored content pays them back.
+            </>
+          }
+        >
+          Your ledger
+        </Stamp>
+        <div className="flex gap-3">
+          <Button variant="outline" nativeButton={false} render={<Link href="/app/topup" />}>
+            Add credits
+          </Button>
+          <Button variant="secondary" nativeButton={false} render={<Link href="/app/withdraw" />}>
+            Withdraw
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
+      {/* Four readings on one instrument panel, not four cards. */}
+      <MetricGrid className="mt-14">
+        <Metric
           label="AI credits"
           value={formatCredits(me.credits.balanceMicro)}
           hint="Spendable on inference"
         />
-        <StatCard
+        <Metric
           label="Earned from ads"
           value={formatCredits(earnedTotal)}
           hint="Your 70% share of confirmed attention"
           accent
         />
-        <StatCard
+        <Metric
           label="Withdrawable"
           value={formatCredits(me.credits.withdrawableMicro)}
           hint="Earnings only, not purchased credits"
         />
-        <StatCard
+        <Metric
           label="Tokens today"
           value={me.usageToday.todayTokens.toLocaleString()}
           hint={`${me.usageToday.requestCount} request${me.usageToday.requestCount === 1 ? '' : 's'}`}
         />
-      </div>
+      </MetricGrid>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Credit history</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <section className="mt-24">
+        <Stamp size="section">Credit history</Stamp>
+
+        <div className="mt-10">
           {!ledger || ledger.transactions.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center text-sm">
+            <p className="border-hairline text-steel border-t py-16 text-center text-sm">
               Nothing yet. Ask a question in the VS Code extension to see credits move.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Reason</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
-                    <TableHead className="text-right">When</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ledger.transactions.map((tx) => {
-                    const amount = Number(tx.amountMicro);
-                    return (
-                      <TableRow key={tx.id}>
-                        <TableCell>
-                          <span className="text-sm">{TYPE_LABEL[tx.type] ?? tx.type}</span>
-                        </TableCell>
-                        <TableCell
-                          className={`text-right tabular-nums ${
-                            amount > 0 ? 'text-emerald-600 dark:text-emerald-400' : ''
-                          }`}
-                        >
-                          {amount > 0 ? '+' : '−'}
-                          {formatCredits(Math.abs(amount))}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-right tabular-nums">
-                          {formatCredits(tx.balanceAfterMicro)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-right text-xs">
-                          {new Date(tx.createdAt).toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-0">Reason</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="pr-0 text-right">When</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ledger.transactions.map((tx) => {
+                  const amount = Number(tx.amountMicro);
+                  return (
+                    <TableRow key={tx.id}>
+                      <TableCell className="pl-0 text-sm font-light">
+                        {TYPE_LABEL[tx.type] ?? tx.type}
+                      </TableCell>
+                      {/*
+                       * Credit in, credit out. The sign and the position carry
+                       * the direction — an earning is not marked with a colour,
+                       * because green would be a third hue the palette does not
+                       * have and violet is spent elsewhere on this page.
+                       */}
+                      <TableCell
+                        className={`text-right tabular-nums ${
+                          amount > 0 ? 'text-almost-white' : 'text-steel'
+                        }`}
+                      >
+                        {amount > 0 ? '+' : '−'}
+                        {formatCredits(Math.abs(amount))}
+                      </TableCell>
+                      <TableCell className="text-steel text-right tabular-nums">
+                        {formatCredits(tx.balanceAfterMicro)}
+                      </TableCell>
+                      <TableCell className="text-graphite pr-0 text-right text-xs tabular-nums">
+                        {new Date(tx.createdAt).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">What advertisers can target you on</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-1.5">
-            {me.profile?.persona && <Badge variant="secondary">{me.profile.persona}</Badge>}
-            {(me.profile?.technologies ?? []).map((tech) => (
-              <Badge key={tech} variant="secondary">
-                {tech}
-              </Badge>
-            ))}
-            {(me.profile?.interests ?? []).map((interest) => (
-              <Badge key={interest} variant="outline">
-                {interest}
-              </Badge>
-            ))}
-          </div>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            This is the complete list. Your prompts, your code and your identity are never shared,
-            and no advertiser can see an individual user at all.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+      <section className="mt-24">
+        <Stamp
+          size="section"
+          sub="This is the complete list. Your prompts, your code and your identity are never shared, and no advertiser can see an individual user at all."
+        >
+          Your targeting profile
+        </Stamp>
+
+        <div className="border-hairline mt-10 flex flex-wrap gap-2 border-t pt-10">
+          {me.profile?.persona && <Badge>{me.profile.persona}</Badge>}
+          {(me.profile?.technologies ?? []).map((tech) => (
+            <Badge key={tech}>{tech}</Badge>
+          ))}
+          {(me.profile?.interests ?? []).map((interest) => (
+            <Badge key={interest} variant="outline">
+              {interest}
+            </Badge>
+          ))}
+          {!me.profile?.persona &&
+            (me.profile?.technologies ?? []).length === 0 &&
+            (me.profile?.interests ?? []).length === 0 && (
+              <p className="text-steel text-sm">
+                Nothing derived yet — signals appear once you have used the assistant.
+              </p>
+            )}
+        </div>
+      </section>
+    </Shell>
+  );
+}
+
+/**
+ * The signed-out state.
+ *
+ * Left-aligned with the rest of the system rather than centred: the page never
+ * centres body copy, and an empty state is not a licence to break that.
+ */
+function SignedOut() {
+  return (
+    <Shell className="py-28 md:py-36">
+      <Eyebrow>Not signed in</Eyebrow>
+      <h1 className="display-serif text-almost-white mt-8 max-w-2xl text-[clamp(2.25rem,6vw,4rem)] text-balance">
+        Sign in to see your ledger
+      </h1>
+      <p className="text-steel mt-7 max-w-xl text-[17px] leading-relaxed font-light">
+        Connect your wallet from the header to see your credits, your earnings and what advertisers
+        can target you on.
+      </p>
+    </Shell>
   );
 }

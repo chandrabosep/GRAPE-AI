@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Eyebrow, Shell } from '@/components/app/section';
 import { api, ApiError, formatCredits } from '@/lib/api';
 
 interface TopupInfo {
@@ -32,6 +32,10 @@ interface TopupResult {
  * wallet they already use and pastes the transaction back; we verify it against
  * the mirror node rather than trusting it, which keeps the product out of the
  * business of custodying keys or asking anyone to approve a contract.
+ *
+ * Laid out as a numbered procedure rather than a form in a card, because it is
+ * a procedure: the two steps happen in two different applications, and the
+ * field at the end is only reachable once the first one is done elsewhere.
  */
 export default function TopupPage() {
   const queryClient = useQueryClient();
@@ -68,103 +72,119 @@ export default function TopupPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-xl p-6">
+      <Shell className="max-w-2xl space-y-6 py-16">
+        <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 w-full" />
-      </div>
+      </Shell>
     );
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-4 p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Add credits</CardTitle>
-          <CardDescription>
-            Send {info?.token.symbol} on Hedera testnet, then paste the transaction. One USDC
-            becomes one dollar of credits — no conversion, no fee.
-          </CardDescription>
-        </CardHeader>
+    <Shell className="max-w-2xl py-16 md:py-24">
+      <Eyebrow>Add credits</Eyebrow>
+      <h1 className="mt-7 text-balance">
+        <span className="display-serif text-almost-white block text-[clamp(2.5rem,7vw,4.5rem)]">
+          One dollar,
+        </span>
+        <span className="text-almost-white mt-1 block text-[clamp(1.5rem,3.6vw,2.25rem)] leading-tight font-light tracking-[-0.03em]">
+          one dollar of credits
+        </span>
+      </h1>
+      <p className="text-steel mt-6 text-[15px] leading-relaxed">
+        Send {info?.token.symbol ?? 'USDC'} on Hedera testnet, then paste the transaction. No
+        conversion, no fee.
+      </p>
 
-        <CardContent className="space-y-5">
-          <div className="rounded-lg border p-4">
-            <div className="text-muted-foreground text-sm">Current balance</div>
-            <div className="text-3xl font-semibold tabular-nums">
-              {formatCredits(info?.balanceMicro, 2)}
+      {/* The balance as a stamped readout, sharing the page's left edge with
+          everything else rather than boxed off in a card of its own. */}
+      <div className="border-hairline mt-12 flex flex-wrap items-end justify-between gap-4 border-y py-7">
+        <div>
+          <div className="stamp-sm">Current balance</div>
+          <div className="text-almost-white mt-3 text-[40px] leading-none font-light tracking-[-0.03em] tabular-nums">
+            {formatCredits(info?.balanceMicro, 2)}
+          </div>
+        </div>
+        <div className="stamp-sm text-right">{info?.network ?? 'hedera testnet'}</div>
+      </div>
+
+      {!info?.enabled ? (
+        <Alert className="mt-10">
+          <AlertTitle>Top-ups are not configured</AlertTitle>
+          <AlertDescription>This deployment has no treasury account set.</AlertDescription>
+        </Alert>
+      ) : (
+        <ol className="mt-12 space-y-12">
+          <li>
+            <div className="flex items-baseline gap-5">
+              <span className="stamp-sm shrink-0">01</span>
+              <span className="text-almost-white text-lg font-light">
+                Send USDC to this account
+              </span>
             </div>
-          </div>
+            <div className="mt-5 ml-0 flex items-center gap-3 md:ml-[3.25rem]">
+              <code className="border-hairline bg-wash text-lavender-mist min-w-0 flex-1 truncate rounded-[10.8px] border px-4 py-3 font-mono text-sm">
+                {info.treasuryAccountId}
+              </code>
+              <Button type="button" variant="secondary" onClick={copyTreasury}>
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+            <p className="text-graphite mt-3 text-xs leading-relaxed md:ml-[3.25rem]">
+              Token {info.token.id} on {info.network}. Sending any other token, or sending on
+              another network, cannot be credited.
+            </p>
+          </li>
 
-          {!info?.enabled ? (
-            <Alert>
-              <AlertTitle>Top-ups are not configured</AlertTitle>
-              <AlertDescription>This deployment has no treasury account set.</AlertDescription>
-            </Alert>
-          ) : (
-            <ol className="space-y-4 text-sm">
-              <li>
-                <div className="font-medium">1. Send USDC to this account</div>
-                <div className="mt-2 flex items-center gap-2">
-                  <code className="bg-muted flex-1 rounded px-3 py-2 font-mono text-sm">
-                    {info.treasuryAccountId}
-                  </code>
-                  <Button type="button" variant="outline" size="sm" onClick={copyTreasury}>
-                    {copied ? 'Copied' : 'Copy'}
-                  </Button>
-                </div>
-                <p className="text-muted-foreground mt-2">
-                  Token {info.token.id} on {info.network}. Sending any other token, or sending on
-                  another network, cannot be credited.
-                </p>
-              </li>
-              <li>
-                <div className="font-medium">2. Paste the transaction</div>
-                <p className="text-muted-foreground mt-1">
-                  Either form works — the <code>0x…</code> hash a MetaMask-style wallet gives you,
-                  or the <code>0.0.x@…</code> id from HashPack.
-                </p>
-              </li>
-            </ol>
-          )}
+          <li>
+            <div className="flex items-baseline gap-5">
+              <span className="stamp-sm shrink-0">02</span>
+              <span className="text-almost-white text-lg font-light">Paste the transaction</span>
+            </div>
+            <p className="text-graphite mt-3 text-xs leading-relaxed md:ml-[3.25rem]">
+              Either form works — the <code className="font-mono">0x…</code> hash a MetaMask-style
+              wallet gives you, or the <code className="font-mono">0.0.x@…</code> id from HashPack.
+            </p>
+            <div className="mt-6 space-y-3 md:ml-[3.25rem]">
+              <Label htmlFor="tx">Transaction</Label>
+              <Input
+                id="tx"
+                placeholder="0x… or 0.0.1234@1700000000.000000000"
+                value={txId}
+                spellCheck={false}
+                className="font-mono"
+                onChange={(event) => setTxId(event.target.value)}
+              />
+            </div>
+          </li>
+        </ol>
+      )}
 
-          <div className="space-y-2">
-            <Label htmlFor="tx">Transaction</Label>
-            <Input
-              id="tx"
-              placeholder="0x… or 0.0.1234@1700000000.000000000"
-              value={txId}
-              spellCheck={false}
-              onChange={(event) => setTxId(event.target.value)}
-            />
-          </div>
+      <Button
+        size="lg"
+        className="mt-12 w-full"
+        disabled={!info?.enabled || txId.trim().length < 5 || mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? 'Verifying…' : 'Credit my account'}
+      </Button>
 
-          <Button
-            className="w-full"
-            disabled={!info?.enabled || txId.trim().length < 5 || mutation.isPending}
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? 'Verifying…' : 'Credit my account'}
-          </Button>
+      {mutation.isError && (
+        <Alert variant="destructive" className="mt-6">
+          <AlertTitle>Could not credit that transaction</AlertTitle>
+          <AlertDescription>
+            {mutation.error instanceof ApiError ? mutation.error.message : 'Something went wrong.'}
+          </AlertDescription>
+        </Alert>
+      )}
 
-          {mutation.isError && (
-            <Alert variant="destructive">
-              <AlertTitle>Could not credit that transaction</AlertTitle>
-              <AlertDescription>
-                {mutation.error instanceof ApiError
-                  ? mutation.error.message
-                  : 'Something went wrong.'}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {result && (
-            <Alert>
-              <AlertTitle>Added {formatCredits(result.creditedMicro, 2)}</AlertTitle>
-              <AlertDescription>
-                New balance {formatCredits(result.balanceMicro, 2)}. Transaction {result.txId}.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+      {result && (
+        <Alert className="mt-6">
+          <AlertTitle>Added {formatCredits(result.creditedMicro, 2)}</AlertTitle>
+          <AlertDescription>
+            New balance {formatCredits(result.balanceMicro, 2)}. Transaction {result.txId}.
+          </AlertDescription>
+        </Alert>
+      )}
+    </Shell>
   );
 }

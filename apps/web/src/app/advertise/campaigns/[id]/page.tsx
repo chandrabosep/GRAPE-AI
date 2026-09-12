@@ -1,22 +1,17 @@
 'use client';
 
 import { use } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatCard } from '@/components/app/stat-card';
-import {
-  InlineSponsoredPreview,
-  SponsoredPreview,
-} from '@/components/app/sponsored-preview';
-import {
-  InsightsCharts,
-  type CampaignInsights,
-} from '@/components/app/insights-charts';
+import { Metric, MetricGrid } from '@/components/app/metric';
+import { Eyebrow, Shell, Stamp } from '@/components/app/section';
+import { InlineSponsoredPreview, SponsoredPreview } from '@/components/app/sponsored-preview';
+import { InsightsCharts, type CampaignInsights } from '@/components/app/insights-charts';
 import { api, formatCredits } from '@/lib/api';
 
 interface Campaign {
@@ -92,18 +87,29 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4 px-6 py-10">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-40" />
-      </div>
+      <Shell className="max-w-5xl space-y-8 py-16">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-36 w-full" />
+      </Shell>
     );
   }
 
   if (!campaign) {
     return (
-      <div className="text-muted-foreground mx-auto max-w-5xl px-6 py-24 text-center text-sm">
-        Campaign not found.
-      </div>
+      <Shell className="py-28">
+        <Eyebrow>Not found</Eyebrow>
+        <h1 className="display-serif text-almost-white mt-8 text-[clamp(2rem,5vw,3.5rem)]">
+          That campaign is not here
+        </h1>
+        <Button
+          variant="outline"
+          className="mt-10"
+          nativeButton={false}
+          render={<Link href="/advertise" />}
+        >
+          Back to campaigns
+        </Button>
+      </Shell>
     );
   }
 
@@ -113,29 +119,40 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
   const targeting = campaign.targeting;
   const banner = campaign.creatives.find((c) => c.format === 'banner');
   const inline = campaign.creatives.find((c) => c.format === 'inline');
+  const live = campaign.status === 'active';
 
   const rewardShare = spent * campaign.allocation.reward;
   const platformShare = spent * campaign.allocation.platform;
   const treasuryShare = spent * campaign.allocation.treasury;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-6 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{campaign.name}</h1>
-            <Badge variant={campaign.status === 'active' ? 'default' : 'outline'}>
+    <Shell className="max-w-5xl py-16 md:py-20">
+      <Link
+        href="/advertise"
+        className="text-steel hover:text-almost-white stamp-sm inline-block transition-colors"
+      >
+        ← All campaigns
+      </Link>
+
+      <div className="mt-8 flex flex-wrap items-start justify-between gap-6">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-almost-white text-[clamp(1.75rem,4vw,2.5rem)] leading-tight font-light tracking-[-0.03em]">
+              {campaign.name}
+            </h1>
+            <Badge variant={live ? 'live' : 'outline'}>
+              {live && <span className="bg-signal-violet size-1.5 shrink-0 rounded-full" />}
               {campaign.status.replace(/_/g, ' ')}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="text-steel mt-3 text-sm tabular-nums">
             {formatCredits(campaign.bidMicro)} per qualified impression ·{' '}
             {Number(campaign.clickMultiplier)}× on a click
           </p>
           {/* The auction only ever considers active campaigns, so a draft that
               looks finished is the easiest way to conclude the ads are broken. */}
-          {campaign.status !== 'active' && (
-            <p className="mt-2 text-sm text-amber-600 dark:text-amber-500">
+          {!live && (
+            <p className="text-graphite mt-2 max-w-xl text-sm leading-relaxed">
               {campaign.status === 'draft' || campaign.status === 'awaiting_funding'
                 ? 'Not in the auction yet — only active campaigns are eligible to be served.'
                 : `A ${campaign.status.replace(/_/g, ' ')} campaign is not served.`}
@@ -143,7 +160,7 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           {(NEXT_STATUS[campaign.status] ?? []).map((action) => (
             <Button
               key={action.status}
@@ -157,65 +174,55 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Budget" value={formatCredits(budget, 2)} />
-        <StatCard label="Spent" value={formatCredits(spent, 2)} />
-        <StatCard label="Remaining" value={formatCredits(budget - spent, 2)} />
-      </div>
+      <MetricGrid columns={3} className="mt-12">
+        <Metric label="Budget" value={formatCredits(budget, 2)} />
+        <Metric label="Spent" value={formatCredits(spent, 2)} />
+        <Metric label="Remaining" value={formatCredits(budget - spent, 2)} />
+      </MetricGrid>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Where your spend went</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="mt-20">
+        <Stamp
+          size="section"
+          sub="This split was snapshotted when the campaign was created, so later changes to platform economics cannot rewrite it."
+        >
+          Where your spend went
+        </Stamp>
+
+        <div className="border-hairline mt-10 border-t pt-8">
           <Progress value={spendPct} />
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <div className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                {formatCredits(rewardShare)}
-              </div>
-              <div className="text-muted-foreground text-xs">
-                to developers ({(campaign.allocation.reward * 100).toFixed(0)}%)
-              </div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold tabular-nums">
-                {formatCredits(platformShare)}
-              </div>
-              <div className="text-muted-foreground text-xs">
-                platform ({(campaign.allocation.platform * 100).toFixed(0)}%)
-              </div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold tabular-nums">
-                {formatCredits(treasuryShare)}
-              </div>
-              <div className="text-muted-foreground text-xs">
-                treasury ({(campaign.allocation.treasury * 100).toFixed(0)}%)
-              </div>
-            </div>
-          </div>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            This split was snapshotted when the campaign was created, so later changes to platform
-            economics cannot rewrite it.
-          </p>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Creatives</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            A campaign can run either format or both. Each is its own auction and its own
-            charge — the inline line bills at a fraction of your bid, because it is a
-            fraction of the attention.
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-8 md:grid-cols-2">
-          <div className="space-y-3">
-            <div className="text-muted-foreground text-xs tracking-wide uppercase">
-              Banner — after the answer
-            </div>
+        <MetricGrid columns={3} className="mt-8">
+          <Metric
+            label="To developers"
+            value={formatCredits(rewardShare)}
+            hint={`${(campaign.allocation.reward * 100).toFixed(0)}% of what you were charged`}
+            accent
+          />
+          <Metric
+            label="Platform"
+            value={formatCredits(platformShare)}
+            hint={`${(campaign.allocation.platform * 100).toFixed(0)}%`}
+          />
+          <Metric
+            label="Treasury"
+            value={formatCredits(treasuryShare)}
+            hint={`${(campaign.allocation.treasury * 100).toFixed(0)}%`}
+          />
+        </MetricGrid>
+      </section>
+
+      <section className="mt-24">
+        <Stamp
+          size="section"
+          sub="A campaign can run either format or both. Each is its own auction and its own charge — the inline line bills at a fraction of your bid, because it is a fraction of the attention."
+        >
+          Creatives
+        </Stamp>
+
+        <div className="border-hairline mt-10 grid gap-12 border-t pt-10 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="stamp-sm">Banner — after the answer</div>
             {banner ? (
               /* Rendered exactly as a developer sees it, separator and badge included. */
               <SponsoredPreview
@@ -226,16 +233,14 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
                 advertiserName={advertiser?.name ?? 'Advertiser'}
               />
             ) : (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-steel text-sm leading-relaxed">
                 No banner creative. This campaign will not compete for the card slot.
               </p>
             )}
           </div>
 
-          <div className="space-y-3">
-            <div className="text-muted-foreground text-xs tracking-wide uppercase">
-              Inline — while the answer streams
-            </div>
+          <div className="space-y-4">
+            <div className="stamp-sm">Inline — while the answer streams</div>
             {inline ? (
               <InlineSponsoredPreview
                 headline={inline.headline}
@@ -243,42 +248,41 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
                 advertiserName={advertiser?.name ?? 'Advertiser'}
               />
             ) : (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-steel text-sm leading-relaxed">
                 No inline creative. This campaign will not compete for the inline slot.
               </p>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {insights && (
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Performance</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Last 30 days.</p>
-          </div>
+        <section className="mt-24">
+          <Stamp size="section" sub="Last 30 days.">
+            Performance
+          </Stamp>
 
           {/* The funnel first — impressions, then clicks, then the two rates
               derived from them — so a rate always has its counts beside it. */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard
+          <MetricGrid columns={3} className="mt-10">
+            <Metric
               label="Impressions"
               value={insights.totals.impressions.toLocaleString()}
               hint={`${insights.totals.qualified.toLocaleString()} qualified · ${(
                 insights.totals.viewRate * 100
               ).toFixed(1)}% actually looked at`}
             />
-            <StatCard
+            <Metric
               label="Clicks"
               value={insights.totals.clicks.toLocaleString()}
               hint="Taps through to your link"
             />
-            <StatCard
+            <Metric
               label="Click-through rate"
               value={`${(insights.totals.clickThroughRate * 100).toFixed(1)}%`}
               hint="Clicks per qualified impression"
             />
-            <StatCard
+            <Metric
               label="Cost per click"
               value={
                 insights.totals.costPerClickMicro
@@ -291,75 +295,85 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
                   : 'No clicks in this window yet'
               }
             />
-            <StatCard
+            <Metric
               label="Spend in window"
               value={formatCredits(insights.totals.spendMicro, 2)}
               hint={`${formatCredits(insights.totals.rewardMicro, 2)} reached developers`}
             />
-            <StatCard
+            <Metric
               label="Average relevance"
               value={insights.totals.averageRelevance.toFixed(3)}
               hint="Auction score of your winning impressions"
             />
-          </div>
+          </MetricGrid>
 
-          <InsightsCharts data={insights} />
+          <div className="mt-8">
+            <InsightsCharts data={insights} />
+          </div>
         </section>
       )}
 
       {targeting && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Targeting</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
+        <section className="mt-24">
+          <Stamp size="section">Targeting</Stamp>
+
+          <dl className="border-hairline mt-10 border-t">
             <TargetRow label="AI intent" values={targeting.aiIntents} />
             <TargetRow label="Technologies" values={targeting.technologies} />
             <TargetRow label="Personas" values={targeting.personas} />
             <TargetRow label="Interests" values={targeting.interests} />
             <TargetRow label="Countries" values={targeting.countries} />
 
-            <div>
-              <div className="text-muted-foreground mb-1.5 text-xs tracking-wide uppercase">
-                Onchain history
-              </div>
-              {targeting.onchainMode === 'off' ? (
-                <span className="text-muted-foreground">Not used</span>
-              ) : (
-                <div className="space-y-1">
-                  <Badge variant={targeting.onchainMode === 'require' ? 'default' : 'secondary'}>
-                    {targeting.onchainMode}
-                  </Badge>
-                  <p className="text-muted-foreground text-xs leading-relaxed">
-                    Derived from The Graph. In <code>require</code> mode a developer with no linked
-                    wallet is ineligible, which is why turning this on visibly changes which ad
-                    wins.
-                  </p>
-                </div>
-              )}
+            <div className="border-hairline grid gap-4 border-b py-6 md:grid-cols-[200px_1fr] md:gap-10">
+              <dt className="stamp-sm md:pt-1">Onchain history</dt>
+              <dd className="min-w-0">
+                {targeting.onchainMode === 'off' ? (
+                  <span className="text-graphite text-sm">Not used</span>
+                ) : (
+                  <div className="space-y-3">
+                    <Badge variant={targeting.onchainMode === 'require' ? 'live' : 'default'}>
+                      {targeting.onchainMode}
+                    </Badge>
+                    <p className="text-steel max-w-xl text-xs leading-relaxed">
+                      Derived from The Graph. In <code className="font-mono">require</code> mode a
+                      developer with no linked wallet is ineligible, which is why turning this on
+                      visibly changes which ad wins.
+                    </p>
+                  </div>
+                )}
+              </dd>
             </div>
-          </CardContent>
-        </Card>
+          </dl>
+        </section>
       )}
-    </div>
+    </Shell>
   );
 }
 
+/**
+ * One targeting dimension.
+ *
+ * A definition row rather than a stacked block: the label column is fixed, so
+ * five dimensions read straight down as a table of what this campaign will and
+ * will not match.
+ */
 function TargetRow({ label, values }: { label: string; values: string[] }) {
   return (
-    <div>
-      <div className="text-muted-foreground mb-1.5 text-xs tracking-wide uppercase">{label}</div>
-      {values.length === 0 ? (
-        <span className="text-muted-foreground">Anyone</span>
-      ) : (
-        <div className="flex flex-wrap gap-1">
-          {values.map((value) => (
-            <Badge key={value} variant="secondary" className="text-[11px]">
-              {value.replace(/_/g, ' ')}
-            </Badge>
-          ))}
-        </div>
-      )}
+    <div className="border-hairline grid gap-4 border-b py-6 md:grid-cols-[200px_1fr] md:gap-10">
+      <dt className="stamp-sm md:pt-1">{label}</dt>
+      <dd className="min-w-0">
+        {values.length === 0 ? (
+          <span className="text-graphite text-sm">Anyone</span>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {values.map((value) => (
+              <Badge key={value} variant="secondary">
+                {value.replace(/_/g, ' ')}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </dd>
     </div>
   );
 }
