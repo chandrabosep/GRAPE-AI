@@ -28,7 +28,7 @@ export const GET = route(async () => {
       explorerUrl: env().EXPLORER_URL,
       campaignVault: env().CAMPAIGN_VAULT_ADDRESS ?? null,
       rewardPool: env().REWARD_POOL_ADDRESS ?? null,
-      usdc: env().MOCK_USDC_ADDRESS ?? null,
+      usdc: env().USDC_ADDRESS,
     },
     taxonomy: {
       categories: INTENT_CATEGORIES,

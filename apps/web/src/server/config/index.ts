@@ -54,12 +54,15 @@ const envSchema = z.object({
   PINAX_API_JWT: z.string().optional(),
   PINAX_API_URL: z.string().default('https://api.pinax.network'),
 
-  CHAIN_ID: z.coerce.number().int().default(296),
-  RPC_URL: z.string().default('https://testnet.hashio.io/api'),
-  EXPLORER_URL: z.string().default('https://hashscan.io/testnet'),
+  // Arc testnet. USDC is the native gas token there and is also exposed as a
+  // 6-decimal ERC-20, which is the same precision as the ledger's micro-USD
+  // integers — so token base units and credit micros are the same number.
+  CHAIN_ID: z.coerce.number().int().default(5042002),
+  RPC_URL: z.string().default('https://rpc.testnet.arc.network'),
+  EXPLORER_URL: z.string().default('https://testnet.arcscan.app'),
   CAMPAIGN_VAULT_ADDRESS: z.string().optional(),
   REWARD_POOL_ADDRESS: z.string().optional(),
-  MOCK_USDC_ADDRESS: z.string().optional(),
+  USDC_ADDRESS: z.string().default('0x3600000000000000000000000000000000000000'),
   OPERATOR_PRIVATE_KEY: z.string().optional(),
 
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3001'),

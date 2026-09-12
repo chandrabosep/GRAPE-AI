@@ -153,6 +153,7 @@ them stay server-side — the extension and the browser receive none of them:
 | AWS credentials + Bedrock access | real inference (`AI_PROVIDER=fake` avoids this) |
 | Subgraph Studio key + Token API JWT | onchain audience signals |
 | Hedera testnet accounts | the x402 paid-inference demo |
+| A funded Arc testnet deployer ([faucet](https://faucet.circle.com)) | deploying the vault and reward pool |
 
 ## Money
 

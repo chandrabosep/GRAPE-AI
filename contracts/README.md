@@ -8,7 +8,7 @@ promises not to expose.
 
 | Contract | Purpose |
 |---|---|
-| `MockUSDC` | Six-decimal test token with an open mint. Testnet only. |
+| `MockUSDC` | Six-decimal test token with an open mint. Local chains only — real networks pass their own USDC. |
 | `CampaignVault` | Holds advertiser budgets, settles them three ways, refunds the remainder. |
 | `RewardPool` | Holds the users' share and pays withdrawals, idempotently. |
 
@@ -47,11 +47,31 @@ export PRIVATE_KEY=0x...          # deployer, becomes owner
 export OPERATOR_ADDRESS=0x...     # backend
 export PLATFORM_WALLET=0x...
 export TREASURY_WALLET=0x...
-forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
+export USDC_ADDRESS=0x3600000000000000000000000000000000000000
+forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast
 ```
 
 The script prints the three addresses to paste into the root `.env`.
 
-Target chain is decided by the Privy embedded-wallet spike described in the
-implementation plan: Hedera testnet (296) if embedded wallets sign there
-reliably, otherwise Base Sepolia (84532).
+## Arc testnet
+
+The target chain is **Arc testnet (5042002)**, Circle's stablecoin L1, and the
+token is **real testnet USDC** rather than the mock. Two properties of Arc
+matter here:
+
+- **USDC is the native gas token.** Deployment and every settlement transaction
+  is paid for in the same asset the campaign is denominated in — a deploy costs
+  about `0.074 USDC` at 42 gwei. Fund the deployer at
+  <https://faucet.circle.com>. There is no second gas asset to hold.
+- **The same balance is exposed as a 6-decimal ERC-20** at
+  `0x3600000000000000000000000000000000000000`, so `CampaignVault` and
+  `RewardPool` use it through the plain `IERC20` interface with no wrapper, and
+  one token base unit is exactly one micro-USD in the ledger. No conversion
+  exists anywhere in the codebase, which is the point.
+
+Verified against the live RPC on 2026-09-12: `eth_chainId` → `0x4cef52`
+(5042002), `decimals()` → `6`, `symbol()` → `USDC`, and `forge script`
+simulates the full deployment cleanly against live chain state.
+
+Note that the Arc docs list the chain ID hex as `0x4CA812`, which does not match
+the decimal they give; the chain itself answers `0x4cef52`. Trust the chain.

@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CampaignVault} from "../src/CampaignVault.sol";
 import {MockUSDC} from "../src/MockUSDC.sol";
 import {RewardPool} from "../src/RewardPool.sol";
@@ -20,7 +21,12 @@ import {RewardPool} from "../src/RewardPool.sol";
  *   OPERATOR_ADDRESS  backend address allowed to settle and pay out
  *   PLATFORM_WALLET   receives the platform share
  *   TREASURY_WALLET   receives the treasury share
- *   USDC_ADDRESS      optional; deploys MockUSDC when unset
+ *   USDC_ADDRESS      real token to settle in; deploys MockUSDC when unset
+ *
+ * On Arc testnet (chain 5042002) USDC is the native gas token and is also
+ * exposed as a 6-decimal ERC-20 at 0x3600000000000000000000000000000000000000,
+ * so pass that as USDC_ADDRESS and no mock is deployed. Gas is paid in USDC
+ * too, so the deployer needs a balance from https://faucet.circle.com.
  */
 contract Deploy is Script {
     function run() external {
@@ -33,17 +39,22 @@ contract Deploy is Script {
         vm.startBroadcast(deployerKey);
 
         if (usdc == address(0)) {
+            // Local chains only. Any real deployment passes the network's USDC.
             usdc = address(new MockUSDC());
             console.log("MockUSDC        ", usdc);
         } else {
             console.log("Using token     ", usdc);
         }
 
-        RewardPool pool = new RewardPool(MockUSDC(usdc), operator);
+        // Cast to IERC20, not MockUSDC: the token is whatever the chain's real
+        // USDC is, and the contracts only ever need the ERC-20 interface.
+        IERC20 token = IERC20(usdc);
+
+        RewardPool pool = new RewardPool(token, operator);
         console.log("RewardPool      ", address(pool));
 
         CampaignVault vault = new CampaignVault(
-            MockUSDC(usdc), operator, address(pool), platformWallet, treasuryWallet
+            token, operator, address(pool), platformWallet, treasuryWallet
         );
         console.log("CampaignVault   ", address(vault));
 
@@ -51,7 +62,7 @@ contract Deploy is Script {
 
         console.log("");
         console.log("Add to .env:");
-        console.log("MOCK_USDC_ADDRESS=%s", usdc);
+        console.log("USDC_ADDRESS=%s", usdc);
         console.log("REWARD_POOL_ADDRESS=%s", address(pool));
         console.log("CAMPAIGN_VAULT_ADDRESS=%s", address(vault));
     }

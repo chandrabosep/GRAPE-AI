@@ -2,7 +2,7 @@
 
 import { createAppKit } from '@reown/appkit/react';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
-import { baseSepolia, mainnet, sepolia } from '@reown/appkit/networks';
+import { arcTestnet, mainnet } from '@reown/appkit/networks';
 import { WagmiProvider } from 'wagmi';
 import type { ReactNode } from 'react';
 
@@ -21,7 +21,13 @@ import type { ReactNode } from 'react';
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '';
 
-const networks = [baseSepolia, mainnet, sepolia] as const;
+/**
+ * Arc testnet is where campaign money lives, so it is the default and the first
+ * network offered. Mainnet stays in the list because a developer's *signal*
+ * wallet is a mainnet address with real history — signing in or linking one
+ * must not require switching away from a chain they never transact on.
+ */
+const networks = [arcTestnet, mainnet] as const;
 
 export const wagmiAdapter = new WagmiAdapter({
   networks: [...networks],
@@ -34,7 +40,7 @@ if (projectId) {
   createAppKit({
     adapters: [wagmiAdapter],
     networks: [...networks],
-    defaultNetwork: baseSepolia,
+    defaultNetwork: arcTestnet,
     projectId,
     metadata: {
       name: 'AI Attention Marketplace',
