@@ -25,7 +25,9 @@ export type SubgraphSchema =
   /** Messari dex-amm 4.0.1 — `Swap.account`, matches the lending shape. */
   | 'messari-dex-4'
   /** Messari dex-amm 1.3.2 — `Swap.from` is a plain String, there is no account relation. */
-  | 'messari-dex-1';
+  | 'messari-dex-1'
+  /** Messari dex-amm 3.1.3 — older relation-based schema used by some deployments. */
+  | 'messari-dex-3';
 
 export interface SubgraphSource {
   /** Stable key used in signal provenance. */
@@ -56,14 +58,7 @@ export const SUBGRAPH_SOURCES: SubgraphSource[] = [
     subgraphId: '4xyasjQeREe7PxnF6wVdobZvCw5mhoHZq3T7guRpuNPf',
     schema: 'messari-lending-3',
   },
-  {
-    key: 'aave-v3-base',
-    protocol: 'aave-v3',
-    type: 'lending',
-    chain: 'base',
-    subgraphId: 'D7mapexM5ZsQckLJai2FawTKXJ7CqYGKM8PErnS3cJi9',
-    schema: 'messari-lending-3',
-  },
+  // aave-v3-base removed: no indexer allocations on the decentralized network.
   {
     key: 'aave-v2-ethereum',
     protocol: 'aave-v2',
@@ -122,6 +117,40 @@ export const SUBGRAPH_SOURCES: SubgraphSource[] = [
     subgraphId: '3onEbd9MLfXTTWAfP91yqsKr7C68VCT2ZiF7EoQiQAFj',
     schema: 'messari-dex-1',
   },
+
+  // --- additional DEX: same standardized schema, zero new code ---------------
+  {
+    key: 'sushiswap-v3-ethereum',
+    protocol: 'sushiswap-v3',
+    type: 'dex',
+    chain: 'mainnet',
+    subgraphId: '2tGWMrDha4164KkFAfkU3rDCtuxGb4q1emXmFdLLzJ8x',
+    schema: 'messari-dex-4',
+  },
+  {
+    key: 'sushiswap-v3-arbitrum',
+    protocol: 'sushiswap-v3',
+    type: 'dex',
+    chain: 'arbitrum-one',
+    subgraphId: '3oHCddbQGTi42kPZBwyGzD2JzZR33zK2MwXtxAerNJy2',
+    schema: 'messari-dex-4',
+  },
+  {
+    key: 'balancer-v2-ethereum',
+    protocol: 'balancer-v2',
+    type: 'dex',
+    chain: 'mainnet',
+    subgraphId: '794H6CNzdGF5YfBK9nPsUgGn7EBbdJSCTjgcKPEPyFnn',
+    schema: 'messari-dex-1',
+  },
+  {
+    key: 'curve-ethereum',
+    protocol: 'curve',
+    type: 'dex',
+    chain: 'mainnet',
+    subgraphId: '3fy93eAT56UJsRCEht8iFhfi6wjHWXtZ9dnnbQmvFopF',
+    schema: 'messari-dex-1',
+  },
 ];
 
 /** ENS has no Messari equivalent, so it is queried with its own schema. */
@@ -130,4 +159,26 @@ export const ENS_SUBGRAPH_ID = '5XqPmWe6gjyrJtFn9cLy237i4cWw2j9HcUJEXsP5qGtH';
 export function sourcesForChains(chains: string[]): SubgraphSource[] {
   if (chains.length === 0) return SUBGRAPH_SOURCES;
   return SUBGRAPH_SOURCES.filter((source) => chains.includes(source.chain));
+}
+
+/**
+ * Resolve a protocol + chain to a subgraph deployment ID.
+ *
+ * Used by the query_blockchain tool so the AI can target any protocol in the
+ * registry by its human-readable slug rather than its deployment hash.
+ */
+export function findSubgraphId(
+  protocol: string,
+  chain = 'mainnet',
+): { subgraphId: string; source: SubgraphSource } | null {
+  if (protocol === 'ens') return { subgraphId: ENS_SUBGRAPH_ID, source: { key: 'ens', protocol: 'ens', type: 'dex', chain: 'mainnet', subgraphId: ENS_SUBGRAPH_ID, schema: 'messari-dex-1' } };
+  const source = SUBGRAPH_SOURCES.find((s) => s.protocol === protocol && s.chain === chain);
+  return source ? { subgraphId: source.subgraphId, source } : null;
+}
+
+/** All protocol slugs the registry knows about. */
+export function knownProtocols(): string[] {
+  const set = new Set(SUBGRAPH_SOURCES.map((s) => s.protocol));
+  set.add('ens');
+  return [...set];
 }

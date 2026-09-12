@@ -339,6 +339,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       let assistantText = '';
       const calls: { toolUseId: string; name: string; input: unknown }[] = [];
+      const serverToolResults: ContentBlock[] = [];
 
       for await (const event of this.api.chat(
         this.history,
@@ -358,6 +359,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
               toolUseId: event.toolUseId,
               name: event.name,
               input: event.input,
+            });
+            break;
+          case 'tool_result':
+            // Server-side tool (e.g. query_blockchain): the server already
+            // executed it and sent the result. Record it so it is included
+            // in the conversation history for the next hop.
+            calls.push({
+              toolUseId: event.toolUseId,
+              name: event.name,
+              input: {},
+            });
+            serverToolResults.push({
+              type: 'tool_result' as const,
+              toolUseId: event.toolUseId,
+              content: event.content,
+              isError: event.isError,
             });
             break;
           case 'ad':
@@ -405,12 +422,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       if (calls.length === 0) return;
 
-      const results = await this.executeCalls(id, calls, controller);
+      // Server-side tools (query_blockchain) are already resolved — only run
+      // the client-side ones (read_file, write_file, …) locally.
+      const clientCalls = calls.filter(
+        (c) => !serverToolResults.some((r) => r.type === 'tool_result' && r.toolUseId === c.toolUseId),
+      );
+
+      const clientResults = clientCalls.length > 0
+        ? await this.executeCalls(id, clientCalls, controller)
+        : [];
       if (controller.signal.aborted) return;
 
-      // Every result goes back in one message. Splitting them across messages
-      // teaches the model to stop making parallel calls, which costs a round
-      // trip per file from then on.
+      const results = [
+        ...serverToolResults,
+        ...clientResults,
+      ];
+
       this.history.push({ role: 'user', content: results });
     }
 

@@ -1,10 +1,12 @@
 import type { ChatMessage, ChatRequest, CreativeFormat } from '@aam/shared';
-import { AppError, TOOL_SPECS, messageText } from '@aam/shared';
+import { AppError, TOOL_SPECS, BLOCKCHAIN_TOOL_SPEC, isServerSideTool, messageText } from '@aam/shared';
 import type { ClientKind } from '@aam/db';
+import type { ToolSpec } from '@aam/shared';
 import { economics } from '../../config/index';
 import { createSSEStream } from '../../lib/sse';
 import { logger } from '../../lib/logger';
 import { selectAd, type AdSelection } from '../ads/service';
+import { executeBlockchainQuery } from '../graph/blockchain-tool';
 import { getSignalsForUser, isGraphConfigured } from '../graph/service';
 import { classify, persistIntent } from '../intent/service';
 import { authorizeSpend, recordUsage, resolveSession, touchSession } from '../usage/service';
@@ -90,6 +92,14 @@ function buildPrompt(body: ChatRequest): { system: string; promptChars: number }
 
   return { system, promptChars };
 }
+
+function buildToolList(): ToolSpec[] {
+  const tools: ToolSpec[] = [...TOOL_SPECS];
+  if (isGraphConfigured()) tools.push(BLOCKCHAIN_TOOL_SPEC);
+  return tools;
+}
+
+const MAX_SERVER_TOOL_ROUNDS = 3;
 
 export function handleChat(body: ChatRequest, ctx: ChatContext): Response {
   const stream = createSSEStream(ctx.signal);
@@ -187,95 +197,156 @@ async function runChat(
   // moment it is ready rather than waiting for the first token.
   void flushInline();
 
+  const allTools = body.tools ? buildToolList() : undefined;
+  let currentMessages = body.messages;
   let stopReason: string | null = null;
   let usageReported = false;
+  let serverToolRound = 0;
 
-  for await (const event of provider.stream({
-    model,
-    system,
-    messages: body.messages,
-    maxTokens: authorization.maxOutputTokens,
-    // Offered only when the caller said it can run them. An agent hitting the
-    // x402 API has no editor, so handing it tools would produce a call nobody
-    // can answer and a conversation that never finishes.
-    ...(body.tools ? { tools: TOOL_SPECS } : {}),
-    ...(ctx.signal ? { signal: ctx.signal } : {}),
-  })) {
-    if (stream.closed) break;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const serverToolCalls: { toolUseId: string; name: string; input: unknown }[] = [];
+    let assistantText = '';
+    let hasClientTools = false;
 
-    if (event.type === 'tool_use') {
-      // The server cannot touch the developer's disk, so the turn ends here and
-      // the editor takes over. It runs the tool and opens a new request with the
-      // result, which is how the loop continues over a one-way stream.
-      stream.send({
-        type: 'tool_use',
-        toolUseId: event.toolUseId,
-        name: event.name,
-        input: event.input,
-      });
-      continue;
-    }
+    for await (const event of provider.stream({
+      model,
+      system,
+      messages: currentMessages,
+      maxTokens: authorization.maxOutputTokens,
+      ...(allTools ? { tools: allTools } : {}),
+      ...(ctx.signal ? { signal: ctx.signal } : {}),
+    })) {
+      if (stream.closed) break;
 
-    if (event.type === 'delta') {
-      stream.send({ type: 'delta', text: event.text });
-      // Once the answer is underway, slot the card in as soon as it is ready.
-      void flushInline();
-      void flushBanner();
-      continue;
-    }
+      if (event.type === 'tool_use') {
+        if (isServerSideTool(event.name)) {
+          serverToolCalls.push({
+            toolUseId: event.toolUseId,
+            name: event.name,
+            input: event.input,
+          });
+        } else {
+          hasClientTools = true;
+          stream.send({
+            type: 'tool_use',
+            toolUseId: event.toolUseId,
+            name: event.name,
+            input: event.input,
+          });
+        }
+        continue;
+      }
 
-    if (event.type === 'stop') {
-      stopReason = event.reason;
-      continue;
-    }
+      if (event.type === 'delta') {
+        assistantText += event.text;
+        stream.send({ type: 'delta', text: event.text });
+        void flushInline();
+        void flushBanner();
+        continue;
+      }
 
-    if (event.type === 'usage') {
-      usageReported = true;
+      if (event.type === 'stop') {
+        stopReason = event.reason;
+        continue;
+      }
 
-      /**
-       * Accounting must not destroy a delivered answer.
-       *
-       * By this point the tokens are spent, the answer is on the developer's
-       * screen and the advertiser has been charged. Letting a failure here
-       * propagate turns all of that into an error message and no `done` event,
-       * which is strictly worse for everyone than an unbilled request: the
-       * shortfall is ours, and it is recorded loudly enough to find.
-       */
-      const result = await recordUsage({
-        userId: ctx.user.id,
-        sessionId,
-        requestId: ctx.requestId,
-        provider: provider.id,
-        model,
-        usage: event.usage,
-        fundingSource: 'credits',
-        latencyMs: Date.now() - started,
-        stopReason,
-      }).catch((error: unknown) => {
-        logger.error(
-          { err: error, requestId: ctx.requestId, userId: ctx.user.id },
-          'failed to record usage for a delivered answer',
-        );
-        return null;
-      });
+      if (event.type === 'usage') {
+        usageReported = true;
 
-      stream.send({
-        type: 'usage',
-        usage: {
-          inputTokens: event.usage.inputTokens,
-          outputTokens: event.usage.outputTokens,
-          totalTokens: event.usage.totalTokens,
+        const result = await recordUsage({
+          userId: ctx.user.id,
+          sessionId,
+          requestId: ctx.requestId,
+          provider: provider.id,
           model,
-          costMicro: Number(result?.chargedMicro ?? 0n),
+          usage: event.usage,
           fundingSource: 'credits',
-          dailyTokensRemaining: 0,
-          creditBalanceMicro: Number(result?.balanceMicro ?? authorization.balanceMicro),
-        },
-      });
+          latencyMs: Date.now() - started,
+          stopReason,
+        }).catch((error: unknown) => {
+          logger.error(
+            { err: error, requestId: ctx.requestId, userId: ctx.user.id },
+            'failed to record usage for a delivered answer',
+          );
+          return null;
+        });
+
+        stream.send({
+          type: 'usage',
+          usage: {
+            inputTokens: event.usage.inputTokens,
+            outputTokens: event.usage.outputTokens,
+            totalTokens: event.usage.totalTokens,
+            model,
+            costMicro: Number(result?.chargedMicro ?? 0n),
+            fundingSource: 'credits',
+            dailyTokensRemaining: 0,
+            creditBalanceMicro: Number(result?.balanceMicro ?? authorization.balanceMicro),
+          },
+        });
+      }
     }
+
+    // No server-side tools, or client tools also present → done with this loop.
+    if (serverToolCalls.length === 0 || hasClientTools || stream.closed) {
+      // If there are server tool calls alongside client tools, send the results
+      // so the extension can include them in the conversation history.
+      if (serverToolCalls.length > 0 && hasClientTools) {
+        const results = await Promise.all(
+          serverToolCalls.map(async (call) => ({
+            call,
+            result: await executeBlockchainQuery(call.input),
+          })),
+        );
+        for (const { call, result } of results) {
+          stream.send({
+            type: 'tool_result',
+            toolUseId: call.toolUseId,
+            name: call.name,
+            content: result.content,
+            isError: result.isError,
+          });
+        }
+      }
+      break;
+    }
+
+    // Only server-side tools: execute them and feed results back to the model.
+    serverToolRound++;
+    if (serverToolRound > MAX_SERVER_TOOL_ROUNDS) break;
+
+    const toolResults = await Promise.all(
+      serverToolCalls.map(async (call) => ({
+        call,
+        result: await executeBlockchainQuery(call.input),
+      })),
+    );
+
+    const assistantContent: ChatMessage['content'] = [
+      ...(assistantText.trim() ? [{ type: 'text' as const, text: assistantText }] : []),
+      ...serverToolCalls.map((tc) => ({
+        type: 'tool_use' as const,
+        toolUseId: tc.toolUseId,
+        name: tc.name,
+        input: tc.input,
+      })),
+    ];
+
+    const resultContent: ChatMessage['content'] = toolResults.map(({ call, result }) => ({
+      type: 'tool_result' as const,
+      toolUseId: call.toolUseId,
+      content: result.content,
+      isError: result.isError,
+    }));
+
+    currentMessages = [
+      ...currentMessages,
+      { role: 'assistant' as const, content: assistantContent },
+      { role: 'user' as const, content: resultContent },
+    ];
   }
 
-  // A slot that only became ready at the very end is still worth showing.
   await Promise.all([flushInline(), flushBanner()]);
 
   if (!usageReported) {
