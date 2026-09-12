@@ -19,8 +19,8 @@ import { StatusBar } from './status-bar';
 export function activate(context: vscode.ExtensionContext): void {
   const apiUrl = () =>
     vscode.workspace
-      .getConfiguration('aiMarketplace')
-      .get<string>('apiUrl', 'http://localhost:3001')
+      .getConfiguration('grapeAi')
+      .get<string>('apiUrl', 'https://grape-ai-dev.vercel.app')
       .replace(/\/$/, '');
 
   const auth = new AuthManager(context, apiUrl);
@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.signIn', async () => {
+    vscode.commands.registerCommand('grapeAi.signIn', async () => {
       try {
         await auth.signIn();
         void vscode.window.showInformationMessage('Signed in to GRAPE AI.');
@@ -80,7 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.enterCode', async () => {
+    vscode.commands.registerCommand('grapeAi.enterCode', async () => {
       try {
         await auth.signInWithPastedCode();
         await statusBar.refresh();
@@ -91,22 +91,22 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.signOut', async () => {
+    vscode.commands.registerCommand('grapeAi.signOut', async () => {
       await auth.signOut();
       await statusBar.refresh();
       account.refresh();
       void vscode.window.showInformationMessage('Signed out.');
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.openChat', () => {
+    vscode.commands.registerCommand('grapeAi.openChat', () => {
       chat.open();
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.newChat', async () => {
+    vscode.commands.registerCommand('grapeAi.newChat', async () => {
       await chat.newSession();
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.explainSelection', async () => {
+    vscode.commands.registerCommand('grapeAi.explainSelection', async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor || editor.selection.isEmpty) {
         void vscode.window.showInformationMessage('Select some code first.');
@@ -115,23 +115,23 @@ export function activate(context: vscode.ExtensionContext): void {
       await chat.ask('Explain what this code does, and flag anything that looks wrong.');
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.openDashboard', async () => {
+    vscode.commands.registerCommand('grapeAi.openDashboard', async () => {
       await vscode.env.openExternal(vscode.Uri.parse(`${apiUrl()}/app`));
     }),
 
     // Money moves in the browser, not in the editor. Both of these open a web
     // page rather than doing the transfer here, so the extension never holds a
     // private key and never needs one.
-    vscode.commands.registerCommand('aiMarketplace.topUp', async () => {
+    vscode.commands.registerCommand('grapeAi.topUp', async () => {
       await vscode.env.openExternal(vscode.Uri.parse(`${apiUrl()}/app/topup`));
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.withdraw', async () => {
+    vscode.commands.registerCommand('grapeAi.withdraw', async () => {
       await vscode.env.openExternal(vscode.Uri.parse(`${apiUrl()}/app/withdraw`));
     }),
 
-    vscode.commands.registerCommand('aiMarketplace.openAccount', async () => {
-      await vscode.commands.executeCommand('aiMarketplace.account.focus');
+    vscode.commands.registerCommand('grapeAi.openAccount', async () => {
+      await vscode.commands.executeCommand('grapeAi.account.focus');
     }),
   );
 

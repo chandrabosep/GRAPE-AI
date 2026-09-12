@@ -31,11 +31,11 @@ import { applyWrite, diffSummary, runTool, type PendingWrite } from './tools';
 /** How long an account summary is reused before it is fetched again. */
 const ACCOUNT_TTL_MS = 10_000;
 
-const MODEL_KEY = 'aiMarketplace.model';
+const MODEL_KEY = 'grapeAi.model';
 
 export class ChatViewProvider {
   /** Also the webview panel's type id, which VS Code uses to restore the tab. */
-  static readonly viewType = 'aiMarketplace.chat';
+  static readonly viewType = 'grapeAi.chat';
 
   private panel: vscode.WebviewPanel | undefined;
   private pending: HostToWebview[] = [];
@@ -289,11 +289,11 @@ export class ChatViewProvider {
       }
 
       case 'signIn':
-        await vscode.commands.executeCommand('aiMarketplace.signIn');
+        await vscode.commands.executeCommand('grapeAi.signIn');
         return;
 
       case 'openDashboard':
-        await vscode.commands.executeCommand('aiMarketplace.openDashboard');
+        await vscode.commands.executeCommand('grapeAi.openDashboard');
         return;
     }
   }
@@ -402,11 +402,11 @@ export class ChatViewProvider {
     controller: AbortController,
   ): Promise<void> {
     const includeSelection = vscode.workspace
-      .getConfiguration('aiMarketplace')
+      .getConfiguration('grapeAi')
       .get<boolean>('includeSelection', true);
 
     const maxHops = vscode.workspace
-      .getConfiguration('aiMarketplace')
+      .getConfiguration('grapeAi')
       .get<number>('maxToolSteps', 12);
 
     for (let hop = 0; hop < maxHops; hop += 1) {
@@ -750,7 +750,7 @@ export class ChatViewProvider {
       creditBalanceMicro: account?.creditBalanceMicro ?? null,
       hasSelection: hasSelection(),
       includeSelection: vscode.workspace
-        .getConfiguration('aiMarketplace')
+        .getConfiguration('grapeAi')
         .get<boolean>('includeSelection', true),
       models: this.models,
       selectedModel:

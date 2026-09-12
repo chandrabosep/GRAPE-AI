@@ -1,11 +1,28 @@
 {
-  "name": "ai-attention-marketplace",
+  "name": "grape-ai",
   "displayName": "GRAPE AI",
   "description": "AI coding assistant where relevant sponsored content pays for your inference.",
-  "version": "0.1.1",
+  "version": "0.2.0",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1A0F22",
+    "theme": "dark"
+  },
   "private": true,
-  "publisher": "aam",
+  "publisher": "GrapeTools",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chandrabosep/eth-online-26.git",
+    "directory": "apps/vscode-extension"
+  },
+  "keywords": [
+    "ai",
+    "chat",
+    "copilot",
+    "assistant",
+    "x402"
+  ],
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -22,67 +39,67 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "aiMarketplace",
+          "id": "grapeAi",
           "title": "GRAPE AI",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "aiMarketplace": [
+      "grapeAi": [
         {
           "type": "webview",
-          "id": "aiMarketplace.account",
+          "id": "grapeAi.account",
           "name": "Account & Sessions"
         }
       ]
     },
     "commands": [
       {
-        "command": "aiMarketplace.signIn",
+        "command": "grapeAi.signIn",
         "title": "GRAPE AI: Sign In"
       },
       {
-        "command": "aiMarketplace.signOut",
+        "command": "grapeAi.signOut",
         "title": "GRAPE AI: Sign Out"
       },
       {
-        "command": "aiMarketplace.enterCode",
+        "command": "grapeAi.enterCode",
         "title": "GRAPE AI: Paste Sign-In Code"
       },
       {
-        "command": "aiMarketplace.openChat",
+        "command": "grapeAi.openChat",
         "title": "GRAPE AI: Open Chat"
       },
       {
-        "command": "aiMarketplace.newChat",
+        "command": "grapeAi.newChat",
         "title": "GRAPE AI: New Chat"
       },
       {
-        "command": "aiMarketplace.explainSelection",
+        "command": "grapeAi.explainSelection",
         "title": "GRAPE AI: Explain Selection"
       },
       {
-        "command": "aiMarketplace.openDashboard",
+        "command": "grapeAi.openDashboard",
         "title": "GRAPE AI: Open Dashboard"
       },
       {
-        "command": "aiMarketplace.topUp",
+        "command": "grapeAi.topUp",
         "title": "GRAPE AI: Add Credits"
       },
       {
-        "command": "aiMarketplace.withdraw",
+        "command": "grapeAi.withdraw",
         "title": "GRAPE AI: Withdraw Earnings"
       },
       {
-        "command": "aiMarketplace.openAccount",
+        "command": "grapeAi.openAccount",
         "title": "GRAPE AI: Open Account & Sessions"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "aiMarketplace.explainSelection",
+          "command": "grapeAi.explainSelection",
           "when": "editorHasSelection",
           "group": "navigation@9"
         }
@@ -91,17 +108,17 @@
     "configuration": {
       "title": "GRAPE AI",
       "properties": {
-        "aiMarketplace.apiUrl": {
+        "grapeAi.apiUrl": {
           "type": "string",
-          "default": "http://localhost:3001",
+          "default": "https://grape-ai-dev.vercel.app",
           "description": "Base URL of the GRAPE AI API."
         },
-        "aiMarketplace.includeSelection": {
+        "grapeAi.includeSelection": {
           "type": "boolean",
           "default": true,
           "description": "Send the current editor selection with your question. Selections are used to answer you and are never stored or shared with advertisers."
         },
-        "aiMarketplace.maxToolSteps": {
+        "grapeAi.maxToolSteps": {
           "type": "number",
           "default": 12,
           "minimum": 1,
@@ -115,7 +132,7 @@
     "build": "node esbuild.mjs --production",
     "dev": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "package": "vsce package --no-dependencies",
+    "package": "node esbuild.mjs --production && vsce package --no-dependencies",
     "test": "vitest run",
     "reinstall": "node scripts/reinstall.mjs"
   },

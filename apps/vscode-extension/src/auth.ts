@@ -13,8 +13,8 @@ import * as vscode from 'vscode';
  * Tokens live in SecretStorage, which VS Code encrypts with the OS keychain.
  */
 
-const ACCESS_KEY = 'aiMarketplace.accessToken';
-const REFRESH_KEY = 'aiMarketplace.refreshToken';
+const ACCESS_KEY = 'grapeAi.accessToken';
+const REFRESH_KEY = 'grapeAi.refreshToken';
 const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface PendingLogin {
@@ -49,8 +49,12 @@ export class AuthManager {
 
     // Must not be cached: VS Code appends a window id so the callback reaches
     // the right window, and it differs between local, remote and web hosts.
+    //
+    // The authority is read from the extension itself rather than written out.
+    // It is `publisher.name`, so a hardcoded copy silently stops matching the
+    // moment either is renamed, and sign-in fails with no visible cause.
     const callbackUri = await vscode.env.asExternalUri(
-      vscode.Uri.parse(`${vscode.env.uriScheme}://aam.ai-attention-marketplace/callback`),
+      vscode.Uri.parse(`${vscode.env.uriScheme}://${this.context.extension.id}/callback`),
     );
 
     const loginUrl = vscode.Uri.parse(

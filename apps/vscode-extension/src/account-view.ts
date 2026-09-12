@@ -23,7 +23,7 @@ import type { SessionCoordinator } from './session-coordinator';
 const REFRESH_MS = 60_000;
 
 export class AccountViewProvider implements vscode.WebviewViewProvider {
-  static readonly viewType = 'aiMarketplace.account';
+  static readonly viewType = 'grapeAi.account';
 
   private view: vscode.WebviewView | undefined;
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -98,12 +98,12 @@ export class AccountViewProvider implements vscode.WebviewViewProvider {
       // from the coordinator and does the reloading.
       case 'newSession':
         await this.sessions.create();
-        await vscode.commands.executeCommand('aiMarketplace.openChat');
+        await vscode.commands.executeCommand('grapeAi.openChat');
         return;
 
       case 'switchSession':
         await this.sessions.setActive(message.sessionId);
-        await vscode.commands.executeCommand('aiMarketplace.openChat');
+        await vscode.commands.executeCommand('grapeAi.openChat');
         return;
 
       case 'renameSession':
@@ -115,19 +115,19 @@ export class AccountViewProvider implements vscode.WebviewViewProvider {
         return;
 
       case 'signIn':
-        await vscode.commands.executeCommand('aiMarketplace.signIn');
+        await vscode.commands.executeCommand('grapeAi.signIn');
         return;
 
       case 'openDashboard':
-        await vscode.commands.executeCommand('aiMarketplace.openDashboard');
+        await vscode.commands.executeCommand('grapeAi.openDashboard');
         return;
 
       case 'topUp':
-        await vscode.commands.executeCommand('aiMarketplace.topUp');
+        await vscode.commands.executeCommand('grapeAi.topUp');
         return;
 
       case 'withdraw':
-        await vscode.commands.executeCommand('aiMarketplace.withdraw');
+        await vscode.commands.executeCommand('grapeAi.withdraw');
         return;
     }
   }

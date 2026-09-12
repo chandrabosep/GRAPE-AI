@@ -40,18 +40,18 @@ also shows the code for **GRAPE AI: Paste Sign-In Code**.
 ## Develop
 
 ```bash
-pnpm --filter ai-attention-marketplace dev   # esbuild watch
+pnpm --filter grape-ai dev   # esbuild watch
 ```
 
 Then press F5 to launch the Extension Development Host. Point it at your API with
-the `aiMarketplace.apiUrl` setting (default `http://localhost:3001`).
+the `grapeAi.apiUrl` setting (default `https://grape-ai-dev.vercel.app`).
 
 ## Settings
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `aiMarketplace.apiUrl` | `http://localhost:3001` | Base URL of the API |
-| `aiMarketplace.includeSelection` | `true` | Send the current selection with your question |
+| `grapeAi.apiUrl` | `https://grape-ai-dev.vercel.app` | Base URL of the API |
+| `grapeAi.includeSelection` | `true` | Send the current selection with your question |
 
 Selections are used to answer you. They are never stored, and the intent
 classifier that drives ad targeting never receives them.

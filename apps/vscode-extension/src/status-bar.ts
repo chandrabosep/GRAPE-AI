@@ -17,7 +17,7 @@ export class StatusBar {
     private readonly api: ApiClient,
   ) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    this.item.command = 'aiMarketplace.openChat';
+    this.item.command = 'grapeAi.openChat';
     this.item.show();
 
     auth.onDidChange(() => void this.refresh());
@@ -29,11 +29,11 @@ export class StatusBar {
     if (!(await this.auth.isSignedIn())) {
       this.item.text = '🍇 Sign in';
       this.item.tooltip = 'Sign in to GRAPE AI';
-      this.item.command = 'aiMarketplace.signIn';
+      this.item.command = 'grapeAi.signIn';
       return;
     }
 
-    this.item.command = 'aiMarketplace.openChat';
+    this.item.command = 'grapeAi.openChat';
 
     const account = await this.api.me();
     if (!account) {

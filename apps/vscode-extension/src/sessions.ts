@@ -17,10 +17,10 @@ import type { ChatSession, PersistedTurn, SessionSummary } from './protocol';
  * that quietly empties the panel reads as data loss.
  */
 
-const SESSIONS_KEY = 'aiMarketplace.sessions';
-const ACTIVE_KEY = 'aiMarketplace.activeSession';
+const SESSIONS_KEY = 'grapeAi.sessions';
+const ACTIVE_KEY = 'grapeAi.activeSession';
 /** Legacy single-conversation storage, read once and migrated. */
-const LEGACY_TURNS_KEY = 'aiMarketplace.turns';
+const LEGACY_TURNS_KEY = 'grapeAi.turns';
 
 /** Beyond this a conversation is trimmed from the front. */
 const MAX_TURNS_PER_SESSION = 50;
