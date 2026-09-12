@@ -3,7 +3,15 @@ import { z } from 'zod';
 
 // The service runs as its own process on its own port, so it does not inherit
 // Next.js's automatic .env loading. Everything shares the one root file.
-loadEnv({ path: new URL('../../../.env', import.meta.url).pathname, quiet: true });
+//
+// On a serverless host there is no repo checkout and no root .env — the
+// platform injects the variables directly — so a failure to find one is the
+// normal case there, not an error worth crashing a cold start over.
+try {
+  loadEnv({ path: new URL('../../../.env', import.meta.url).pathname, quiet: true });
+} catch {
+  // process.env is already the source of truth.
+}
 
 const schema = z.object({
   X402_FACILITATOR_URL: z.string().url(),

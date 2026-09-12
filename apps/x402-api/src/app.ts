@@ -11,6 +11,7 @@ import {
 import { paymentMiddleware } from '@x402/express';
 import { ExactHederaScheme } from '@x402/hedera/exact/server';
 import { z } from 'zod';
+import { captureKeepAlive } from './background';
 import { env } from './config';
 import { HBAR_ASSET, resolveMaxTokens, toHbar, tierByPath, tiers, type Tier } from './pricing';
 import { aiProvider, resolveModel } from './provider';
@@ -101,6 +102,9 @@ async function handleInference(tier: Tier, req: Request, res: Response): Promise
   }
 
   const requestId = randomUUID();
+  // Read while the invocation's async context is still current; the finish
+  // listener below fires outside it and would find nothing to hold open.
+  const keepAlive = captureKeepAlive();
   const model = resolveModel(parsed.data.model);
   const maxTokens = resolveMaxTokens(parsed.data.maxTokens, tier);
   const startedAt = Date.now();
@@ -129,26 +133,28 @@ async function handleInference(tier: Tier, req: Request, res: Response): Promise
     }
     if (!settled.success) return;
 
-    void record(
-      {
-        network: settled.network,
-        txId: settled.transaction,
-        payer: settled.payer ?? 'unknown',
-        payTo: env().HEDERA_SERVICE_ACCOUNT_ID,
-        asset: HBAR_ASSET,
-        amountRaw: settled.amount ?? tier.tinybars.toString(),
-        facilitator: env().X402_FACILITATOR_URL,
-        requestId,
-        tier: tier.id,
-      },
-      {
-        requestId,
-        provider: aiProvider().id,
-        model,
-        usage: result.usage,
-        latencyMs,
-        stopReason: result.stopReason,
-      },
+    keepAlive(
+      record(
+        {
+          network: settled.network,
+          txId: settled.transaction,
+          payer: settled.payer ?? 'unknown',
+          payTo: env().HEDERA_SERVICE_ACCOUNT_ID,
+          asset: HBAR_ASSET,
+          amountRaw: settled.amount ?? tier.tinybars.toString(),
+          facilitator: env().X402_FACILITATOR_URL,
+          requestId,
+          tier: tier.id,
+        },
+        {
+          requestId,
+          provider: aiProvider().id,
+          model,
+          usage: result.usage,
+          latencyMs,
+          stopReason: result.stopReason,
+        },
+      ),
     );
   });
 
