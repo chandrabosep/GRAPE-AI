@@ -84,8 +84,15 @@ function hydrate(turn: PersistedTurn): Turn {
   };
 }
 
+/**
+ * Credits carry their own mark rather than a dollar sign: the balance buys
+ * inference, and only what was earned from sponsored content can be withdrawn
+ * as money. `$` promises a bank balance the product does not hold.
+ */
+const CREDIT_SYMBOL = 'G$';
+
 function formatCredits(micro: number | string): string {
-  return `$${(Number(micro) / 1_000_000).toFixed(4)}`;
+  return `${CREDIT_SYMBOL}${(Number(micro) / 1_000_000).toFixed(4)}`;
 }
 
 /**

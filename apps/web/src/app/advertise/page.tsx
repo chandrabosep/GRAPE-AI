@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Metric, MetricGrid } from '@/components/app/metric';
 import { Eyebrow, Shell, Stamp } from '@/components/app/section';
 import { InsightsCharts, type CampaignInsights } from '@/components/app/insights-charts';
-import { api, formatCredits } from '@/lib/api';
+import { api } from '@/lib/api';
+import { formatUsd } from '@/lib/credits';
 import { useMe } from '@/hooks/use-session';
 import { toast } from 'sonner';
 
@@ -201,21 +202,21 @@ export default function AdvertiserDashboard() {
           />
           <Metric
             label="Cost per click"
-            value={overview?.costPerClickMicro ? formatCredits(overview.costPerClickMicro, 4) : '—'}
+            value={overview?.costPerClickMicro ? formatUsd(overview.costPerClickMicro, 4) : '—'}
             hint={
               overview?.costPerMilleMicro
-                ? `${formatCredits(overview.costPerMilleMicro, 2)} per 1,000 qualified`
+                ? `${formatUsd(overview.costPerMilleMicro, 2)} per 1,000 qualified`
                 : 'No clicks yet'
             }
           />
           <Metric
             label="Spent"
-            value={formatCredits(overview?.spentMicro, 2)}
-            hint={`of ${formatCredits(overview?.budgetMicro, 2)} funded`}
+            value={formatUsd(overview?.spentMicro, 2)}
+            hint={`of ${formatUsd(overview?.budgetMicro, 2)} funded`}
           />
           <Metric
             label="Paid to developers"
-            value={formatCredits(overview?.rewardPaidMicro)}
+            value={formatUsd(overview?.rewardPaidMicro)}
             hint="70% of what you were charged"
             accent
           />
@@ -225,8 +226,8 @@ export default function AdvertiserDashboard() {
           <div className="border-hairline mt-10 border-t pt-8">
             <Progress value={spendPct} />
             <p className="text-steel mt-3 text-xs tabular-nums">
-              {spendPct.toFixed(1)}% of funded budget used · {formatCredits(overview.spentMicro, 2)}{' '}
-              of {formatCredits(overview.budgetMicro, 2)}
+              {spendPct.toFixed(1)}% of funded budget used · {formatUsd(overview.spentMicro, 2)}{' '}
+              of {formatUsd(overview.budgetMicro, 2)}
             </p>
           </div>
         )}
@@ -278,19 +279,19 @@ export default function AdvertiserDashboard() {
             label="Cost per click"
             value={
               insights?.totals.costPerClickMicro
-                ? formatCredits(insights.totals.costPerClickMicro, 4)
+                ? formatUsd(insights.totals.costPerClickMicro, 4)
                 : '—'
             }
             hint={
               insights?.totals.costPerMilleMicro
-                ? `${formatCredits(insights.totals.costPerMilleMicro, 2)} per 1,000 qualified`
+                ? `${formatUsd(insights.totals.costPerMilleMicro, 2)} per 1,000 qualified`
                 : 'No clicks in this window yet'
             }
           />
           <Metric
             label="Spend in window"
-            value={formatCredits(insights?.totals.spendMicro, 2)}
-            hint={`${formatCredits(insights?.totals.rewardMicro, 2)} reached developers`}
+            value={formatUsd(insights?.totals.spendMicro, 2)}
+            hint={`${formatUsd(insights?.totals.rewardMicro, 2)} reached developers`}
             accent
           />
         </MetricGrid>
@@ -395,15 +396,15 @@ function CampaignRow({ campaign }: { campaign: Campaign }) {
           label="Cost per click"
           value={
             campaign.metrics.costPerClickMicro
-              ? formatCredits(campaign.metrics.costPerClickMicro, 4)
+              ? formatUsd(campaign.metrics.costPerClickMicro, 4)
               : '—'
           }
-          hint={`${formatCredits(campaign.bidMicro)} bid`}
+          hint={`${formatUsd(campaign.bidMicro)} bid`}
         />
         <RowMetric
           label="Remaining"
-          value={formatCredits(remaining, 2)}
-          hint={`${formatCredits(campaign.spentMicro, 2)} spent`}
+          value={formatUsd(remaining, 2)}
+          hint={`${formatUsd(campaign.spentMicro, 2)} spent`}
         />
       </div>
     </Link>

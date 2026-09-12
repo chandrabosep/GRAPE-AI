@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/table';
 import { Metric, MetricGrid } from '@/components/app/metric';
 import { Eyebrow, Shell, Stamp } from '@/components/app/section';
-import { api, formatCredits } from '@/lib/api';
+import { api } from '@/lib/api';
+import { Credits } from '@/lib/credits';
 import { useMe } from '@/hooks/use-session';
 
 interface LedgerEntry {
@@ -106,18 +107,18 @@ export default function UserDashboard() {
       <MetricGrid className="mt-14">
         <Metric
           label="AI credits"
-          value={formatCredits(me.credits.balanceMicro)}
+          value={<Credits micro={me.credits.balanceMicro} />}
           hint="Spendable on inference"
         />
         <Metric
           label="Earned from ads"
-          value={formatCredits(earnedTotal)}
+          value={<Credits micro={earnedTotal} />}
           hint="Your 70% share of confirmed attention"
           accent
         />
         <Metric
           label="Withdrawable"
-          value={formatCredits(me.credits.withdrawableMicro)}
+          value={<Credits micro={me.credits.withdrawableMicro} />}
           hint="Earnings only, not purchased credits"
         />
         <Metric
@@ -154,21 +155,21 @@ export default function UserDashboard() {
                         {TYPE_LABEL[tx.type] ?? tx.type}
                       </TableCell>
                       {/*
-                       * Credit in, credit out. The sign and the position carry
-                       * the direction — an earning is not marked with a colour,
-                       * because green would be a third hue the palette does not
-                       * have and violet is spent elsewhere on this page.
+                       * Credit in, credit out. The hue is the fast read down a
+                       * column of near-identical numbers; the sign in front of
+                       * each one is the reliable one, and stays legible to a
+                       * reader who cannot tell the two hues apart.
                        */}
                       <TableCell
                         className={`text-right tabular-nums ${
-                          amount > 0 ? 'text-almost-white' : 'text-steel'
+                          amount > 0 ? 'text-credit-in' : 'text-credit-out'
                         }`}
                       >
                         {amount > 0 ? '+' : '−'}
-                        {formatCredits(Math.abs(amount))}
+                        <Credits micro={Math.abs(amount)} />
                       </TableCell>
                       <TableCell className="text-steel text-right tabular-nums">
-                        {formatCredits(tx.balanceAfterMicro)}
+                        <Credits micro={tx.balanceAfterMicro} />
                       </TableCell>
                       <TableCell className="text-graphite pr-0 text-right text-xs tabular-nums">
                         {new Date(tx.createdAt).toLocaleString()}

@@ -27,8 +27,8 @@ export class StatusBar {
 
   async refresh(): Promise<void> {
     if (!(await this.auth.isSignedIn())) {
-      this.item.text = '$(sparkle) Sign in';
-      this.item.tooltip = 'Sign in to AI Marketplace';
+      this.item.text = '🍇 Sign in';
+      this.item.tooltip = 'Sign in to GRAPE AI';
       this.item.command = 'aiMarketplace.signIn';
       return;
     }
@@ -37,16 +37,19 @@ export class StatusBar {
 
     const account = await this.api.me();
     if (!account) {
-      this.item.text = '$(sparkle) AI Marketplace';
+      this.item.text = '🍇 GRAPE AI';
       this.item.tooltip = 'Could not reach the marketplace';
       return;
     }
 
     const credits = Number(account.creditBalanceMicro) / 1_000_000;
-    this.item.text = `$(sparkle) $${credits.toFixed(4)}`;
+    // `G$`, not `$`: this is a prepaid balance that buys inference, and only
+    // the part earned from sponsored content can ever leave as money. Written
+    // as dollars it reads as a bank balance, which is the wrong expectation.
+    this.item.text = `🍇 G$${credits.toFixed(4)}`;
     this.item.tooltip = new vscode.MarkdownString(
       [
-        `**AI credits:** $${credits.toFixed(4)}`,
+        `**AI credits:** G$${credits.toFixed(4)}`,
         `**Tokens today:** ${account.todayTokens.toLocaleString()}`,
         '',
         'Credits are spent on inference and earned from sponsored content.',

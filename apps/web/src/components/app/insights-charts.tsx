@@ -14,7 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatCredits } from '@/lib/api';
+import { formatUsd } from '@/lib/credits';
 
 /**
  * Campaign performance charts.
@@ -568,10 +568,10 @@ export function InsightsCharts({ data }: { data: CampaignInsights }) {
                         {percent(point.clickThroughRate)}
                       </td>
                       <td className="px-3 py-1.5 text-right">
-                        {formatCredits(point.spendMicro, 4)}
+                        {formatUsd(point.spendMicro, 4)}
                       </td>
                       <td className="px-3 py-1.5 text-right">
-                        {formatCredits(point.rewardMicro, 4)}
+                        {formatUsd(point.rewardMicro, 4)}
                       </td>
                     </tr>
                   ))}

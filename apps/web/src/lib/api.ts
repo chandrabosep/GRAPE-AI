@@ -108,10 +108,12 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
 }
 
 /** Money is micro-USD end to end; format only at the edge. */
-export function formatCredits(micro: string | number | null | undefined, digits = 4): string {
-  if (micro === null || micro === undefined) return '—';
-  return `$${(Number(micro) / 1_000_000).toFixed(digits)}`;
-}
+/**
+ * Re-exported so the many modules that already import money formatting from
+ * here keep working. The unit itself is defined in `lib/credits`, which is the
+ * one place that decides how a credit is written.
+ */
+export { formatCredits, formatUsdc, CREDIT_SYMBOL } from './credits';
 
 export function formatCompact(value: number): string {
   return new Intl.NumberFormat('en', { notation: 'compact' }).format(value);

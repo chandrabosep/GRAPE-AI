@@ -43,6 +43,18 @@
   --color-cosmic-a: #6c4bd6;
   --color-cosmic-b: #401860;
 
+  /* Direction of money, and the only hues in the system outside the violet.
+     Reserved for a signed amount in a ledger — never for status, validation or
+     anything else that would spread them across the UI.
+
+     Both sit at oklch lightness 0.70, so neither reads as louder than the
+     other, and `--color-credit-out` is the destructive red at the same value
+     rather than a second red. On the near-black they measure 7.96:1 and
+     6.91:1; the sign in front of the number still carries the meaning on its
+     own, for anyone who cannot separate the two hues. */
+  --color-credit-in: oklch(0.7 0.15 158);
+  --color-credit-out: oklch(0.7 0.17 24);
+
   --radius-card: 19.2px;
   --radius-pill: 1584px;
   --radius-button: 8px;

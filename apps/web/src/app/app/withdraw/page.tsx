@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Eyebrow, Shell } from '@/components/app/section';
-import { api, ApiError, formatCredits } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
+import { Credits, formatUsdc } from '@/lib/credits';
 
 interface WithdrawInfo {
   withdrawableMicro: string;
@@ -98,8 +99,8 @@ export default function WithdrawPage() {
       <div className="border-hairline mt-12 flex flex-wrap items-end justify-between gap-4 border-y py-7">
         <div>
           <div className="stamp-sm">Available to withdraw</div>
-          <div className="text-signal-violet mt-3 text-[40px] leading-none font-light tracking-[-0.03em] tabular-nums">
-            {formatCredits(info?.withdrawableMicro, 2)}
+          <div className="text-signal-violet mt-3 text-[40px] leading-none font-light tracking-[-0.03em]">
+            <Credits micro={info?.withdrawableMicro} digits={2} />
           </div>
         </div>
         <div className="stamp-sm text-right">Hedera testnet</div>
@@ -184,7 +185,7 @@ export default function WithdrawPage() {
         <div className="border-hairline mt-10 border-t pt-8">
           <div className="stamp-sm">Sent</div>
           <p className="text-almost-white mt-3 text-lg font-light tabular-nums">
-            {formatCredits(result.amountMicro, 2)} to{' '}
+            {formatUsdc(result.amountMicro)} to{' '}
             <span className="font-mono text-sm">{result.to}</span>
           </p>
           <a

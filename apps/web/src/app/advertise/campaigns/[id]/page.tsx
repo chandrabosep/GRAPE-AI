@@ -12,7 +12,8 @@ import { Metric, MetricGrid } from '@/components/app/metric';
 import { Eyebrow, Shell, Stamp } from '@/components/app/section';
 import { InlineSponsoredPreview, SponsoredPreview } from '@/components/app/sponsored-preview';
 import { InsightsCharts, type CampaignInsights } from '@/components/app/insights-charts';
-import { api, formatCredits } from '@/lib/api';
+import { api } from '@/lib/api';
+import { formatUsd } from '@/lib/credits';
 
 interface Campaign {
   id: string;
@@ -146,7 +147,7 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
             </Badge>
           </div>
           <p className="text-steel mt-3 text-sm tabular-nums">
-            {formatCredits(campaign.bidMicro)} per qualified impression ·{' '}
+            {formatUsd(campaign.bidMicro)} per qualified impression ·{' '}
             {Number(campaign.clickMultiplier)}× on a click
           </p>
           {/* The auction only ever considers active campaigns, so a draft that
@@ -175,9 +176,9 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
       </div>
 
       <MetricGrid columns={3} className="mt-12">
-        <Metric label="Budget" value={formatCredits(budget, 2)} />
-        <Metric label="Spent" value={formatCredits(spent, 2)} />
-        <Metric label="Remaining" value={formatCredits(budget - spent, 2)} />
+        <Metric label="Budget" value={formatUsd(budget, 2)} />
+        <Metric label="Spent" value={formatUsd(spent, 2)} />
+        <Metric label="Remaining" value={formatUsd(budget - spent, 2)} />
       </MetricGrid>
 
       <section className="mt-20">
@@ -195,18 +196,18 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
         <MetricGrid columns={3} className="mt-8">
           <Metric
             label="To developers"
-            value={formatCredits(rewardShare)}
+            value={formatUsd(rewardShare)}
             hint={`${(campaign.allocation.reward * 100).toFixed(0)}% of what you were charged`}
             accent
           />
           <Metric
             label="Platform"
-            value={formatCredits(platformShare)}
+            value={formatUsd(platformShare)}
             hint={`${(campaign.allocation.platform * 100).toFixed(0)}%`}
           />
           <Metric
             label="Treasury"
-            value={formatCredits(treasuryShare)}
+            value={formatUsd(treasuryShare)}
             hint={`${(campaign.allocation.treasury * 100).toFixed(0)}%`}
           />
         </MetricGrid>
@@ -286,19 +287,19 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
               label="Cost per click"
               value={
                 insights.totals.costPerClickMicro
-                  ? formatCredits(insights.totals.costPerClickMicro, 4)
+                  ? formatUsd(insights.totals.costPerClickMicro, 4)
                   : '—'
               }
               hint={
                 insights.totals.costPerMilleMicro
-                  ? `${formatCredits(insights.totals.costPerMilleMicro, 2)} per 1,000 qualified`
+                  ? `${formatUsd(insights.totals.costPerMilleMicro, 2)} per 1,000 qualified`
                   : 'No clicks in this window yet'
               }
             />
             <Metric
               label="Spend in window"
-              value={formatCredits(insights.totals.spendMicro, 2)}
-              hint={`${formatCredits(insights.totals.rewardMicro, 2)} reached developers`}
+              value={formatUsd(insights.totals.spendMicro, 2)}
+              hint={`${formatUsd(insights.totals.rewardMicro, 2)} reached developers`}
             />
             <Metric
               label="Average relevance"
