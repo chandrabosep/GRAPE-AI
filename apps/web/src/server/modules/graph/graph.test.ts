@@ -11,10 +11,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  */
 
 process.env.GRAPH_GATEWAY_API_KEY = 'test-key';
+process.env.PINAX_API_JWT = 'test-jwt';
+process.env.PINAX_API_URL = 'https://api.pinax.network';
 
 const { queryProtocolTouch } = await import('./queries');
-const { SUBGRAPH_SOURCES, sourcesForChains } = await import('./sources');
+const { SUBGRAPH_SOURCES, sourcesForChains, findSubgraphId, knownProtocols } = await import('./sources');
 const { computeActivityScore } = await import('./service');
+const { executeBlockchainQuery } = await import('./blockchain-tool');
+const { fetchSubstreamsSignals } = await import('./substreams');
 
 interface Captured {
   url: string;
@@ -182,5 +186,146 @@ describe('activity score', () => {
   it('stays within range', () => {
     expect(computeActivityScore(10, 0, 30)).toBeLessThanOrEqual(1);
     expect(computeActivityScore(1, 100, 30)).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('expanded source registry', () => {
+  it('includes the new DEX protocols', () => {
+    const protocols = new Set(SUBGRAPH_SOURCES.map((s) => s.protocol));
+    expect(protocols.has('sushiswap-v3')).toBe(true);
+    expect(protocols.has('balancer-v2')).toBe(true);
+    expect(protocols.has('curve')).toBe(true);
+  });
+
+  it('uses one identical query across Uniswap V3, Sushiswap V3 and Balancer V2', async () => {
+    const captured: Captured[] = [];
+    stubGateway({ data: { swaps: [] } }, captured);
+
+    const v4Sources = SUBGRAPH_SOURCES.filter((s) => s.schema === 'messari-dex-4');
+    for (const source of v4Sources) {
+      await queryProtocolTouch(source, '0xABC', 1_000);
+    }
+
+    const queries = new Set(captured.map((c) => c.query));
+    expect(v4Sources.length).toBeGreaterThanOrEqual(5);
+    expect(queries.size).toBe(1);
+  });
+
+  it('spans at least 9 protocols and 3 chains', () => {
+    const protocols = new Set(SUBGRAPH_SOURCES.map((s) => s.protocol));
+    const chains = new Set(SUBGRAPH_SOURCES.map((s) => s.chain));
+    expect(protocols.size).toBeGreaterThanOrEqual(9);
+    expect(chains.size).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('findSubgraphId', () => {
+  it('resolves a known protocol to its deployment', () => {
+    const match = findSubgraphId('aave-v3', 'mainnet');
+    expect(match).not.toBeNull();
+    expect(match!.subgraphId).toBeTruthy();
+  });
+
+  it('resolves ENS', () => {
+    const match = findSubgraphId('ens');
+    expect(match).not.toBeNull();
+  });
+
+  it('returns null for an unknown protocol', () => {
+    expect(findSubgraphId('nonexistent')).toBeNull();
+  });
+
+  it('returns null for a known protocol on an unsupported chain', () => {
+    expect(findSubgraphId('compound-v2', 'polygon')).toBeNull();
+  });
+});
+
+describe('knownProtocols', () => {
+  it('includes all registered protocols plus ENS', () => {
+    const known = knownProtocols();
+    expect(known).toContain('aave-v3');
+    expect(known).toContain('uniswap-v3');
+    expect(known).toContain('sushiswap-v3');
+    expect(known).toContain('ens');
+    expect(known.length).toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe('blockchain tool executor', () => {
+  it('rejects invalid input', async () => {
+    const result = await executeBlockchainQuery({ protocol: '' });
+    expect(result.isError).toBe(true);
+  });
+
+  it('rejects an unknown protocol', async () => {
+    const result = await executeBlockchainQuery({
+      protocol: 'nonexistent',
+      query: '{ protocols { id } }',
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('Unknown protocol');
+  });
+
+  it('returns query results as JSON', async () => {
+    stubGateway({ data: { protocols: [{ id: '1', name: 'Aave V3' }] } });
+
+    const result = await executeBlockchainQuery({
+      protocol: 'aave-v3',
+      query: '{ protocols { id name } }',
+    });
+
+    expect(result.isError).toBe(false);
+    expect(result.content).toContain('Aave V3');
+    expect(result.content).toContain('aave-v3/mainnet');
+  });
+
+  it('reports graph errors cleanly', async () => {
+    stubGateway({ errors: [{ message: 'rate limited' }] });
+
+    const result = await executeBlockchainQuery({
+      protocol: 'uniswap-v3',
+      query: '{ swaps(first: 1) { id } }',
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('rate limited');
+  });
+});
+
+describe('substreams signals', () => {
+  it('computes transfer metrics from Pinax data', async () => {
+    stubGateway({});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            data: [
+              { from: '0xabc', to: '0x111', contract: '0xusdc', amount: '100', block_number: 1, timestamp: '2026-09-01' },
+              { from: '0xabc', to: '0x222', contract: '0xweth', amount: '200', block_number: 2, timestamp: '2026-09-02' },
+              { from: '0xabc', to: '0x333', contract: '0xdai', amount: '50', block_number: 3, timestamp: '2026-09-03' },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+
+    const signals = await fetchSubstreamsSignals('0xABC', 'mainnet', '2026-09-01');
+    expect(signals.ok).toBe(true);
+    expect(signals.transferCount).toBe(6);
+    expect(signals.uniqueTokens).toBe(3);
+    expect(signals.uniqueCounterparties).toBeGreaterThanOrEqual(3);
+  });
+
+  it('handles total failure gracefully', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 500 })),
+    );
+
+    const signals = await fetchSubstreamsSignals('0xABC', 'mainnet', '2026-09-01');
+    expect(signals.ok).toBe(false);
+    expect(signals.transferCount).toBe(0);
   });
 });

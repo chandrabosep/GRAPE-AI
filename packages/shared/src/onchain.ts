@@ -30,7 +30,7 @@ export type OnchainSignals = z.infer<typeof onchainSignalsSchema>;
 
 /** Provenance: which Graph product answered which field. Shown in the demo and README. */
 export const signalSourceSchema = z.object({
-  product: z.enum(['standardized-subgraph', 'token-api', 'subgraph', 'subgraph-mcp']),
+  product: z.enum(['standardized-subgraph', 'token-api', 'subgraph', 'subgraph-mcp', 'substreams']),
   reference: z.string().max(200),
   ok: z.boolean(),
   latencyMs: z.number().int().nonnegative().optional(),

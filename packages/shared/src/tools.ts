@@ -3,29 +3,32 @@ import { z } from 'zod';
 /**
  * The assistant's tools.
  *
- * Every one of these executes **in the editor**, never on the server. The
- * server has no access to the developer's disk and must never be given any —
- * it composes the request, streams back what the model wants to do, and the
- * extension decides whether to do it. That split is what keeps "your code stays
- * on your machine" true: file contents reach the model as part of a prompt the
- * developer's own editor assembled, and nothing is persisted server-side.
- *
- * The schemas live here rather than beside the executor because both halves
- * have to agree on them exactly — the server sends them to Bedrock as the tool
- * spec, and the extension validates the model's arguments against the same
- * shape before touching a file.
+ * Client tools execute in the editor — the server never touches the developer's
+ * disk. Server tools (query_blockchain) execute on the server because they need
+ * credentials (Graph API keys) the client does not have. Both are sent to the
+ * model as tool specs; the execution venue is an implementation detail.
  */
 
-export const TOOL_NAMES = [
+export const CLIENT_TOOL_NAMES = [
   'read_file',
   'list_directory',
   'search_files',
   'write_file',
 ] as const;
-export type ToolName = (typeof TOOL_NAMES)[number];
+export type ClientToolName = (typeof CLIENT_TOOL_NAMES)[number];
+
+export const SERVER_TOOL_NAMES = ['query_blockchain'] as const;
+export type ServerToolName = (typeof SERVER_TOOL_NAMES)[number];
+
+export const TOOL_NAMES = [...CLIENT_TOOL_NAMES, ...SERVER_TOOL_NAMES] as const;
+export type ToolName = ClientToolName | ServerToolName;
+
+export function isServerSideTool(name: string): name is ServerToolName {
+  return (SERVER_TOOL_NAMES as readonly string[]).includes(name);
+}
 
 /** Tools that only observe. These run without asking. */
-export const READ_ONLY_TOOLS: readonly ToolName[] = [
+export const READ_ONLY_TOOLS: readonly ClientToolName[] = [
   'read_file',
   'list_directory',
   'search_files',
@@ -96,7 +99,7 @@ export const toolInputSchemas = {
  * validate rather than guess at.
  */
 export interface ToolSpec {
-  name: ToolName;
+  name: string;
   description: string;
   inputSchema: Record<string, unknown>;
 }
@@ -181,3 +184,53 @@ export const TOOL_SPECS: ToolSpec[] = [
     },
   },
 ];
+
+export const queryBlockchainInputSchema = z.object({
+  protocol: z.string().min(1).max(64),
+  chain: z.string().max(32).optional(),
+  query: z.string().min(1).max(4000),
+  variables: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const BLOCKCHAIN_TOOL_SPEC: ToolSpec = {
+  name: 'query_blockchain',
+  description:
+    'Query live blockchain data from The Graph protocol. Executes a GraphQL query ' +
+    'against a Messari standardized subgraph and returns JSON. Use this when the ' +
+    'developer asks about DeFi protocols, token stats, on-chain activity, or ENS.\n\n' +
+    'Protocols (lending): aave-v3 (mainnet/arbitrum-one/base), aave-v2 (mainnet), ' +
+    'compound-v3 (mainnet), compound-v2 (mainnet)\n' +
+    'Protocols (DEX): uniswap-v3 (mainnet/arbitrum-one/base), uniswap-v2 (mainnet), ' +
+    'sushiswap-v3 (mainnet/arbitrum-one), balancer-v2 (mainnet), curve (mainnet)\n' +
+    'Other: ens (mainnet)\n\n' +
+    'Lending entities: protocols, markets, deposits, borrows, repays, withdraws, ' +
+    'financialsDailySnapshots, usageMetricsDailySnapshots\n' +
+    'DEX entities: protocols, liquidityPools, swaps, financialsDailySnapshots, ' +
+    'usageMetricsDailySnapshots\n' +
+    'ENS entities: domains, registrations\n\n' +
+    'Addresses must be lowercase. Timestamps are BigInt strings (Unix seconds). ' +
+    'Request first: 1–10 for lists. All amounts are in wei or the token\'s smallest unit.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      protocol: {
+        type: 'string',
+        description: 'Protocol slug, e.g. "aave-v3", "uniswap-v3", "ens".',
+      },
+      chain: {
+        type: 'string',
+        description: 'Chain: "mainnet" (default), "arbitrum-one", or "base".',
+      },
+      query: {
+        type: 'string',
+        description: 'GraphQL query to execute against the subgraph.',
+      },
+      variables: {
+        type: 'object',
+        description: 'GraphQL query variables.',
+      },
+    },
+    required: ['protocol', 'query'],
+    additionalProperties: false,
+  },
+};
