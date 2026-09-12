@@ -10,6 +10,7 @@
     "./taxonomy": "./src/taxonomy.ts",
     "./intent": "./src/intent.ts",
     "./onchain": "./src/onchain.ts",
+    "./wallet-link": "./src/wallet-link.ts",
     "./sse": "./src/sse.ts",
     "./api": "./src/api.ts",
     "./economics": "./src/economics.ts",

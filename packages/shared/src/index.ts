@@ -1,6 +1,7 @@
 export * from './taxonomy';
 export * from './intent';
 export * from './onchain';
+export * from './wallet-link';
 export * from './economics';
 export * from './errors';
 export * from './money';

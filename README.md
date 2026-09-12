@@ -50,11 +50,11 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | Reward granting on confirmed impressions | Done, untested against a database |
 | Advertiser onboarding and campaign lifecycle | Done, 11 tests |
 | The Graph audience service | Done, 15 tests, needs a gateway key to run live |
-| Wallet linking with signature proof | Done |
+| Wallet linking with signature proof | Done, 6 tests |
 | Smart contracts | Done, 21 Foundry tests |
 | VS Code extension | Chat, markdown answers, sponsored card, dwell ack, reward and cost readout |
 | Abuse rules (dwell, duplicates, caps, velocity) | Done, untested against a database |
-| API routes (13) | Done, build and 401/CORS verified |
+| API routes (31) | Done, build and 401/CORS verified |
 | Web dashboards | Scaffolded only |
 | x402 service and agent demo | Not started |
 

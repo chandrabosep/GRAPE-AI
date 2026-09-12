@@ -1,7 +1,8 @@
 import { prisma, type Wallet, transaction } from '@aam/db';
-import { AppError } from '@aam/shared';
+import { AppError, linkMessage, parseLinkNonce } from '@aam/shared';
 import { verifyMessage } from 'viem';
 import { logger } from '../../lib/logger';
+import { consumeNonce } from '../auth/siwe';
 import { refreshSignalsForWallet } from '../graph/service';
 
 /**
@@ -16,18 +17,6 @@ import { refreshSignalsForWallet } from '../graph/service';
  * The embedded wallet Privy creates is brand new and has no history, so the
  * signal source is normally a linked mainnet wallet.
  */
-
-/** The exact text the user signs. Includes the address so a signature cannot be replayed for another. */
-export function linkMessage(address: string, nonce: string): string {
-  return [
-    'Link this wallet to your AI Attention Marketplace account.',
-    '',
-    `Address: ${address}`,
-    `Nonce: ${nonce}`,
-    '',
-    'This proves you control the wallet. It grants no spending permission.',
-  ].join('\n');
-}
 
 export interface LinkWalletInput {
   userId: string;
@@ -44,10 +33,18 @@ export async function linkWallet(input: LinkWalletInput): Promise<Wallet> {
 
   const address = input.address.toLowerCase();
 
-  // The message must name the address being claimed, or a signature captured
-  // elsewhere could be replayed to claim a different one.
-  if (!input.message.includes(input.address) && !input.message.includes(address)) {
-    throw new AppError('validation_failed', 'Signed message does not reference this address');
+  // The signed text must be exactly the message we issue, for exactly this
+  // address. Accepting anything that merely mentions the address would let a
+  // signature collected elsewhere — or one the user was tricked into producing
+  // for a different purpose — be submitted here.
+  const nonce = parseLinkNonce(input.message);
+  if (!nonce) {
+    throw new AppError('validation_failed', 'Signed message is missing its nonce');
+  }
+
+  const expected = [linkMessage(input.address, nonce), linkMessage(address, nonce)];
+  if (!expected.includes(input.message)) {
+    throw new AppError('validation_failed', 'Signed message is not the wallet-linking message');
   }
 
   const valid = await verifyMessage({
@@ -58,6 +55,13 @@ export async function linkWallet(input: LinkWalletInput): Promise<Wallet> {
 
   if (!valid) {
     throw new AppError('unauthorized', 'Signature does not match this address');
+  }
+
+  // Burned only after the signature checks out, so a bad signature cannot spend
+  // someone else's nonce. A replay of a valid signature finds the nonce already
+  // used and is refused here.
+  if (!(await consumeNonce(nonce))) {
+    throw new AppError('unauthorized', 'This link request has expired. Try again.');
   }
 
   const existing = await prisma.wallet.findUnique({
@@ -100,7 +104,13 @@ export async function linkWallet(input: LinkWalletInput): Promise<Wallet> {
 export async function listWallets(userId: string) {
   return prisma.wallet.findMany({
     where: { userId },
-    include: { signals: { select: { signals: true, computedAt: true, expiresAt: true } } },
+    // `sources` rides along because the user is entitled to see which Graph
+    // product produced each signal, not just the verdict.
+    include: {
+      signals: {
+        select: { signals: true, sources: true, computedAt: true, expiresAt: true },
+      },
+    },
     orderBy: { createdAt: 'asc' },
   });
 }
@@ -112,7 +122,17 @@ export async function refreshWalletSignals(userId: string, walletId: string) {
     throw new AppError('not_found', 'Wallet not found');
   }
 
-  return refreshSignalsForWallet(userId, wallet.id, wallet.address);
+  const signals = await refreshSignalsForWallet(userId, wallet.id, wallet.address);
+
+  // Read the row back rather than returning the signals alone: the provenance
+  // and the freshness window are what make the panel honest about how this was
+  // derived and when it stops being true.
+  const stored = await prisma.onchainSignal.findUnique({
+    where: { walletId: wallet.id },
+    select: { sources: true, computedAt: true, expiresAt: true },
+  });
+
+  return { signals, ...stored };
 }
 
 export async function unlinkWallet(userId: string, walletId: string): Promise<void> {

@@ -36,8 +36,13 @@ export async function issueNonce(): Promise<string> {
   return nonce;
 }
 
-/** Burns a nonce, returning false if it was unknown, expired or already used. */
-async function consumeNonce(nonce: string): Promise<boolean> {
+/**
+ * Burns a nonce, returning false if it was unknown, expired or already used.
+ *
+ * Exported because wallet linking signs a server-issued nonce too, and its
+ * replay protection has to be the same single-use store, not a second one.
+ */
+export async function consumeNonce(nonce: string): Promise<boolean> {
   // Conditional update, so two simultaneous verifications cannot both win.
   const result = await prisma.authNonce.updateMany({
     where: { nonce, usedAt: null, expiresAt: { gt: new Date() } },
