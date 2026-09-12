@@ -1,4 +1,4 @@
-# AI Attention Marketplace — VS Code extension
+# GRAPE AI — VS Code extension
 
 A coding assistant denominated in credits. Ask a question, get a streaming
 answer, and see a clearly separated sponsored card that pays for your next
@@ -35,7 +35,7 @@ exchanged for a session token stored in the OS keychain through VS Code's
 SecretStorage.
 
 If your browser or host will not redirect to a `vscode://` URL, the sign-in page
-also shows the code for **AI Marketplace: Paste Sign-In Code**.
+also shows the code for **GRAPE AI: Paste Sign-In Code**.
 
 ## Develop
 

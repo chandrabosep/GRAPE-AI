@@ -7,7 +7,7 @@ import { SessionCoordinator } from './session-coordinator';
 import { StatusBar } from './status-bar';
 
 /**
- * AI Attention Marketplace — VS Code extension.
+ * GRAPE AI — VS Code extension.
  *
  * A Cursor-style assistant denominated in credits, where a clearly separated
  * sponsored card appears while the answer streams and pays for the next request.
@@ -70,7 +70,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aiMarketplace.signIn', async () => {
       try {
         await auth.signIn();
-        void vscode.window.showInformationMessage('Signed in to AI Marketplace.');
+        void vscode.window.showInformationMessage('Signed in to GRAPE AI.');
         await statusBar.refresh();
         account.refresh();
       } catch (error) {

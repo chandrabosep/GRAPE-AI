@@ -29,7 +29,7 @@ async function signIn(account: ReturnType<typeof privateKeyToAccount>, nonce: st
     nonce,
     uri: `http://${DOMAIN}`,
     version: '1',
-    statement: 'Sign in to AI Attention Marketplace.',
+    statement: 'Sign in to GRAPE AI.',
     issuedAt: new Date(),
     expirationTime: new Date(Date.now() + 10 * 60 * 1000),
   });

@@ -71,7 +71,7 @@ export default function LandingPage() {
 
         <Shell className="relative grid gap-14 pt-24 pb-28 md:pt-32 md:pb-36 lg:grid-cols-[55fr_45fr] lg:items-center lg:gap-16">
           <div className="rise">
-            <Eyebrow>AI Attention Marketplace</Eyebrow>
+            <Eyebrow>GRAPE AI</Eyebrow>
 
             <h1 className="mt-8 text-balance">
               <span className="display-serif text-almost-white block text-[clamp(3.25rem,11vw,9.125rem)]">

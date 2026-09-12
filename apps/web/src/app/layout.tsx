@@ -45,7 +45,7 @@ const grandSlang = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'AI Attention Marketplace',
+  title: 'GRAPE AI',
   description: 'Ads that pay for your AI. Relevant sponsored content subsidises inference.',
 };
 

@@ -11,7 +11,7 @@
  * whole point of the signature, since onchain signals follow the address.
  */
 
-export const WALLET_LINK_STATEMENT = 'Link this wallet to your AI Attention Marketplace account.';
+export const WALLET_LINK_STATEMENT = 'Link this wallet to your GRAPE AI account.';
 
 export function linkMessage(address: string, nonce: string): string {
   return [

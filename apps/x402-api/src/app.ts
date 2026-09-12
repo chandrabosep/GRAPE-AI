@@ -52,7 +52,7 @@ function routes(): RoutesConfig {
       },
       description: tier.description,
       mimeType: 'application/json',
-      serviceName: 'AI Attention Marketplace — inference',
+      serviceName: 'GRAPE AI — inference',
       tags: ['ai', 'inference', 'llm'],
     };
   }
@@ -63,7 +63,7 @@ function routes(): RoutesConfig {
 function discovery() {
   return {
     x402Version: 2,
-    service: 'AI Attention Marketplace — inference',
+    service: 'GRAPE AI — inference',
     description:
       'LLM inference priced per call by output-token ceiling, settled in HBAR on Hedera.',
     network: env().X402_NETWORK,

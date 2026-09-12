@@ -1,6 +1,6 @@
 {
   "name": "ai-attention-marketplace",
-  "displayName": "AI Attention Marketplace",
+  "displayName": "GRAPE AI",
   "description": "AI coding assistant where relevant sponsored content pays for your inference.",
   "version": "0.1.0",
   "private": true,
@@ -23,7 +23,7 @@
       "activitybar": [
         {
           "id": "aiMarketplace",
-          "title": "AI Marketplace",
+          "title": "GRAPE AI",
           "icon": "media/icon.svg"
         }
       ]
@@ -40,43 +40,43 @@
     "commands": [
       {
         "command": "aiMarketplace.signIn",
-        "title": "AI Marketplace: Sign In"
+        "title": "GRAPE AI: Sign In"
       },
       {
         "command": "aiMarketplace.signOut",
-        "title": "AI Marketplace: Sign Out"
+        "title": "GRAPE AI: Sign Out"
       },
       {
         "command": "aiMarketplace.enterCode",
-        "title": "AI Marketplace: Paste Sign-In Code"
+        "title": "GRAPE AI: Paste Sign-In Code"
       },
       {
         "command": "aiMarketplace.openChat",
-        "title": "AI Marketplace: Open Chat"
+        "title": "GRAPE AI: Open Chat"
       },
       {
         "command": "aiMarketplace.newChat",
-        "title": "AI Marketplace: New Chat"
+        "title": "GRAPE AI: New Chat"
       },
       {
         "command": "aiMarketplace.explainSelection",
-        "title": "AI Marketplace: Explain Selection"
+        "title": "GRAPE AI: Explain Selection"
       },
       {
         "command": "aiMarketplace.openDashboard",
-        "title": "AI Marketplace: Open Dashboard"
+        "title": "GRAPE AI: Open Dashboard"
       },
       {
         "command": "aiMarketplace.topUp",
-        "title": "AI Marketplace: Add Credits"
+        "title": "GRAPE AI: Add Credits"
       },
       {
         "command": "aiMarketplace.withdraw",
-        "title": "AI Marketplace: Withdraw Earnings"
+        "title": "GRAPE AI: Withdraw Earnings"
       },
       {
         "command": "aiMarketplace.openAccount",
-        "title": "AI Marketplace: Open Account & Sessions"
+        "title": "GRAPE AI: Open Account & Sessions"
       }
     ],
     "menus": {
@@ -89,12 +89,12 @@
       ]
     },
     "configuration": {
-      "title": "AI Marketplace",
+      "title": "GRAPE AI",
       "properties": {
         "aiMarketplace.apiUrl": {
           "type": "string",
           "default": "http://localhost:3001",
-          "description": "Base URL of the AI Marketplace API."
+          "description": "Base URL of the GRAPE AI API."
         },
         "aiMarketplace.includeSelection": {
           "type": "boolean",

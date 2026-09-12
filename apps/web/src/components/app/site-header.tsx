@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { formatCredits } from '@/lib/api';
+import { Credits } from '@/lib/credits';
 import { useAuthActions, useMe, useSeedUsers } from '@/hooks/use-session';
 import { isWalletModalConfigured } from '@/lib/appkit';
 import { signInWithWallet, WalletError, type Eip1193Provider } from '@/lib/wallet';
@@ -116,19 +116,17 @@ export function SiteHeader() {
       style={{ background: 'var(--nav-bg)' }}
     >
       <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center gap-4 px-6 md:gap-8 md:px-10">
-        {/* `min-w-0` and the truncate are what stop the wordmark forcing the
-            bar wider than a phone: without them the row's intrinsic width is
-            brand + nav + two buttons, and the page scrolls sideways. */}
         <Link
           href="/"
-          className="text-almost-white min-w-0 truncate text-[15px] font-medium tracking-[-0.01em]"
+          className="text-almost-white min-w-0 text-[15px] font-medium tracking-[0.06em]"
         >
-          {/* The wordmark carries the one italic echo outside the hero — small
-              enough to be a signature, large enough to survive the serif. The
-              display word is dropped rather than truncated on a phone: "AI
-              Attention" is a name, "AI Attention Mar…" is a bug. */}
-          AI Attention{' '}
-          <span className="display-serif hidden text-[19px] sm:inline">Marketplace</span>
+          {/* The wordmark carries the one italic echo outside the hero, and it
+              falls on the half of the name that is the name: "AI" is what the
+              product does, "GRAPE" is what it is called.
+
+              Set in caps, so the tracking opens up rather than tightening —
+              the -0.01em that suited mixed case closes caps into a block. */}
+          <span className="display-serif text-[19px] tracking-[0.01em]">GRAPE</span> AI
         </Link>
 
         <nav className="hidden items-center gap-7 sm:flex">
@@ -161,7 +159,7 @@ export function SiteHeader() {
                 href="/app/topup"
                 className="text-steel hover:text-almost-white hidden text-[13px] tabular-nums transition-colors sm:inline"
               >
-                {formatCredits(me.credits.balanceMicro)}{' '}
+                <Credits micro={me.credits.balanceMicro} />{' '}
                 <span className="text-graphite">credits</span>
               </Link>
               <DropdownMenu>

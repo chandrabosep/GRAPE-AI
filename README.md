@@ -1,4 +1,4 @@
-# AI Attention Marketplace
+# GRAPE AI
 
 **Ads that pay for your AI.**
 
@@ -115,16 +115,16 @@ Then, in a second terminal, with `.env` pointing `DATABASE_URL` and `DIRECT_URL`
 ```bash
 pnpm --filter @aam/db db:deploy   # migrations
 pnpm --filter @aam/db db:harden   # append-only ledger trigger
-pnpm db:seed                      # advertisers, campaigns, creatives, demo users
 pnpm dev
 ```
 
 `PRISMA_POOL_MAX=1` is required: PGlite serves one connection at a time, and the default
 pool opens several and has them dropped underneath it.
 
-Sign in from the header. With no real auth configured, **Dev sign-in** lists the seeded
-accounts and signs you in as one — the endpoint behind it refuses to answer in production
-or once Privy is configured, so the menu disappears by itself.
+Sign in from the header with a wallet. There is no demo data: an advertiser account and
+its campaigns are created through the UI, and a new user's starter grant is issued on
+first sign-in. (**Dev sign-in** still exists for accounts whose subject begins `seed:`,
+but nothing creates those any more, so the menu is empty.)
 
 Docker gives you real Postgres 16 and a `psql` prompt instead, if you want one:
 
@@ -133,10 +133,19 @@ docker compose up -d
 export DIRECT_URL="postgresql://postgres:postgres@127.0.0.1:5432/aam"
 export DATABASE_URL="$DIRECT_URL"
 pnpm --filter @aam/db db:deploy
-pnpm db:seed
 ```
 
-The migration and seed are verified against both PostgreSQL 16.15 and PGlite.
+The migrations are verified against both PostgreSQL 16.15 and PGlite.
+
+A database that the old seed already ran against still holds its rows. To clear them —
+the four `[simulated]` advertisers with their campaigns and creatives, the three
+`[simulated]` users, and the plan rows — leaving every real account and its ledger
+untouched:
+
+```bash
+pnpm --filter @aam/db db:purge-demo            # report what would go
+pnpm --filter @aam/db db:purge-demo --commit   # delete it
+```
 
 Typecheck everything:
 

@@ -73,7 +73,7 @@ export default function VsCodeAuthPage({ searchParams }: PageProps<'/auth/vscode
       <Handoff title="Missing sign-in request">
         <p>
           This page is opened by the VS Code extension. Run{' '}
-          <Code>AI Marketplace: Sign In</Code> from the command palette instead.
+          <Code>GRAPE AI: Sign In</Code> from the command palette instead.
         </p>
       </Handoff>
     );
@@ -117,7 +117,7 @@ export default function VsCodeAuthPage({ searchParams }: PageProps<'/auth/vscode
           <p>
             Your editor should now be signed in. If nothing happened, your browser may have blocked
             the redirect — paste this code into VS Code with{' '}
-            <Code>AI Marketplace: Paste Sign-In Code</Code>.
+            <Code>GRAPE AI: Paste Sign-In Code</Code>.
           </p>
 
           <div className="border-hairline bg-wash flex items-center gap-3 rounded-[10.8px] border p-3.5">

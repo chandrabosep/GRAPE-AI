@@ -87,7 +87,7 @@ export async function signInWithWallet(provider?: Eip1193Provider): Promise<Sign
     uri: window.location.origin,
     version: '1',
     statement:
-      'Sign in to AI Attention Marketplace. This proves you control this wallet and grants no spending permission.',
+      'Sign in to GRAPE AI. This proves you control this wallet and grants no spending permission.',
     issuedAt: new Date(),
     expirationTime: new Date(Date.now() + 10 * 60 * 1000),
   });

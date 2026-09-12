@@ -45,7 +45,9 @@ export function SiteFooter() {
 
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
           <span className="text-almost-white">Ads that pay for your AI</span>
-          <span className="text-steel">Attention Marketplace</span>
+          <span className="text-steel tracking-[0.06em]">
+            <span className="display-serif">GRAPE</span> AI
+          </span>
         </div>
 
         <nav className="text-steel flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] tracking-[0.07em] uppercase">
