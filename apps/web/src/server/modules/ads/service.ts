@@ -216,6 +216,16 @@ export interface SelectAdInput {
    * impression exists yet at the moment the other is ranked.
    */
   excludeAdvertiserIds?: string[];
+  /**
+   * May this slot fall back to an untargeted campaign when nothing clears the
+   * relevance floor? Defaults to yes.
+   *
+   * Remnant inventory is scarce — an untargeted campaign is a rare thing to
+   * have on the books — and the two slots do not pay the same for it, so which
+   * of them is allowed to claim it is a pricing decision rather than a ranking
+   * one. It is made by the caller filling both slots, not here.
+   */
+  allowRemnant?: boolean;
 }
 
 /**
@@ -286,9 +296,10 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
 
   // Nothing was relevant enough. The slot is unsold, so it goes to a campaign
   // that bid for any developer rather than for this one — never to a targeted
-  // campaign that simply scored badly.
+  // campaign that simply scored badly, and only if this slot is the one the
+  // caller wants remnant inventory spent on.
   let remnant = false;
-  if (!winner && config.remnant.enabled) {
+  if (!winner && config.remnant.enabled && input.allowRemnant !== false) {
     winner = selectRemnant(candidates, ctx, config.caps.maxAdsPerSession);
     remnant = winner !== null;
   }

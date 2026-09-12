@@ -32,6 +32,11 @@ interface SeedOptions {
   name?: string;
   /** Which sponsored slots this campaign competes for. */
   formats?: ('banner' | 'inline')[];
+  /**
+   * Bid for every developer instead of a particular one — a brand campaign,
+   * and the only kind of campaign allowed to fill a slot nobody targeted.
+   */
+  untargeted?: boolean;
 }
 
 async function seedCampaign(prisma: Modules['prisma'], options: SeedOptions = {}) {
@@ -66,10 +71,10 @@ async function seedCampaign(prisma: Modules['prisma'], options: SeedOptions = {}
   await prisma.campaignTargeting.create({
     data: {
       campaignId: campaign.id,
-      personas: ['web3_developer'],
-      technologies: ['solidity', 'foundry', 'ethereum'],
-      aiIntents: ['smart_contract_deployment'],
-      intentCategories: ['infrastructure'],
+      personas: options.untargeted ? [] : ['web3_developer'],
+      technologies: options.untargeted ? [] : ['solidity', 'foundry', 'ethereum'],
+      aiIntents: options.untargeted ? [] : ['smart_contract_deployment'],
+      intentCategories: options.untargeted ? [] : ['infrastructure'],
       minCommercialIntent: 'low',
       onchainMode: 'off',
       onchainCriteria: {},
@@ -324,6 +329,54 @@ describe('the credit loop', () => {
     expect(
       impressions.find((i) => i.format === 'inline')?.chargedMicro,
     ).toBe(3_000n);
+  }, 60_000);
+
+  it('spends the one unsold slot on the banner rather than the inline line', async () => {
+    await seedCampaign(m.prisma, {
+      name: 'Meridian Cloud',
+      formats: ['banner', 'inline'],
+      untargeted: true,
+    });
+
+    const user = await m.users.upsertFromIdentity({
+      subject: `test:dev-remnant-${Date.now()}`,
+    });
+
+    const events = await collectStream(
+      m.chat.handleChat(
+        {
+          // Nothing any campaign targeted, so both auctions fall through to the
+          // relevance floor and the only fill available is the brand campaign.
+          messages: [{ role: 'user', content: 'Write me a haiku about autumn leaves.' }],
+          useCredits: true,
+          tools: false,
+        },
+        {
+          user,
+          sessionId: null,
+          client: 'web',
+          requestId: `req_remnant_${Date.now()}`,
+          adsEnabled: true,
+        },
+      ),
+    );
+
+    const ads = events.filter((e) => e.type === 'ad').map((e) => e.ad);
+
+    // The inline slot ran first and passed: it bids on relevance only, so the
+    // brand campaign was still on the shelf when the banner auction reached it.
+    expect(ads.map((ad) => ad.format)).toEqual(['banner']);
+
+    const impression = await m.prisma.adImpression.findUniqueOrThrow({
+      where: { id: ads[0]!.impressionId },
+      select: { format: true, chargedMicro: true, scoreTotal: true, signalsUsed: true },
+    });
+
+    expect(impression.signalsUsed).toContain('unsold_slot');
+    // Won nothing on relevance, and the analytics say so.
+    expect(Number(impression.scoreTotal)).toBe(0);
+    // The whole point: full bid, not the inline slot's 30% of it.
+    expect(impression.chargedMicro).toBe(10_000n);
   }, 60_000);
 
   it('keeps the credit ledger append-only at the database level', async () => {

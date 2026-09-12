@@ -158,7 +158,9 @@ async function runChat(
    * answer. Sequencing costs nothing that the developer can perceive, because
    * the inline auction is the one that has to be fast — it has to land inside
    * the pause before the first token — and the banner is not shown until the
-   * answer is finished anyway.
+   * answer is finished anyway. The inline slot goes first but bids only on
+   * relevance; anything unsold is left for the banner, which pays full price
+   * for it.
    */
   const slots = resolveAds(body, ctx, classification, model, question);
 
@@ -437,6 +439,10 @@ interface AdSlots {
  * slot still costs one extra ranking pass rather than a second classification
  * and a second Graph lookup. Any failure — classification, targeting, the
  * database — costs the user nothing more than a missing card.
+ *
+ * The order they resolve in is not the order they get to pick in: unsold
+ * inventory is reserved for the banner, for the reasons set out on the inline
+ * slot below.
  */
 function resolveAds(
   body: ChatRequest,
@@ -452,8 +458,29 @@ function resolveAds(
 
   const prepared = prepareAdContext(body, ctx, classification.immediate, 'rules', model, promptText);
 
+  /**
+   * The inline line is ranked on relevance alone, and takes no remnant.
+   *
+   * It runs first because it has to — it belongs in the pause before the first
+   * token — but running first is not the same as having first claim on the
+   * inventory. An untargeted campaign is the only thing either slot can fall
+   * back to, there is normally at most one of them on the books, and the inline
+   * slot pays a fraction of what the banner pays for the same impression. Left
+   * to take it, the cheap slot empties the shelf on every off-target question
+   * and the banner — which cannot be ranked until the classifier has answered —
+   * arrives to find the one campaign it could have run already spent, and
+   * excluded from its auction on top of that. The turn earns a third of what it
+   * should and shows the ad in the weaker of the two placements.
+   *
+   * So the inline slot bids only for questions an advertiser actually asked
+   * for. When none did, it stays empty and the caret blinks where the line
+   * would have been, and the remnant is still on the shelf when the banner
+   * auction reaches it below.
+   */
   const inline = prepared
-    .then((context) => (context ? selectAd({ ...context, format: 'inline' }) : FAILED_SLOT))
+    .then((context) =>
+      context ? selectAd({ ...context, format: 'inline', allowRemnant: false }) : FAILED_SLOT,
+    )
     .catch((error: unknown) => {
       logger.error({ err: error, requestId: ctx.requestId }, 'inline ad selection failed');
       return FAILED_SLOT;
@@ -487,7 +514,9 @@ function resolveAds(
     .then(([context, inlineSelection]) => {
       if (!context) return FAILED_SLOT;
       // Whoever took the inline slot is out of the running for the banner, so a
-      // single answer never carries the same advertiser twice.
+      // single answer never carries the same advertiser twice. On a turn no
+      // campaign targeted, nobody took it — so nothing is excluded here and the
+      // remnant the inline slot declined is this auction's to fill.
       const taken = inlineSelection.advertiserId;
       return selectAd({
         ...context,
@@ -506,7 +535,10 @@ function resolveAds(
 /** A slot that failed for a reason the developer should not be shown. */
 const FAILED_SLOT: AdSelection = { ad: null, reason: null, advertiserId: null };
 
-type PreparedAdContext = Omit<Parameters<typeof selectAd>[0], 'format' | 'excludeAdvertiserIds'>;
+type PreparedAdContext = Omit<
+  Parameters<typeof selectAd>[0],
+  'format' | 'excludeAdvertiserIds' | 'allowRemnant'
+>;
 
 /**
  * The work both auctions share: record the derived intent and fetch onchain
