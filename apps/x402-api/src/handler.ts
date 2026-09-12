@@ -1,15 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createApp } from '../src/app';
+import { createApp } from './app';
 
 /**
- * Serverless entrypoint.
+ * The request handler, separated from the process that used to own it.
  *
- * `src/main.ts` owns the long-lived process and its port; on Vercel there is
- * no port to own — each invocation is handed a request and a response. An
- * Express app is already a `(req, res)` function, so the app itself does the
- * work. Every path reaches it via the catch-all rewrite in vercel.json, which
- * keeps routing in Express where the paywall can see it: a per-file function
- * layout would put `/v1/inference` outside the middleware that charges for it.
+ * `main.ts` still listens on a port for local work. On a serverless host there
+ * is no port — each invocation is handed a request and a response, and an
+ * Express app is already a `(req, res)` function, so the app does the work
+ * once something has built it.
  */
 
 type App = ReturnType<typeof createApp>;
@@ -21,11 +19,10 @@ let failure: Error | null = null;
  * Built on the first request rather than at import.
  *
  * Construction reads the environment and opens the facilitator sync, either of
- * which can throw. Thrown at module scope that becomes FUNCTION_INVOCATION_FAILED
- * — a generic crash page with the actual reason buried in a log the caller
- * cannot see. Deferring it means a misconfigured deployment answers every
- * request with the name of what is missing, which is the difference between a
- * one-minute fix and a bisect.
+ * which can throw. Thrown at module scope that is FUNCTION_INVOCATION_FAILED —
+ * a generic crash page with the reason buried in a log the caller cannot see.
+ * Deferring it means a misconfigured deployment answers every request with the
+ * name of what is missing.
  */
 function instance(): App | null {
   if (app || failure) return app;
@@ -42,7 +39,6 @@ function instance(): App | null {
  * and is only awaited when the first paid request arrives. If it rejects in the
  * gap, Node's default is to kill the process — here, the whole instance, taking
  * the free discovery routes down with it for a dependency they never needed.
- * Log it and let the paid routes surface the failure themselves.
  */
 process.on('unhandledRejection', (reason) => {
   console.error('[x402] unhandled rejection:', reason);
