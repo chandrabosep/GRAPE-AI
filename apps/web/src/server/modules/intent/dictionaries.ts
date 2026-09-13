@@ -147,7 +147,10 @@ export const INTENT_RULES: IntentRule[] = [
   },
   {
     intent: 'smart_contract_testing',
-    patterns: [/\b(test|tests|testing|fuzz|invariant)\b[^.?!]{0,30}\b(contract|contracts)\b/, /\bforge\s+test\b/],
+    patterns: [
+      /\b(test|tests|testing|fuzz|invariant)\b[^.?!]{0,30}\b(contract|contracts)\b/,
+      /\bforge\s+test\b/,
+    ],
     weight: 3,
   },
   {
@@ -177,12 +180,19 @@ export const INTENT_RULES: IntentRule[] = [
   },
   {
     intent: 'wallet_integration',
-    patterns: [/\b(connect|connecting|integrate|integrating)\b[^.?!]{0,30}\bwallet\b/, /\bwalletconnect\b/, /\bembedded wallet\b/],
+    patterns: [
+      /\b(connect|connecting|integrate|integrating)\b[^.?!]{0,30}\bwallet\b/,
+      /\bwalletconnect\b/,
+      /\bembedded wallet\b/,
+    ],
     weight: 3,
   },
   {
     intent: 'defi_integration',
-    patterns: [/\b(swap|liquidity|lending|borrow|yield|amm|pool)\b/, /\b(uniswap|aave|compound|curve|morpho)\b/],
+    patterns: [
+      /\b(swap|liquidity|lending|borrow|yield|amm|pool)\b/,
+      /\b(uniswap|aave|compound|curve|morpho)\b/,
+    ],
     weight: 2,
   },
   {
@@ -197,7 +207,10 @@ export const INTENT_RULES: IntentRule[] = [
   },
   {
     intent: 'frontend_dapp_development',
-    patterns: [/\b(dapp|web3 app)\b/, /\b(wagmi|viem|ethers)\b[^.?!]{0,40}\b(react|component|hook)\b/],
+    patterns: [
+      /\b(dapp|web3 app)\b/,
+      /\b(wagmi|viem|ethers)\b[^.?!]{0,40}\b(react|component|hook)\b/,
+    ],
     weight: 2,
   },
   {
@@ -212,25 +225,57 @@ export const INTENT_RULES: IntentRule[] = [
   },
   {
     intent: 'cloud_infrastructure',
-    patterns: [/\b(s3|lambda|ec2|cloudfront|iam role|bucket)\b/, /\b(aws|gcp|azure)\b[^.?!]{0,30}\b(setup|configure|provision)\b/],
+    patterns: [
+      /\b(s3|lambda|ec2|cloudfront|iam role|bucket)\b/,
+      /\b(aws|gcp|azure|cloudflare|digitalocean|terraform|pulumi|cloudformation)\b/,
+    ],
     weight: 2,
   },
   {
+    /**
+     * Deployment vocabulary on its own is enough.
+     *
+     * This rule used to require two terms within thirty characters of each
+     * other — a deployment verb *and* a piece of infrastructure. Almost no real
+     * question is phrased that way: "how do I run containers in production with
+     * Docker" names the tool and the environment but never the verb, and fell
+     * through to `general_coding`. That mattered more than it looks, because the
+     * inline slot is auctioned on this pass alone and an unclassified question
+     * has nothing for a campaign to target, so the slot stayed empty on exactly
+     * the questions infrastructure advertisers are bidding for.
+     *
+     * The conjunctions are gone, but the weight is not raised: a bare "deploy"
+     * still loses to `smart_contract_deployment`, which matches the same verb
+     * alongside a contract and outranks this at weight 3.
+     */
     intent: 'devops_deployment',
     patterns: [
-      /\b(ci\/cd|pipeline|github actions|deploy)\b[^.?!]{0,30}\b(docker|kubernetes|vercel|server|production)\b/,
-      /\b(dockerfile|docker-compose|kubectl|helm chart)\b/,
+      /\b(deploy|deploys|deploying|deployment|deployments|redeploy|rollback|roll out)\b/,
+      /\b(docker|dockerfile|docker-compose|kubernetes|k8s|kubectl|helm|container|containers|containeri[sz]ed?|orchestration)\b/,
+      /\b(ci\/cd|ci cd|continuous (?:integration|delivery|deployment)|github actions|gitlab ci|circleci|jenkins|build pipeline)\b/,
+      /\bci\b[^.?!]{0,30}\b(pipeline|build|builds|set ?up|workflow|repo|repository|server|runner)\b/,
+      /\b(self-hosted?|self-hosting|hosting|vps|bare metal|reverse proxy|nginx|load balancer)\b/,
+      /\bhost\b[^.?!]{0,30}\b(app|application|api|server|site|website|service|bot|project)\b/,
     ],
     weight: 2,
   },
   {
     intent: 'observability_monitoring',
-    patterns: [/\b(logging|logs|metrics|tracing|observability|monitoring|alerting)\b/],
+    patterns: [
+      /\b(logging|logs|metrics|tracing|observability|monitor|monitors|monitoring|alerting|alerts)\b/,
+      /\b(error tracking|crash report|instrumentation|apm|uptime|sentry|datadog|grafana|prometheus)\b/,
+    ],
     weight: 2,
   },
   {
     intent: 'database_design',
-    patterns: [/\b(schema|migration|index|foreign key|normali[sz]e)\b/, /\b(prisma|postgres|sql)\b[^.?!]{0,30}\b(design|model|relation)\b/],
+    patterns: [
+      /\b(schema|migration|index|foreign key|normali[sz]e)\b/,
+      /\b(prisma|postgres|sql)\b[^.?!]{0,30}\b(design|model|relation)\b/,
+      /\b(database|db)\b[^.?!]{0,40}\b(scale|scaling|design|model|size|sizing|shard|sharding|replica|replication)\b/,
+      /\b(scale|scaling|shard|sharding|replicate|replication|size|sizing)\b[^.?!]{0,40}\b(database|db|postgres|mysql|sqlite|sql)\b/,
+      /\b(connection pool|read replica|sharding)\b/,
+    ],
     weight: 2,
   },
   {
@@ -318,8 +363,17 @@ export const PERSONA_TECHNOLOGIES: { persona: Persona; technologies: Technology[
       'ipfs',
     ],
   },
-  { persona: 'devops_engineer', technologies: ['docker', 'kubernetes', 'terraform', 'aws', 'gcp', 'azure'] },
-  { persona: 'data_engineer', technologies: ['postgres', 'mysql', 'mongodb', 'redis', 'substreams'] },
+  {
+    persona: 'devops_engineer',
+    technologies: ['docker', 'kubernetes', 'terraform', 'aws', 'gcp', 'azure'],
+  },
+  {
+    persona: 'data_engineer',
+    technologies: ['postgres', 'mysql', 'mongodb', 'redis', 'substreams'],
+  },
   { persona: 'frontend_developer', technologies: ['react', 'nextjs', 'vue', 'svelte'] },
-  { persona: 'backend_developer', technologies: ['node', 'express', 'fastify', 'nestjs', 'python', 'go', 'java', 'rust'] },
+  {
+    persona: 'backend_developer',
+    technologies: ['node', 'express', 'fastify', 'nestjs', 'python', 'go', 'java', 'rust'],
+  },
 ];
