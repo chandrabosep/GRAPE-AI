@@ -21,7 +21,8 @@
     "db:harden": "tsx scripts/harden.ts",
     "db:check": "tsx scripts/check.ts",
     "db:import-hosted": "tsx scripts/import-hosted-advertisers.ts",
-    "db:purge-demo": "tsx scripts/purge-demo-data.ts"
+    "db:purge-demo": "tsx scripts/purge-demo-data.ts",
+    "db:seed-brands": "tsx scripts/seed-brand-campaigns.ts"
   },
   "dependencies": {
     "@aam/shared": "workspace:*",

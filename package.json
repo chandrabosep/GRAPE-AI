@@ -24,7 +24,8 @@
     "db:check": "pnpm --filter @aam/db db:check",
     "db:studio": "pnpm --filter @aam/db db:studio",
     "check:imports": "node scripts/check-imports.mjs",
-    "db:dev": "node scripts/pglite-server.mjs"
+    "db:dev": "node scripts/pglite-server.mjs",
+    "db:seed-brands": "pnpm --filter @aam/db db:seed-brands"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
