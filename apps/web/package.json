@@ -12,7 +12,8 @@
     "graph:health": "node scripts/graph-health.mjs",
     "creatives": "tsx scripts/render-quilt-creative.mts",
     "dev:token": "tsx scripts/dev-token.mts",
-    "dev:topup": "tsx scripts/topup.mts"
+    "dev:topup": "tsx scripts/topup.mts",
+    "icons": "tsx scripts/render-icons.mts"
   },
   "dependencies": {
     "@aam/ai-provider": "workspace:*",

@@ -1,8 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Playfair_Display } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import { SiteHeader } from '@/components/app/site-header';
 import { SiteFooter } from '@/components/app/site-footer';
+import { env } from '@/server/config/index';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -44,9 +45,64 @@ const grandSlang = Playfair_Display({
   display: 'swap',
 });
 
+const DESCRIPTION =
+  'A coding assistant denominated in credits, where relevant sponsored content subsidises ' +
+  'inference instead of interrupting it. Agents pay per call over x402 on Hedera.';
+
 export const metadata: Metadata = {
-  title: 'GRAPE AI',
-  description: 'Ads that pay for your AI. Relevant sponsored content subsidises inference.',
+  /*
+   * `metadataBase` is what turns the icon and card paths below into the
+   * absolute URLs a scraper needs — a relative og:image is simply dropped by
+   * most of them. It has to be the address the page is actually served from,
+   * so it comes from the environment rather than a constant, and falls back to
+   * the dev port rather than to a production URL that would make every local
+   * share preview point at the deployment.
+   */
+  metadataBase: new URL(env().NEXT_PUBLIC_APP_URL),
+  title: {
+    default: 'GRAPE AI — ads that pay for your AI',
+    // Page titles supply only their own half; "Advertise" becomes
+    // "Advertise — GRAPE AI" without every page restating the product name.
+    template: '%s — GRAPE AI',
+  },
+  description: DESCRIPTION,
+  applicationName: 'GRAPE AI',
+  keywords: [
+    'AI coding assistant',
+    'ad-funded inference',
+    'x402',
+    'Hedera',
+    'The Graph',
+    'agent payments',
+  ],
+  openGraph: {
+    type: 'website',
+    siteName: 'GRAPE AI',
+    title: 'GRAPE AI — ads that pay for your AI',
+    description: DESCRIPTION,
+    url: '/',
+    locale: 'en_GB',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GRAPE AI — ads that pay for your AI',
+    description: DESCRIPTION,
+  },
+  // `icon.svg`, `apple-icon.png` and `opengraph-image.png` sit beside this file
+  // and Next wires them up on its own; regenerate them with `pnpm icons`.
+};
+
+/**
+ * The browser chrome, told what colour the page is.
+ *
+ * Without this, mobile Safari and Chrome paint their address bars white above
+ * a page that is near-black, which is the one place the dark-only palette
+ * visibly leaks. `colorScheme` does the same job for form controls and
+ * scrollbars, which would otherwise render in the OS light theme.
+ */
+export const viewport: Viewport = {
+  themeColor: '#090909',
+  colorScheme: 'dark',
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
