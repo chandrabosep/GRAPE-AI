@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { bannerAspectRatio, creativeImageLayout, type CreativeImageLayout } from '@aam/shared';
 
 /**
@@ -82,13 +82,30 @@ export function SponsoredPreview({
     return () => clearTimeout(timer);
   }, [imageUrl]);
 
-  const measure = (event: SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth, naturalHeight } = event.currentTarget;
+  const measure = (image: HTMLImageElement) => {
+    const { naturalWidth, naturalHeight } = image;
     measured.current = true;
     setArtwork({
       layout: creativeImageLayout(naturalWidth, naturalHeight),
       aspect: bannerAspectRatio(naturalWidth, naturalHeight),
     });
+  };
+
+  /**
+   * Measures artwork the browser had already finished with.
+   *
+   * `onLoad` only fires for a load React was attached in time to see, and a
+   * cached image is already `complete` when the element mounts — so re-showing
+   * a URL that has been rendered once leaves the slot pending forever, and
+   * pending is hidden. A ref callback is the only place that finished state is
+   * still observable.
+   */
+  const attachImage = (image: HTMLImageElement | null) => {
+    if (!image || measured.current) return;
+    // `complete` is true for a failed load too; naturalWidth separates the two.
+    if (!image.complete) return;
+    if (image.naturalWidth > 0) measure(image);
+    else setImageFailed(true);
   };
 
   const showImage = Boolean(imageUrl) && !imageFailed;
@@ -120,9 +137,10 @@ export function SponsoredPreview({
                 rather than going through the image optimiser. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              ref={attachImage}
               src={imageUrl ?? ''}
               alt=""
-              onLoad={measure}
+              onLoad={(event) => measure(event.currentTarget)}
               onError={() => setImageFailed(true)}
               className="size-full object-cover"
             />

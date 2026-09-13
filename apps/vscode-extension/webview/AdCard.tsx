@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   bannerAspectRatio,
   creativeImageLayout,
@@ -145,13 +145,36 @@ export function AdCard({
     return () => window.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  const measure = (event: SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth, naturalHeight } = event.currentTarget;
+  const measure = (image: HTMLImageElement) => {
+    const { naturalWidth, naturalHeight } = image;
     measured.current = true;
     setArtwork({
       layout: creativeImageLayout(naturalWidth, naturalHeight),
       aspect: bannerAspectRatio(naturalWidth, naturalHeight),
     });
+  };
+
+  /**
+   * Measures artwork the browser had already finished with.
+   *
+   * `onLoad` only fires for a load React was attached in time to see. The
+   * second and third card showing the same creative are served from cache, so
+   * the image is already `complete` when the element mounts and that event
+   * never comes — leaving the slot pending, and pending is `display: none`, so
+   * the card rendered with no artwork and no fallback at all. The first card
+   * was fine precisely because it was the one that populated the cache.
+   *
+   * A ref callback runs on mount with the real element, which is the only point
+   * where that already-finished state can still be observed.
+   */
+  const attachImage = (image: HTMLImageElement | null) => {
+    if (!image || measured.current) return;
+    // `complete` is also true for an image that failed, and a failure has
+    // naturalWidth 0 — so the width is what separates "already loaded" from
+    // "already broken".
+    if (!image.complete) return;
+    if (image.naturalWidth > 0) measure(image);
+    else setImageFailed(true);
   };
 
   const showImage = Boolean(ad.imageUrl) && !imageFailed;
@@ -168,9 +191,10 @@ export function AdCard({
             style={isBanner ? { aspectRatio: String(artwork?.aspect) } : undefined}
           >
             <img
+              ref={attachImage}
               src={ad.imageUrl ?? ''}
               alt=""
-              onLoad={measure}
+              onLoad={(event) => measure(event.currentTarget)}
               onError={() => setImageFailed(true)}
               onClick={() => onClick(ad.impressionId, ad.ctaUrl)}
             />
