@@ -1,283 +1,210 @@
-# GRAPE AI
+<!-- HERO IMAGE: docs/assets/hero.png -->
+<img width="1471" alt="GRAPE AI" src="./docs/assets/hero.png">
 
-**Ads that pay for your AI.**
+<h1 align="center">GRAPE AI</h1>
 
-A Cursor-style AI coding assistant in VS Code, denominated in credits, where relevant
-sponsored content subsidises inference instead of interrupting it.
+<p align="center"><strong>Ads that pay for your AI.</strong></p>
 
-1. A developer buys credits, or gets a starter grant on signup.
-2. Credits pay for AI inference, priced per token.
-3. Between responses, a relevant sponsored card appears, clearly separated from the answer.
-4. The advertiser funds a campaign; qualified attention pays the developer their share.
-5. Those earnings are credits, which buy more inference.
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=GrapeTools.grape-ai">VS Code Marketplace</a> ·
+  <a href="https://open-vsx.org/extension/GrapeTools/grape-ai">Open VSX</a> ·
+  <a href="https://grape-ai-dev.vercel.app">Web app</a> ·
+  <a href="https://grape-ai-api.vercel.app/.well-known/x402">Agent API</a> ·
+  <a href="https://hashscan.io/testnet/contract/0.0.10502346">Contracts</a>
+</p>
 
-The loop closes because usage is what creates the inventory. A developer asking how to
-deploy a Solidity contract is worth more to an Ethereum infrastructure advertiser than any
-demographic segment, and that value exists only at the moment they ask. At current settings
-**roughly one relevant sponsored card funds one AI response**.
+---
 
-A third actor pays for the same gateway: autonomous agents, per call, over x402 on Hedera.
+Developers spend billions on AI. Brands spend billions trying to reach those same
+developers. The two economies never touch.
 
-Built for [ETHOnline 2026](https://ethglobal.com/events/ethonline2026).
-Full model and worked numbers: [`docs/economics.md`](docs/economics.md).
+GRAPE AI is a coding assistant in VS Code that runs on credits instead of a subscription.
+You ask a question, you get a streaming answer, and one relevant sponsored card sits beside
+it. The brand pays for that attention, most of what they pay lands in your balance as
+credits, and those credits buy your next answer. Build more, earn more, pay less. At current
+settings roughly one card funds one response.
 
-## Why it is not "ChatGPT with ads"
+## The reason advertisers cannot reach developers any more
 
-- The ad is a separate event on the response stream. The model is never asked to mention a
-  sponsor, and the client cannot render sponsored content as if the assistant wrote it.
-- Advertisers never receive prompts, code, conversations, wallet addresses or identities.
-  They target a closed vocabulary of derived signals, defined in
-  [`packages/shared/src/taxonomy.ts`](packages/shared/src/taxonomy.ts). There is no database
-  column anywhere that can hold a prompt.
-- An irrelevant ad is worse than no ad, so the auction has a relevance floor and returns
-  nothing when no campaign clears it.
+Developers stopped browsing. The Stack Overflow tab, the docs site, the dev blog, the
+newsletter, all of it collapsed into one chat window. A developer now spends the working day
+inside their editor asking an AI, which means the entire display advertising industry is
+buying impressions on pages their audience no longer opens.
 
-## Status
+That is the gap. GRAPE AI puts the brand where the developer actually is, at the exact
+moment they are choosing a tool. A developer asking how to deploy a Solidity contract is
+worth more to an infrastructure company than any demographic segment, and that value exists
+only in the second they ask it.
 
-Foundation is in place and tested. Product surfaces are not built yet.
+The extension is live and shipping today, with **over 350 organic downloads in its first 24
+hours**, so this is real inventory, not a slide.
 
-| Area | State |
-|---|---|
-| Monorepo, tooling, environment | Done |
-| Database schema + initial migration (23 tables) | Done, not yet run against a database |
-| Auction, rewards, token accounting | Done, 44 tests |
-| AI provider abstraction (Bedrock + fake) | Done, 4 tests |
-| Intent engine (rules + LLM stages) | Done, 19 tests |
-| Wallet sign-in (SIWE), sessions, VS Code handoff | Done, 6 tests |
-| Credit ledger | Done, untested against a database |
-| AI gateway with streaming, ads and billing | Done, untested against a database |
-| Ad selection against live campaigns | Done, verified against the database |
-| Reward granting on confirmed impressions | Done, untested against a database |
-| Advertiser onboarding and campaign lifecycle | Done, 11 tests |
-| The Graph audience service | Done, 15 tests, needs a gateway key to run live |
-| Wallet linking with signature proof | Done, 6 tests |
-| Smart contracts | Done, 21 Foundry tests. Written and dry-run, **not deployed** |
-| VS Code extension | Chat, markdown answers, sponsored card, dwell ack, reward and cost readout |
-| Abuse rules (dwell, duplicates, caps, velocity) | Done, untested against a database |
-| API routes (31) | Done, build and 401/CORS verified |
-| Web dashboards | Scaffolded only |
-| x402 paid-inference service + agent CLI | Done, 10 tests, **verified on Hedera testnet** |
+<!-- IMAGE: marketplace listing / download stats -> docs/assets/extension-live.png -->
+<img width="1471" alt="GRAPE AI on the VS Code Marketplace" src="./docs/assets/extension-live.png">
 
-The core loop is verified end to end against a real Postgres: advertiser budget becomes a
-relevant ad, confirmed attention becomes credits, and those credits pay for the next
-request. See `apps/web/src/server/loop.integration.test.ts`.
-
-Full architecture and the phased build order:
-[`docs/implementation-plan.md`](docs/implementation-plan.md).
-
-## Layout
+## The loop
 
 ```
-apps/web              Next.js 16 app — UI and the /api/v1 backend
-  src/server          framework-free backend modules (config, intent, ...)
-apps/x402-api         Express service selling inference to agents, paid in HBAR
-apps/agent-demo       CLI agent that discovers, pays and consumes it
-packages/shared       taxonomy, wire contracts, micro-USD money helpers
-packages/db           Prisma 7 schema and client
-packages/economics    the auction, reward split and token spend planner (pure)
-packages/ai-provider  AIProvider interface, Bedrock implementation, fake for tests
-docs/                 implementation plan
+  BUY ──> SPEND ──> SHOW ──> PAY ──> LOOP
+   │        │         │       │        │
+   │        │         │       │        └─ earnings are credits, which buy more inference
+   │        │         │       └────────── confirmed attention pays the developer their share
+   │        │         └────────────────── one relevant card appears beside the answer
+   │        └──────────────────────────── credits pay for inference, priced per token
+   └───────────────────────────────────── credits bought, or granted on signup
 ```
 
-`packages/economics` is deliberately IO-free so the rules that decide who gets paid can be
-tested directly, and `packages/ai-provider` ships a `FakeProvider` so the whole request
-lifecycle can be exercised without AWS credentials, network or spend.
+**Developers** get a starter grant on signup, so the first question is free. After that
+credits are spent per token and earned back from attention. The share starts at 70% and
+climbs to 85% across three tiers, taken out of the platform's cut rather than off the
+advertiser's bill, so a campaign costs the same whoever sees it.
 
-## Running it
+| Tier | Rewards earned | Share | Daily cap |
+|---|---|---|---|
+| Bud | 0 | 70% | 1x |
+| Vine | 25 | 78% | 1.5x |
+| Reserve | 100 | 85% | 2x |
 
-Requires Node 22+ and pnpm 10.
+**Advertisers** connect a wallet, target a persona built from live onchain history, write
+the banner and inline cards, and fund the campaign in USDC on chain. Spend, qualified
+impressions, clicks and ROI come back in real time. They are billed only for attention that
+cleared the evidence rules, and a user can never be paid more than the advertiser was
+charged.
 
-```bash
-pnpm install
-cp .env.example .env      # works with placeholders; see "Keys" below
-pnpm db:generate
-pnpm test                 # 103 tests, no keys, no network, no Docker
-```
+**Agents** pay per call in HBAR over x402. No signup, no balance, no API key.
 
-The integration tests run against a real Postgres without needing one installed: PGlite is
-an embedded Postgres that speaks the wire protocol over a socket, so Prisma's ordinary
-driver connects to it unchanged and the tests exercise the same SQL, transactions and
-triggers that production runs.
+The card is a sibling of the answer, never inside it. The model is never asked to mention a
+sponsor, the auction returns nothing when nothing clears the relevance floor, and advertisers
+receive no prompts, code, wallet addresses or identities. "Why this ad?" shows the developer
+every signal that was matched.
 
-### The whole stack, locally
+<!-- IMAGE: extension chat with a sponsored card -> docs/assets/chat-with-ad.png -->
+<img width="1471" alt="The assistant answering, with a sponsored card beside the answer" src="./docs/assets/chat-with-ad.png">
 
-No Docker, no Supabase, no network. PGlite is an embedded Postgres that speaks the wire
-protocol over a socket, so Prisma's ordinary driver connects to it unchanged and gets the
-same SQL, transactions and triggers as production.
+## The Graph
 
-```bash
-pnpm db:dev               # 127.0.0.1:55432, persisted in ./.pglite
-```
+Two jobs, and the product does not work without either.
 
-Then, in a second terminal, with `.env` pointing `DATABASE_URL` and `DIRECT_URL` at
-`postgresql://postgres:postgres@127.0.0.1:55432/postgres` and `PRISMA_POOL_MAX=1`:
+**It decides who the developer is.** The moment a wallet is linked, GRAPE AI pulls the full
+onchain profile and turns it into a persona: active trader, DeFi power user, NFT holder,
+smart contract developer. Advertisers target that directly, plus role, region and an activity
+window. Three modes: `off` ignores onchain, `boost` scores matched users higher, `require`
+makes every criterion mandatory. Flipping that switch visibly changes which ad wins.
 
-```bash
-pnpm --filter @aam/db db:deploy   # migrations
-pnpm --filter @aam/db db:harden   # append-only ledger trigger
-pnpm dev
-```
+**It answers the developer's question.** Ask for the top 5 Uniswap V3 pools by TVL and the
+assistant writes the GraphQL itself, reads the result, and builds the chart from live
+numbers. Nine protocols across Ethereum, Arbitrum and Base, plus ENS and live token prices.
 
-`PRISMA_POOL_MAX=1` is required: PGlite serves one connection at a time, and the default
-pool opens several and has them dropped underneath it.
+Three products composed: **Subgraphs** for protocol interaction, the **Token API** for
+holdings and recent movement, **Substreams** for block-level transfers that a balance
+snapshot misses. All live data, nothing mocked.
 
-Sign in from the header with a wallet. There is no demo data: an advertiser account and
-its campaigns are created through the UI, and a new user's starter grant is issued on
-first sign-in. (**Dev sign-in** still exists for accounts whose subject begins `seed:`,
-but nothing creates those any more, so the menu is empty.)
+The leverage comes from standardization. 13 deployments, 9 protocols, 3 chains, and adding a
+protocol to targeting is **one config entry, not new code**, because the Messari standardized
+schemas mean one query shape spans a whole schema generation. The lending query runs
+unchanged against Aave V2, Aave V3 on two chains, and Compound V3.
 
-Docker gives you real Postgres 16 and a `psql` prompt instead, if you want one:
+## Hedera
 
-```bash
-docker compose up -d
-export DIRECT_URL="postgresql://postgres:postgres@127.0.0.1:5432/aam"
-export DATABASE_URL="$DIRECT_URL"
-pnpm --filter @aam/db db:deploy
-```
+Every payment settles here. Two assets, each doing a job the other cannot.
 
-The migrations are verified against both PostgreSQL 16.15 and PGlite.
-
-A database that the old seed already ran against still holds its rows. To clear them —
-the four `[simulated]` advertisers with their campaigns and creatives, the three
-`[simulated]` users, and the plan rows — leaving every real account and its ledger
-untouched:
-
-```bash
-pnpm --filter @aam/db db:purge-demo            # report what would go
-pnpm --filter @aam/db db:purge-demo --commit   # delete it
-```
-
-Typecheck everything:
-
-```bash
-pnpm --filter @aam/web typecheck
-```
-
-## Keys
-
-Nothing above needs credentials. These are needed as their features get built, and all of
-them stay server-side — the extension and the browser receive none of them:
-
-| Key | Needed for |
-|---|---|
-| Supabase `DATABASE_URL` + `DIRECT_URL` | any persistence |
-| AWS credentials + Bedrock access | real inference (`AI_PROVIDER=fake` avoids this) |
-| Subgraph Studio key + Token API JWT | onchain audience signals |
-| Hedera testnet accounts | the x402 paid-inference demo |
-| A funded Hedera deployer ([portal](https://portal.hedera.com)) | deploying the vault and reward pool — not needed for anything that runs today |
-
-## Paying with x402 on Hedera
-
-The third actor is a machine. It has no account here, no credits and no API key, so the
-ad-funded path is closed to it — and asking an autonomous agent to sign up, hold a balance
-and rotate a key is asking it to be a person. Instead it pays for each call, in HBAR, at
-the moment it calls, and the HTTP response *is* the receipt.
-
-Settled through the [Blocky402](https://blocky402.com) facilitator on Hedera testnet.
-
-### The flow
-
-```
-agent                    x402-api                Blocky402          Hedera
-  │  POST /v1/inference      │                       │                 │
-  │─────────────────────────>│                       │                 │
-  │  402 + payment terms     │                       │                 │
-  │<─────────────────────────│                       │                 │
-  │  sign TransferTransaction│                       │                 │
-  │  retry w/ PAYMENT-SIGNATURE                      │                 │
-  │─────────────────────────>│──── verify ──────────>│                 │
-  │                          │<─── ok ───────────────│                 │
-  │                          │ Bedrock inference     │                 │
-  │                          │──── settle ──────────>│──> transfer ───>│
-  │  200 + answer            │<─── receipt ──────────│<────────────────│
-  │  + PAYMENT-RESPONSE      │                       │                 │
-  │<─────────────────────────│                       │                 │
-```
-
-Three details worth pulling out:
-
-- **Discovery is free.** `GET /.well-known/x402` and `/v1/pricing` cost nothing, so an
-  agent can read the terms and decide before it commits to anything.
-- **Settlement happens after the handler runs**, which is why the transaction id arrives in
-  the `PAYMENT-RESPONSE` header rather than the JSON body — it does not exist yet when the
-  body is generated.
-- **The agent never pays gas.** The facilitator signs as fee payer, announced as
-  `extra.feePayer` in the 402, so an agent needs HBAR only for the price itself.
-
-### Priced by what is actually sold
-
-| Route | Price | Output ceiling |
+| Asset | Used for | Why |
 |---|---|---|
-| `POST /v1/inference` | 0.01 HBAR | 512 tokens |
-| `POST /v1/inference/large` | 0.05 HBAR | 4096 tokens |
+| **HBAR** | Agent payments, per call | Native transfer, no contract, no approval, no allowance, and a fee that does not move with congestion |
+| **HTS USDC** | Budgets, settlement, withdrawals | 6 decimals, matching the ledger's micro-USD exactly, so no conversion step exists anywhere |
 
-A flat per-request fee would charge the same for a 50-token answer and a 4,000-token one,
-which is the thing metered billing exists to avoid. The ceiling is what is being sold, so
-it is what the price scales with — and it is clamped server-side, so a client cannot ask
-for 4,000 tokens on the small route and be served them at the small price.
+### HBAR is the machine payment rail
 
-The agent carries the matching control on its own side: a per-call spend cap
-(`X402_AGENT_MAX_TINYBARS`) that no server can talk it out of, whatever the 402 quotes.
+An autonomous agent has no account here and no key, so the ad-funded path is closed to it.
+It pays for each call instead, in HBAR, at the moment it calls, and the HTTP response is the
+receipt. A live x402-gated inference service, settled through the
+[Blocky402](https://blocky402.com) facilitator on Hedera testnet.
 
-### Running it
+The agent hits the endpoint, gets a `402` with payment terms, signs a Hedera
+`TransferTransaction`, and retries with the signature. The service verifies, runs the
+inference, and settles.
 
-Two ECDSA testnet accounts from [portal.hedera.com](https://portal.hedera.com) — one to
-receive payment, one to spend — in `HEDERA_SERVICE_ACCOUNT_ID` and
-`HEDERA_AGENT_ACCOUNT_ID` with their keys. Both arrive funded.
+| Route | Tinybars | HBAR | Output ceiling |
+|---|---:|---:|---:|
+| `POST /v1/inference` | `1000000` | 0.01 | 512 tokens |
+| `POST /v1/inference/large` | `5000000` | 0.05 | 4096 tokens |
 
-```bash
-pnpm --filter @aam/x402-api start                          # terminal 1
-pnpm --filter @aam/agent-demo start "why is my gas so high?"
-pnpm --filter @aam/agent-demo start --large "explain EVM gas metering in detail"
-```
+**Why HBAR and not a token.** At 0.01 HBAR a call, moving the money has to cost almost
+nothing and has to cost a *predictable* amount. A native `CRYPTOTRANSFER` has no approval
+step, no allowance to manage and no token contract in the path, so payment is one
+transaction and one signature. The fee is fixed in USD rather than gas-priced, which means a
+congestion spike can never cost more than the item being sold. That is the difference
+between per-call pricing as a business model and per-call pricing as a bet. Finality lands in
+about three seconds, so the agent waits once, briefly, and gets its answer in the same
+request rather than polling.
 
-The agent prints every step — discovery, the 402, the payment, the answer, and a HashScan
-link to the settled transaction.
+**Metered, not flat.** The output ceiling is what is actually being sold, so it is what the
+price scales with. A flat per-request fee would charge the same for a 50-token answer and a
+4,000-token one, which is the thing metered billing exists to avoid. The ceiling is clamped
+server-side, so a client cannot ask for 4,000 tokens on the small route and be served them at
+the small price, and the large tier is derived as `base * 5n` from one configured value so
+the two prices cannot drift apart.
 
-A real run, with the on-chain balance changes and the decoded 402:
-[`docs/evidence/x402-run.md`](docs/evidence/x402-run.md).
+**Integer tinybars on the wire.** 1 HBAR is 100,000,000 tinybars, and the 402 quotes an
+integer string, never a decimal, so no float ever touches a price. The agent enforces its own
+`X402_AGENT_MAX_TINYBARS` cap before it signs, whatever the 402 quotes, and discovery at
+`/.well-known/x402` is free so it reads the terms before committing.
 
-Each paid call writes a `payments` row and an `ai_usage` row with `funding_source: x402`,
-so machine revenue lands in the same ledger as everything else while touching no credit
-balance — it was paid in HBAR, not in credits. Those writes are best-effort by design: the
-payment has already settled on Hedera by the time they run, so a database that is down must
-not turn a completed purchase into a 500 the agent retries and pays for twice. The chain is
-the ledger of record; the rows are a local index of it.
+**The agent pays zero gas.** The facilitator signs as fee payer, announced as
+`extra.feePayer` in the 402. From a real run:
 
-## Onchain settlement (not deployed)
+| Account | Δ tinybars | Role |
+|---|---:|---|
+| `0.0.10498983` | −1,000,000 | agent, the payer |
+| `0.0.10498528` | +1,000,000 | service, `payTo` |
+| `0.0.7162784` | −268,834 | Blocky402, the fee payer |
+| `0.0.802` | +268,834 | network fee |
 
-`CampaignVault` and `RewardPool` are written and tested (21 Foundry tests) and
-target **Hedera testnet (296)** — the same chain the x402 payments settle on, so
-the project has one chain rather than two. The token is HTS USDC `0.0.429274`,
-which the EVM reaches at `0x…68cda` with 6 decimals, matching the ledger's
-micro-USD precision exactly. Real testnet USDC comes from
-[Circle's faucet](https://faucet.circle.com) with Hedera Testnet selected;
-there is no mock token in the deployable path.
+0.01 HBAR moved and the agent's balance fell by exactly the quoted price and nothing else.
 
-They are **not deployed**, and nothing that runs today needs them: campaign
-budgets and rewards move through the credit ledger, which is integer micro-USD
-and append-only. Deploying them is the next step for real advertiser money, not
-a gap in the demo. See [`contracts/README.md`](contracts/README.md), which also
-covers the HTS association caveat that has no equivalent on other EVM chains.
+### USDC for money that sits still
 
-## Money
+Advertiser budgets lock into `CampaignVault`, settle 70 / 20 / 10, and developer withdrawals
+come out of `RewardPool` against a payout id the contract will honour exactly once. The
+operator key picks amounts but never destinations, and a fuzz test asserts no value ever
+reaches an arbitrary address.
 
-All amounts are integer **micro-USD** (`1_000_000` = `$1.00`). No floats touch the ledger.
-The credit ledger is append-only and enforced by a database trigger, because one stray
-update would silently break the balance chain that the entire reward economy rests on.
+Impressions and individual rewards never touch a contract. A reward worth a few thousandths
+of a cent would cost more in gas than it is worth, and would publish exactly the behavioural
+trail this product refuses to expose.
 
-## Economics
+## On-chain proof
 
-Credits are the only currency. They enter by purchase, ad reward or starter grant, and
-leave by paying for inference or being withdrawn. Every number that decides a payout lives
-in [`apps/web/src/server/config/economics.json`](apps/web/src/server/config/economics.json),
-never in business logic. Campaigns snapshot the allocation split when they activate, so
-editing that file never rewrites the economics of a campaign that is already running.
+Read back off the Hedera mirror node, not our database.
 
-Rewards are gated on evidence, not on an ad being shown: confirmed on-screen time,
-duplicate-prompt rejection, minimum spacing, frequency caps and a daily ceiling. A user can
-never be paid more than an advertiser was charged. See [`docs/economics.md`](docs/economics.md).
+| # | What it proves | Link |
+|---|---|---|
+| 1 | An agent paid for inference with no account and no key | [0.01 HBAR, agent to service](https://hashscan.io/testnet/transaction/0.0.7162784@1789210503.635358513) |
+| 2 | An advertiser's 100 USDC split 70 / 20 / 10 | [settle](https://hashscan.io/testnet/transaction/0.0.7314364@1789221257.884494799) |
+| 3 | A developer withdrew real USDC | [25 USDC out of the pool](https://hashscan.io/testnet/transaction/0.0.7314364@1789221291.733974890) |
+| 4 | The same withdrawal, replayed, refused by the contract | [CONTRACT_REVERT_EXECUTED](https://hashscan.io/testnet/transaction/0.0.7314364@1789221301.463657733) |
 
-## Licence
+| Contract | Hedera id | EVM address |
+|---|---|---|
+| CampaignVault | [`0.0.10502346`](https://hashscan.io/testnet/contract/0.0.10502346) | `0x4F160b39EbB23DBA8650f50aD5fc95964e085c42` |
+| RewardPool | [`0.0.10502343`](https://hashscan.io/testnet/contract/0.0.10502343) | `0x1E0724300F61bbF03caFB9D0fE52A039108B784B` |
+| HTS USDC | [`0.0.5449`](https://hashscan.io/testnet/token/0.0.5449) | `0x0000000000000000000000000000000000001549` |
 
-MIT
+Full decode and a mirror node command to verify any of it yourself:
+[`docs/evidence/onchain.md`](docs/evidence/onchain.md) ·
+[`docs/evidence/x402-run.md`](docs/evidence/x402-run.md)
+
+## Links
+
+| | |
+|---|---|
+| VS Code extension | [GrapeTools.grape-ai](https://marketplace.visualstudio.com/items?itemName=GrapeTools.grape-ai) |
+| Cursor / Windsurf | [Open VSX](https://open-vsx.org/extension/GrapeTools/grape-ai) |
+| Web app | [grape-ai-dev.vercel.app](https://grape-ai-dev.vercel.app) |
+| Agent API | [/.well-known/x402](https://grape-ai-api.vercel.app/.well-known/x402) |
+| Agent docs | [/agents](https://grape-ai-dev.vercel.app/agents) |
+| Economics model | [`docs/economics.md`](docs/economics.md) |
+| Submission writeup | [`docs/SUBMISSION.md`](docs/SUBMISSION.md) |
+| Contracts | [`contracts/README.md`](contracts/README.md) |
+
+Built for [ETHOnline 2026](https://ethglobal.com/events/ethonline2026). MIT licensed.
