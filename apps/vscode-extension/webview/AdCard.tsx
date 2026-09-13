@@ -27,6 +27,20 @@ import {
 
 const DWELL_MS = 1000;
 
+/**
+ * How long the artwork gets to report its proportions before the card gives up
+ * on it and draws the monogram instead.
+ *
+ * A blocked image can leave the element in neither terminal state: no `load`,
+ * and no `error` to fall back on. A webview CSP rejection is the case that bit
+ * us — creatives stored against one origin, served into a webview whose
+ * `img-src` covers another — but a proxy that black-holes the request does the
+ * same thing. Because the slot is held at `display: none` until it measures,
+ * an image stuck this way costs the card its artwork *and* the fallback that
+ * was supposed to cover exactly this.
+ */
+const ARTWORK_TIMEOUT_MS = 4000;
+
 interface Props {
   ad: SponsoredAd;
   rewardMicro: number | null;
@@ -66,6 +80,8 @@ export function AdCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  /** Set the moment the artwork reports dimensions, so the timeout can stand down. */
+  const measured = useRef(false);
   /**
    * Null until the artwork has loaded and reported its own proportions. The
    * slot stays out of the layout until then: reserving a 76px square and then
@@ -79,8 +95,15 @@ export function AdCard({
 
   // A reused instance must not keep the previous creative's measurements.
   useEffect(() => {
+    measured.current = false;
     setArtwork(null);
     setImageFailed(false);
+    if (!ad.imageUrl) return;
+
+    const timer = setTimeout(() => {
+      if (!measured.current) setImageFailed(true);
+    }, ARTWORK_TIMEOUT_MS);
+    return () => clearTimeout(timer);
   }, [ad.imageUrl]);
 
   useEffect(() => {
@@ -124,6 +147,7 @@ export function AdCard({
 
   const measure = (event: SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth, naturalHeight } = event.currentTarget;
+    measured.current = true;
     setArtwork({
       layout: creativeImageLayout(naturalWidth, naturalHeight),
       aspect: bannerAspectRatio(naturalWidth, naturalHeight),

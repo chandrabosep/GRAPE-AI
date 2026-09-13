@@ -15,10 +15,11 @@ import {
   type CreativeFormat,
   type OnchainSignals,
   type Persona,
+  resolveCreativeImageUrl,
   type SponsoredAd,
   type Tier,
 } from '@aam/shared';
-import { economics } from '../../config/index';
+import { economics, env } from '../../config/index';
 import { logger } from '../../lib/logger';
 import type { UserWithProfile } from '../users/service';
 
@@ -135,7 +136,10 @@ async function loadCandidates(now: Date, format: CreativeFormat): Promise<Candid
     const remaining = campaign.budgetMicro - campaign.spentMicro;
     if (remaining < bidMicro) continue;
 
-    const frequencyCap = campaign.frequencyCap as { perUserPerHour?: number; perUserPerDay?: number };
+    const frequencyCap = campaign.frequencyCap as {
+      perUserPerHour?: number;
+      perUserPerDay?: number;
+    };
 
     candidates.push({
       campaignId: campaign.id,
@@ -299,10 +303,19 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
     now,
   };
 
+  // The floor this slot is judged against, not the global one.
+  //
+  // `weights.minScore` stays the banner's number and the shape the scorer
+  // expects; only the threshold moves, so ranking, ordering and every other
+  // weight are identical between the two slots. The inline line is ranked from
+  // the rules pass alone and pays 0.3x, so holding it to the card's bar left it
+  // empty on nearly every turn.
+  const weights = { ...config.weights, minScore: config.formats[input.format].minScore };
+
   let winner: RankedCandidate | null = selectWinner(
     candidates,
     ctx,
-    config.weights,
+    weights,
     config.caps.maxAdsPerSession,
   );
 
@@ -317,9 +330,7 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
   }
 
   if (!winner) {
-    return SKIPPED(
-      explainNoWinner(candidates, ctx, config.weights, config.caps.maxAdsPerSession),
-    );
+    return SKIPPED(explainNoWinner(candidates, ctx, weights, config.caps.maxAdsPerSession));
   }
 
   const charged = await reserveBudget(winner.campaign.campaignId, winner.campaign.bidMicro);
@@ -365,7 +376,11 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
     body: winner.campaign.creative.body,
     ctaText: winner.campaign.creative.ctaText,
     ctaUrl: winner.campaign.creative.ctaUrl,
-    imageUrl: winner.campaign.creative.imageUrl,
+    // Creatives are stored as the advertiser wrote them, which for artwork we
+    // host is a root-relative path. The clients that draw the card — a webview
+    // on its own opaque origin among them — cannot resolve that themselves, so
+    // it is made absolute against the serving origin on the way out.
+    imageUrl: resolveCreativeImageUrl(winner.campaign.creative.imageUrl, env().NEXT_PUBLIC_APP_URL),
     advertiserName: winner.campaign.advertiserName,
     reasons: winner.reasons,
     estimatedRewardMicro: Number(rewardShare),

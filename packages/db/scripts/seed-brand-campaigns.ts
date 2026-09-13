@@ -2,7 +2,6 @@
  * Demo inventory built from real developer products.
  *
  *   pnpm --filter @aam/db db:seed-brands
- *   pnpm --filter @aam/db db:seed-brands --app-url=https://grape-ai-dev.vercel.app
  *
  * The old `prisma/seed.ts` invented four companies, which made the auction
  * demonstrable but made every card look like placeholder text. These are the
@@ -69,32 +68,16 @@ const ALLOCATION = JSON.parse(
 ).allocation as { reward: number; platform: number; treasury: number };
 
 /**
- * Artwork is served by the web app, so the extension — a different origin —
- * needs these absolute. The chat webview's CSP allows `https:`, so a deployed
- * APP_URL works; locally the webview and the app share `http://localhost`.
+ * Artwork we host is stored as a root-relative path and made absolute by the
+ * ad service against whichever origin is serving the impression.
  *
- * `--app-url=` overrides the env var because the two are routinely mismatched:
- * seeding the hosted database is done from a checkout whose `.env` points
- * NEXT_PUBLIC_APP_URL at localhost, and taking that literally would write image
- * URLs no deployed client can reach.
+ * This used to be an absolute URL built from `--app-url=` or NEXT_PUBLIC_APP_URL,
+ * which meant seeding the hosted database from a checkout pointed at localhost
+ * wrote image URLs no deployed client could reach — and did it silently, since
+ * the card just falls back to the advertiser's initials. There is no origin to
+ * get wrong any more, so the flag and the warning it needed are both gone.
  */
-const APP_URL = (
-  process.argv.find((a) => a.startsWith('--app-url='))?.slice('--app-url='.length) ??
-  process.env.NEXT_PUBLIC_APP_URL ??
-  'http://localhost:3001'
-).replace(/\/$/, '');
-const art = (file: string) => `${APP_URL}/creatives/brands/${file}.svg`;
-
-// A localhost image URL in a database nobody is reading from localhost is the
-// one mistake here that does not announce itself: the card renders, the artwork
-// silently 404s, and AdCard falls back to the advertiser's initial.
-const seedingRemoteDb = !/(localhost|127\.0\.0\.1)/.test(connectionString);
-if (seedingRemoteDb && /(localhost|127\.0\.0\.1)/.test(APP_URL)) {
-  console.warn(
-    `warning: seeding a remote database with artwork at ${APP_URL}.\n` +
-      `         Clients will not be able to load it. Pass --app-url=https://your-deployment to fix.\n`,
-  );
-}
+const art = (file: string) => `/creatives/brands/${file}.svg`;
 
 /**
  * Looser than production on purpose. The real cap of one card per campaign per
@@ -576,7 +559,7 @@ for (const brand of BRANDS) {
 
 console.log(
   `\ndone: ${created} campaign(s) created, ${refreshed} refreshed, across ${BRANDS.length} advertisers.` +
-    `\nartwork is served from ${APP_URL}/creatives/brands/ — the web app has to be reachable there for cards to show it.`,
+    `\nartwork is stored as /creatives/brands/… and resolved against NEXT_PUBLIC_APP_URL when an impression is served.`,
 );
 
 await prisma.$disconnect();

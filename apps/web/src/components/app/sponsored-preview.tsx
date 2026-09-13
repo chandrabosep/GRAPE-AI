@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { bannerAspectRatio, creativeImageLayout, type CreativeImageLayout } from '@aam/shared';
 
 /**
@@ -24,6 +24,13 @@ import { bannerAspectRatio, creativeImageLayout, type CreativeImageLayout } from
  * pasted is a banner or a thumbnail, so the preview cannot promise a banner the
  * editor would draw as a 76px square.
  */
+
+/**
+ * Mirrors `ARTWORK_TIMEOUT_MS` in the card. An image that neither loads nor
+ * errors would otherwise leave the slot hidden forever, and the preview would
+ * quietly disagree with the editor about whether the artwork works at all.
+ */
+const ARTWORK_TIMEOUT_MS = 4000;
 
 interface Props {
   headline: string;
@@ -59,15 +66,25 @@ export function SponsoredPreview({
     aspect: number;
   } | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
+  /** Set the moment the artwork reports dimensions, so the timeout can stand down. */
+  const measured = useRef(false);
 
   // The advertiser is typing this URL, so every keystroke is a different image.
   useEffect(() => {
+    measured.current = false;
     setArtwork(null);
     setImageFailed(false);
+    if (!imageUrl) return;
+
+    const timer = setTimeout(() => {
+      if (!measured.current) setImageFailed(true);
+    }, ARTWORK_TIMEOUT_MS);
+    return () => clearTimeout(timer);
   }, [imageUrl]);
 
   const measure = (event: SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth, naturalHeight } = event.currentTarget;
+    measured.current = true;
     setArtwork({
       layout: creativeImageLayout(naturalWidth, naturalHeight),
       aspect: bannerAspectRatio(naturalWidth, naturalHeight),

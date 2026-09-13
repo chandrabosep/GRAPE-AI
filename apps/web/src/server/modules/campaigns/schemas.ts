@@ -6,6 +6,7 @@ import {
   PERSONAS,
   TECHNOLOGIES,
   EMPTY_ONCHAIN_CRITERIA,
+  isCreativeImageRef,
   onchainCriteriaSchema,
   onchainModeSchema,
 } from '@aam/shared';
@@ -70,7 +71,20 @@ export const bannerCreativeSchema = z.object({
   body: z.string().min(10).max(240),
   ctaText: z.string().min(2).max(30),
   ctaUrl: z.url().max(500),
-  imageUrl: z.url().max(500).nullable().optional(),
+  /**
+   * An absolute `http(s)` URL, or a root-relative path to artwork we host.
+   * Deliberately not `z.url()`: that would reject the relative form and force
+   * the client to resolve it against whatever origin the advertiser happened to
+   * be authoring on, which is exactly the bug this replaces.
+   */
+  imageUrl: z
+    .string()
+    .max(500)
+    .refine(isCreativeImageRef, {
+      message: 'Must be an http(s) URL or a path beginning with "/"',
+    })
+    .nullable()
+    .optional(),
 });
 
 export const inlineCreativeSchema = z.object({

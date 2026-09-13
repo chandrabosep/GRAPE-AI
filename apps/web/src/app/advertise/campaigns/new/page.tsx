@@ -224,7 +224,9 @@ export default function NewCampaignPage() {
           body,
           ctaText,
           ctaUrl,
-          imageUrl: imageUrl.trim() ? new URL(imageUrl, window.location.origin).toString() : null,
+          // Stored exactly as typed. Resolving a relative path here would pin
+          // the creative to whichever origin this builder was open on.
+          imageUrl: imageUrl.trim() || null,
         }),
       });
 

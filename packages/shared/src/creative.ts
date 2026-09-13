@@ -46,3 +46,44 @@ export function bannerAspectRatio(naturalWidth: number, naturalHeight: number): 
   const aspect = naturalWidth / naturalHeight;
   return Math.min(Math.max(aspect, BANNER_MIN_ASPECT), BANNER_MAX_ASPECT);
 }
+
+/**
+ * Whether a string is something the card could draw as artwork.
+ *
+ * Two forms are accepted, and the distinction matters more than it looks. An
+ * absolute `http(s)` URL is artwork the advertiser hosts themselves. A
+ * root-relative path is artwork *we* host, and it stays relative in the
+ * database on purpose: an advertiser writing a campaign against localhost and
+ * an advertiser writing one against production are describing the same file,
+ * and baking whichever origin their browser happened to be on into a stored
+ * row is how a creative ends up pointing at a machine nobody else can reach.
+ */
+export function isCreativeImageRef(value: string): boolean {
+  if (value.startsWith('/') && !value.startsWith('//')) return true;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Turns a stored image reference into something a client can actually fetch.
+ *
+ * Called at delivery rather than at authoring, so a relative creative follows
+ * whichever origin is serving it. Anything unparseable resolves to null: a card
+ * with no artwork draws the advertiser's monogram, which is a better outcome
+ * than an image element that hangs.
+ */
+export function resolveCreativeImageUrl(
+  value: string | null | undefined,
+  origin: string,
+): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value, origin).toString();
+  } catch {
+    return null;
+  }
+}

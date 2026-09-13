@@ -61,10 +61,12 @@
   },
   "formats": {
     "banner": {
-      "bidMultiplier": 1
+      "bidMultiplier": 1,
+      "minScore": 0.35
     },
     "inline": {
-      "bidMultiplier": 0.3
+      "bidMultiplier": 0.3,
+      "minScore": 0.28
     }
   },
   "models": {

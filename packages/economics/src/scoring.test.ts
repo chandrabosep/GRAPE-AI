@@ -293,13 +293,51 @@ describe('ranking', () => {
     expect(rankCandidates([bidOnly], context(), WEIGHTS, MAX_ADS)).toHaveLength(0);
   });
 
+  /**
+   * The inline slot runs at a lower floor than the banner, and this is the
+   * bound on how low it may go.
+   *
+   * An untargeted campaign asked for nobody, so the only way it may ever fill a
+   * slot is `selectRemnant` — which labels the impression `unsold_slot` and
+   * records a zero score. If a format's floor drops to or below what such a
+   * campaign scores unopposed, it starts winning ordinary auctions instead:
+   * labelled as relevant, scored as relevant, and taking the slot from the
+   * remnant path that exists to handle exactly this case.
+   */
+  it('keeps an untargeted campaign below every per-format floor', () => {
+    const brand = campaign({ campaignId: 'brand', bidMicro: 1_000_000n });
+
+    // Unopposed, so `bidWeight` is 1 and this is the highest it can ever score.
+    const [ranked] = rankCandidates([brand], context(), { ...WEIGHTS, minScore: 0 }, MAX_ADS);
+    const ceiling = ranked!.score.total;
+
+    expect(ceiling).toBeCloseTo(WEIGHTS.audience * 0.5 + WEIGHTS.bid * 1, 10);
+
+    for (const [format, economics] of Object.entries(DEFAULT_ECONOMICS.formats)) {
+      expect(
+        economics.minScore,
+        `the ${format} floor must stay above the untargeted ceiling of ${ceiling}`,
+      ).toBeGreaterThan(ceiling);
+    }
+  });
+
   it('is deterministic for identical input', () => {
     const pool = [
-      campaign({ campaignId: 'a', targeting: { aiIntents: ['smart_contract_deployment'] } as never }),
-      campaign({ campaignId: 'b', targeting: { aiIntents: ['smart_contract_deployment'] } as never }),
+      campaign({
+        campaignId: 'a',
+        targeting: { aiIntents: ['smart_contract_deployment'] } as never,
+      }),
+      campaign({
+        campaignId: 'b',
+        targeting: { aiIntents: ['smart_contract_deployment'] } as never,
+      }),
     ];
-    const first = rankCandidates(pool, context(), WEIGHTS, MAX_ADS).map((r) => r.campaign.campaignId);
-    const second = rankCandidates(pool, context(), WEIGHTS, MAX_ADS).map((r) => r.campaign.campaignId);
+    const first = rankCandidates(pool, context(), WEIGHTS, MAX_ADS).map(
+      (r) => r.campaign.campaignId,
+    );
+    const second = rankCandidates(pool, context(), WEIGHTS, MAX_ADS).map(
+      (r) => r.campaign.campaignId,
+    );
     expect(first).toEqual(second);
   });
 });

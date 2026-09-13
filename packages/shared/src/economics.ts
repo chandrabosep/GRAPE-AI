@@ -102,6 +102,35 @@ export const modelPricingSchema = z.object({
 });
 export type ModelPricing = z.infer<typeof modelPricingSchema>;
 
+/**
+ * One slot's economics.
+ *
+ * `minScore` is the relevance floor for that slot, and the two are not the same
+ * number for a reason. The banner is ranked from the refined LLM intent and
+ * takes a whole card; it should stay expensive to win. The inline line is
+ * ranked from the fast rules pass — which caps its own confidence at 0.7, and
+ * the scorer multiplies the intent term by `(0.5 + 0.5 * confidence)` — so the
+ * same floor asks the cheaper, smaller slot to clear a bar while carrying worse
+ * information about the request. In practice that left the line empty on almost
+ * every turn and the caret blinking in its place. A lower floor here is the slot
+ * being judged on its own terms, not the relevance rule being relaxed.
+ *
+ * There is a hard lower bound on the inline floor, and it is not a matter of
+ * taste. An untargeted campaign scores `audience * NEUTRAL_AUDIENCE + bid`,
+ * which at the current weights is `0.15 * 0.5 + 0.15 * 1 = 0.225` when it is
+ * the sole bidder. A floor at or below that lets a brand campaign win an
+ * auction on *relevance* rather than as the unsold slot — which would put a
+ * targeted developer's line in the hands of a campaign that asked for nobody,
+ * and bypass `selectRemnant` and its `unsold_slot` label entirely. Any value
+ * here must stay above 0.225 while the weights are what they are; 0.28 leaves
+ * room on both sides, since a genuinely matched intent scores 0.30 and up
+ * across the whole rules-pass confidence band. `scoring.test.ts` pins this.
+ */
+const formatEconomicsSchema = z.object({
+  bidMultiplier: z.number().positive(),
+  minScore: z.number().min(0).max(1),
+});
+
 export const economicsConfigSchema = z.object({
   allocation: allocationSchema,
   /** The ladder a developer climbs. Ordered from the bottom rung up. */
@@ -161,8 +190,8 @@ export const economicsConfigSchema = z.object({
    * developer still earns the same share of whatever was actually charged.
    */
   formats: z.object({
-    banner: z.object({ bidMultiplier: z.number().positive() }),
-    inline: z.object({ bidMultiplier: z.number().positive() }),
+    banner: formatEconomicsSchema,
+    inline: formatEconomicsSchema,
   }),
   models: z.record(z.string(), modelPricingSchema),
   signalCacheHours: z.number().positive(),
@@ -221,7 +250,10 @@ export const DEFAULT_ECONOMICS: EconomicsConfig = {
     duplicatePromptWindowSeconds: 600,
   },
   remnant: { enabled: true, label: 'unsold_slot' },
-  formats: { banner: { bidMultiplier: 1 }, inline: { bidMultiplier: 0.3 } },
+  formats: {
+    banner: { bidMultiplier: 1, minScore: 0.35 },
+    inline: { bidMultiplier: 0.3, minScore: 0.28 },
+  },
   models: {},
   signalCacheHours: 6,
 };
