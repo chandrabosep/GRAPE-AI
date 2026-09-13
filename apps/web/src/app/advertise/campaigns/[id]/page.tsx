@@ -12,6 +12,7 @@ import { Metric, MetricGrid } from '@/components/app/metric';
 import { Eyebrow, Shell, Stamp } from '@/components/app/section';
 import { InlineSponsoredPreview, SponsoredPreview } from '@/components/app/sponsored-preview';
 import { InsightsCharts, type CampaignInsights } from '@/components/app/insights-charts';
+import { CampaignFunding } from '@/components/app/campaign-funding';
 import { api } from '@/lib/api';
 import { formatUsd } from '@/lib/credits';
 
@@ -49,7 +50,7 @@ interface Campaign {
 }
 
 const NEXT_STATUS: Record<string, { label: string; status: string }[]> = {
-  draft: [{ label: 'Submit for funding', status: 'awaiting_funding' }],
+  draft: [{ label: 'Ready to fund', status: 'awaiting_funding' }],
   awaiting_funding: [{ label: 'Launch', status: 'active' }],
   active: [{ label: 'Pause', status: 'paused' }],
   paused: [{ label: 'Resume', status: 'active' }],
@@ -189,6 +190,8 @@ export default function CampaignDetail({ params }: PageProps<'/advertise/campaig
         <Metric label="Spent" value={formatUsd(spent, 2)} />
         <Metric label="Remaining" value={formatUsd(budget - spent, 2)} />
       </MetricGrid>
+
+      <CampaignFunding campaignId={id} status={campaign.status} />
 
       <section className="mt-20">
         <Stamp

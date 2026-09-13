@@ -732,8 +732,9 @@ export default function NewCampaignPage() {
                   </div>
                 ) : (
                   <p className="text-steel text-sm leading-relaxed">
-                    This is created as a draft. Nothing is served and nothing is charged until you
-                    fund it and launch it from the campaign page.
+                    This is created as a draft. Nothing is served until you deposit the budget
+                    from your wallet and launch it, both on the campaign page — the budget is
+                    held by a contract on Hedera, and whatever goes unspent can be refunded.
                   </p>
                 )}
               </div>

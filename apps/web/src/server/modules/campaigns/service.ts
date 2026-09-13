@@ -1,6 +1,7 @@
 import { prisma, type Campaign, type CampaignStatus, type Prisma } from '@aam/db';
 import { AppError, onchainCriteriaSchema, type OnchainCriteria, type OnchainSignals } from '@aam/shared';
 import { economics } from '../../config/index';
+import { isFunded } from './funding';
 import {
   campaignMetrics,
   emptyCampaignMetrics,
@@ -231,6 +232,13 @@ export async function checkReadyToRun(campaignId: string): Promise<Readiness> {
   }
   if (campaign.budgetMicro - campaign.spentMicro < campaign.bidMicro) {
     return { ready: false, reason: 'Remaining budget is below one bid' };
+  }
+  // The budget has to actually exist before the campaign can spend it. Checked
+  // against the vault rather than a column, so an advertiser who funded from
+  // another wallet still passes. A deployment with no vault configured skips
+  // this rather than being unable to launch anything at all.
+  if (!(await isFunded(campaignId))) {
+    return { ready: false, reason: 'Fund the campaign budget on chain before launching' };
   }
   if (campaign.endsAt <= new Date()) {
     return { ready: false, reason: 'Campaign end date is in the past' };

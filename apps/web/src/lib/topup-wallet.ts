@@ -17,7 +17,7 @@ import type { Eip1193Provider } from './wallet';
 export class TopupWalletError extends Error {}
 
 /** User-facing text for the rejections wallets actually produce. */
-function describe(error: unknown): string {
+export function describe(error: unknown): string {
   const code = (error as { code?: number })?.code;
   const message = (error as { message?: string })?.message ?? '';
 
@@ -150,7 +150,7 @@ export async function readUsdcBalance(
  * the cost of naming a limit here is nothing next to a payment that cannot be
  * submitted at all.
  */
-const FALLBACK_GAS = 300_000n;
+export const FALLBACK_GAS = 300_000n;
 
 export interface SendUsdcInput {
   provider: Eip1193Provider;
