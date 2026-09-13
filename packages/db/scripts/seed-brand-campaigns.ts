@@ -25,12 +25,18 @@
  *     `db:import-hosted` never copies it.
  *
  * Campaigns are created `active`, because inventory that needs a dashboard
- * visit before it serves is not a seed. Nine campaigns across eight
+ * visit before it serves is not a seed. Eleven campaigns across eight
  * advertisers, deliberately overlapping: Supabase and Neon both bid on
  * `database_design`, Vercel and Hostinger both bid on `devops_deployment`, and
  * the auction picks between them on relevance rather than on being the only
- * option. Hostinger also runs one campaign with no targeting at all, which is
- * the only kind `selectRemnant` will use to fill a slot nothing else wanted.
+ * option.
+ *
+ * Three of the eleven are untargeted brand campaigns — Hostinger, Supabase and
+ * Vercel — and that count is the point rather than an accident. `selectRemnant`
+ * will only ever fill an unsold slot from campaigns that targeted nobody, so
+ * with a single one of them every off-topic turn in a conversation showed the
+ * same card in a row. Three gives the slot something to rotate through, which
+ * is what a developer asking two casual questions actually notices.
  *
  * Re-running is safe and is how copy is edited: creatives and targeting are
  * upserted, so changing a headline here and re-running publishes it. Budget,
@@ -164,6 +170,24 @@ const BRANDS: BrandSpec[] = [
           ctaUrl: 'https://supabase.com/dashboard/sign-up',
         },
       },
+      {
+        name: 'Brand — unsold slot',
+        budget: USD(200),
+        bid: USD(0.0045),
+        targeting: { ...NO_TARGETING },
+        banner: {
+          headline: 'The open source Firebase alternative',
+          body: 'Postgres, authentication, file storage, edge functions and realtime in one project, with no vendor lock-in — every piece is open source and runs anywhere Postgres does.',
+          ctaText: 'Explore Supabase',
+          ctaUrl: 'https://supabase.com',
+          image: art('supabase'),
+        },
+        inline: {
+          headline: 'The open source Firebase alternative',
+          ctaText: 'Explore Supabase',
+          ctaUrl: 'https://supabase.com',
+        },
+      },
     ],
   },
   {
@@ -290,6 +314,24 @@ const BRANDS: BrandSpec[] = [
           headline: 'A preview URL for every pull request',
           ctaText: 'Deploy free',
           ctaUrl: 'https://vercel.com/new',
+        },
+      },
+      {
+        name: 'Brand — unsold slot',
+        budget: USD(300),
+        bid: USD(0.005),
+        targeting: { ...NO_TARGETING },
+        banner: {
+          headline: 'Ship your frontend without managing servers',
+          body: 'Git-connected deploys, a global edge network and zero-config caching for Next.js, Svelte, Nuxt, Astro and plain static sites. The Hobby plan is free for personal projects.',
+          ctaText: 'Explore Vercel',
+          ctaUrl: 'https://vercel.com',
+          image: art('vercel'),
+        },
+        inline: {
+          headline: 'Ship your frontend without managing servers',
+          ctaText: 'Explore Vercel',
+          ctaUrl: 'https://vercel.com',
         },
       },
     ],

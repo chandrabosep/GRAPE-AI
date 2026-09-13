@@ -1,6 +1,13 @@
 import { DEFAULT_ECONOMICS, EMPTY_ONCHAIN_CRITERIA, type OnchainSignals } from '@aam/shared';
 import { describe, expect, it } from 'vitest';
-import { checkEligibility, evaluateOnchainCriteria, rankCandidates, selectWinner } from './scoring';
+import {
+  checkEligibility,
+  evaluateOnchainCriteria,
+  rankCandidates,
+  rotateWinner,
+  seededUnitInterval,
+  selectWinner,
+} from './scoring';
 import type { AdRequestContext, CandidateCampaign } from './types';
 
 const WEIGHTS = DEFAULT_ECONOMICS.weights;
@@ -339,5 +346,106 @@ describe('ranking', () => {
       (r) => r.campaign.campaignId,
     );
     expect(first).toEqual(second);
+  });
+
+  describe('rotation', () => {
+    /** Three campaigns that score identically, so only rotation separates them. */
+    const equals = () =>
+      ['a', 'b', 'c'].map(
+        (id) =>
+          rankCandidates(
+            [
+              campaign({
+                campaignId: id,
+                targeting: { aiIntents: ['smart_contract_deployment'] } as never,
+              }),
+            ],
+            context(),
+            WEIGHTS,
+            MAX_ADS,
+          )[0]!,
+      );
+
+    it('is reproducible for one request and varied across requests', () => {
+      const pool = equals();
+      const once = rotateWinner(pool, { seed: 'req_1' })?.campaign.campaignId;
+      const again = rotateWinner(pool, { seed: 'req_1' })?.campaign.campaignId;
+      expect(again).toBe(once);
+
+      // Some other request must be able to land elsewhere, or nothing rotates.
+      const others = new Set(
+        Array.from(
+          { length: 40 },
+          (_, i) => rotateWinner(pool, { seed: `req_${i}` })?.campaign.campaignId,
+        ),
+      );
+      expect(others.size).toBeGreaterThan(1);
+    });
+
+    it('never repeats the campaign shown on the previous turn', () => {
+      const pool = equals();
+      for (let i = 0; i < 40; i++) {
+        const picked = rotateWinner(pool, { recentCampaignIds: ['b'], seed: `r${i}` });
+        expect(picked?.campaign.campaignId).not.toBe('b');
+      }
+    });
+
+    it('repeats rather than leaving the slot empty when nothing else can run', () => {
+      const only = equals().slice(0, 1);
+      expect(rotateWinner(only, { recentCampaignIds: ['a'], seed: 'x' })?.campaign.campaignId).toBe(
+        'a',
+      );
+    });
+
+    it('stands in the runner-up rather than repeat, even outside the band', () => {
+      const [top] = equals();
+      const leader = { ...top!, campaign: { ...top!.campaign, campaignId: 'leader' } };
+      const distant = {
+        ...top!,
+        campaign: { ...top!.campaign, campaignId: 'distant' },
+        score: { ...top!.score, total: top!.score.total - 0.3 },
+      };
+
+      // Nothing shown yet: the auction's answer stands.
+      expect(rotateWinner([leader, distant], { seed: 'x' })?.campaign.campaignId).toBe('leader');
+      // Leader ran last turn, so the slot goes to the only thing that also
+      // cleared the floor rather than showing the same card twice.
+      expect(
+        rotateWinner([leader, distant], { recentCampaignIds: ['leader'], seed: 'x' })?.campaign
+          .campaignId,
+      ).toBe('distant');
+    });
+
+    it('will not promote a candidate the ranking put outside the band', () => {
+      // A strong match and a far weaker one: rotation must not reach the weaker.
+      const strong = rankCandidates(
+        [
+          campaign({
+            campaignId: 'strong',
+            targeting: { aiIntents: ['smart_contract_deployment'] } as never,
+          }),
+        ],
+        context(),
+        WEIGHTS,
+        MAX_ADS,
+      )[0]!;
+      const weak = {
+        ...strong,
+        campaign: { ...strong.campaign, campaignId: 'weak' },
+        score: { ...strong.score, total: strong.score.total - 0.3 },
+      };
+
+      for (let i = 0; i < 20; i++) {
+        expect(rotateWinner([strong, weak], { seed: `s${i}` })?.campaign.campaignId).toBe('strong');
+      }
+    });
+
+    it('spreads the seed across the unit interval', () => {
+      const values = Array.from({ length: 200 }, (_, i) => seededUnitInterval(`req_${i}`));
+      expect(Math.min(...values)).toBeGreaterThanOrEqual(0);
+      expect(Math.max(...values)).toBeLessThan(1);
+      // A hash that collapses would make rotation pick one bucket forever.
+      expect(new Set(values).size).toBeGreaterThan(150);
+    });
   });
 });

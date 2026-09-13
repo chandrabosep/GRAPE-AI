@@ -2,8 +2,9 @@ import { prisma } from '@aam/db';
 import {
   applyTier,
   explainNoWinner,
+  rankCandidates,
+  rotateWinner,
   selectRemnant,
-  selectWinner,
   type AdRequestContext,
   type CandidateCampaign,
   type RankedCandidate,
@@ -39,16 +40,29 @@ import type { UserWithProfile } from '../users/service';
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
+/** How many of a conversation's recent ads are kept out of the next pick. */
+const ROTATION_HISTORY = 4;
+
 interface FrequencyCounts {
   lastHour: Record<string, number>;
   last24h: Record<string, number>;
   sessionCount: number;
+  /**
+   * Campaigns already shown in this conversation, most recent first.
+   *
+   * The frequency caps are per user per hour and per day, which is the right
+   * unit for "how often may this advertiser reach someone" and the wrong one
+   * for "does this conversation look broken". A cap of five an hour is silent
+   * about the same card appearing on three consecutive turns, which is what a
+   * developer actually notices.
+   */
+  recentCampaignIds: string[];
 }
 
 async function loadFrequency(userId: string, sessionId: string | null): Promise<FrequencyCounts> {
   const now = Date.now();
 
-  const [hourRows, dayRows, sessionCount] = await Promise.all([
+  const [hourRows, dayRows, sessionCount, recent] = await Promise.all([
     prisma.adImpression.groupBy({
       by: ['campaignId'],
       where: { userId, createdAt: { gte: new Date(now - HOUR_MS) } },
@@ -71,6 +85,16 @@ async function loadFrequency(userId: string, sessionId: string | null): Promise<
           where: { userId, sessionId, createdAt: { gte: new Date(now - DAY_MS) } },
         })
       : Promise.resolve(0),
+    // Enough history to break up a run, not enough to starve a short session:
+    // past this many turns a repeat no longer reads as the same ad twice.
+    sessionId
+      ? prisma.adImpression.findMany({
+          where: { userId, sessionId, createdAt: { gte: new Date(now - DAY_MS) } },
+          orderBy: { createdAt: 'desc' },
+          take: ROTATION_HISTORY,
+          select: { campaignId: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const toMap = (rows: { campaignId: string; _count: { _all: number } }[]) =>
@@ -80,6 +104,7 @@ async function loadFrequency(userId: string, sessionId: string | null): Promise<
     lastHour: toMap(hourRows),
     last24h: toMap(dayRows),
     sessionCount,
+    recentCampaignIds: recent.map((r) => r.campaignId),
   };
 }
 
@@ -312,12 +337,17 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
   // empty on nearly every turn.
   const weights = { ...config.weights, minScore: config.formats[input.format].minScore };
 
-  let winner: RankedCandidate | null = selectWinner(
-    candidates,
-    ctx,
-    weights,
-    config.caps.maxAdsPerSession,
-  );
+  // Ranked deterministically, then rotated within the band the ranking treats
+  // as equivalent. Relevance still decides who is eligible to win; the seed
+  // only decides which of several equally relevant ads runs this turn, so a
+  // conversation stops showing one advertiser back to back.
+  const ranked = rankCandidates(candidates, ctx, weights, config.caps.maxAdsPerSession);
+  let winner: RankedCandidate | null = rotateWinner(ranked, {
+    recentCampaignIds: frequency.recentCampaignIds,
+    // Per request, not per slot: the banner and the inline line of one answer
+    // must not roll the same number, or a turn shows the same advertiser twice.
+    seed: `${input.requestId}:${input.format}`,
+  });
 
   // Nothing was relevant enough. The slot is unsold, so it goes to a campaign
   // that bid for any developer rather than for this one — never to a targeted
@@ -325,7 +355,10 @@ export async function selectAd(input: SelectAdInput): Promise<AdSelection> {
   // caller wants remnant inventory spent on.
   let remnant = false;
   if (!winner && config.remnant.enabled && input.allowRemnant !== false) {
-    winner = selectRemnant(candidates, ctx, config.caps.maxAdsPerSession);
+    winner = selectRemnant(candidates, ctx, config.caps.maxAdsPerSession, {
+      recentCampaignIds: frequency.recentCampaignIds,
+      seed: `${input.requestId}:${input.format}`,
+    });
     remnant = winner !== null;
   }
 

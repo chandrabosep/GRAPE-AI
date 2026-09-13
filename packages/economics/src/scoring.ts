@@ -291,9 +291,7 @@ export function rankCandidates(
   weights: ScoringWeights,
   maxAdsPerSession: number,
 ): RankedCandidate[] {
-  const eligible = candidates.filter(
-    (c) => checkEligibility(c, ctx, maxAdsPerSession).eligible,
-  );
+  const eligible = candidates.filter((c) => checkEligibility(c, ctx, maxAdsPerSession).eligible);
   if (eligible.length === 0) return [];
 
   const maxBid = eligible.reduce((m, c) => (c.bidMicro > m ? c.bidMicro : m), 0n);
@@ -418,6 +416,7 @@ export function selectRemnant(
   candidates: CandidateCampaign[],
   ctx: AdRequestContext,
   maxAdsPerSession: number,
+  rotation: RotationOptions = {},
 ): RankedCandidate | null {
   const eligible = candidates
     .filter(isUntargeted)
@@ -425,7 +424,31 @@ export function selectRemnant(
 
   if (eligible.length === 0) return null;
 
-  const winner = eligible.reduce((best, c) => (c.bidMicro > best.bidMicro ? c : best));
+  /**
+   * Rotation matters more here than anywhere else in the auction.
+   *
+   * This is the slot that fills when a developer asks something no campaign
+   * targeted, which in a real conversation is most turns — so without rotation
+   * one brand campaign appears on every one of them in a row. There is no
+   * relevance to trade away in doing it: nothing here won on relevance, and the
+   * score recorded below says exactly that.
+   *
+   * Highest bid still leads, since with relevance out of the picture it is all
+   * there is to rank on. It just no longer gets to win the same slot twice in a
+   * row while another brand is waiting and able to pay.
+   */
+  const justShown = rotation.recentCampaignIds?.[0];
+  const notRepeating = eligible.filter((c) => c.campaignId !== justShown);
+  const pool = notRepeating.length > 0 ? notRepeating : eligible;
+
+  const seen = new Set(rotation.recentCampaignIds ?? []);
+  const fresh = pool.filter((c) => !seen.has(c.campaignId));
+  const choices = fresh.length > 0 ? fresh : pool;
+
+  const topBid = choices.reduce((m, c) => (c.bidMicro > m ? c.bidMicro : m), 0n);
+  const leaders = choices.filter((c) => c.bidMicro === topBid);
+  const roll = rotation.seed === undefined ? 0 : seededUnitInterval(rotation.seed);
+  const winner = leaders[Math.min(leaders.length - 1, Math.floor(roll * leaders.length))]!;
 
   return {
     campaign: winner,
@@ -442,6 +465,101 @@ export function selectRemnant(
     },
     reasons: ['untargeted_brand_campaign'],
   };
+}
+
+/**
+ * A number in [0,1) derived from a string, so a choice can vary between
+ * requests without varying between two evaluations of the same request.
+ *
+ * `Math.random` would make the auction unreproducible: the same request would
+ * produce a different ad on a retry, and an advertiser asking why they lost
+ * could not be answered. Seeding on the request id keeps every property the
+ * deterministic engine was built for — replay a request id, get the same
+ * winner — while letting the *next* request land somewhere else.
+ *
+ * FNV-1a. Not cryptographic; it only has to spread evenly and cheaply.
+ */
+export function seededUnitInterval(seed: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash / 0x100000000;
+}
+
+/**
+ * How close to the leader a candidate has to score to be considered its equal.
+ *
+ * Inside this band the engine is saying "these are about as relevant as each
+ * other", and which one runs is not a relevance judgement any more. Picking the
+ * same one every time is what made a session show one advertiser back to back;
+ * rotating within the band costs the developer nothing in relevance and stops
+ * the slot looking broken.
+ */
+export const ROTATION_BAND = 0.05;
+
+export interface RotationOptions {
+  /**
+   * Campaigns already shown in this conversation, most recent first. The most
+   * recent is skipped outright when there is anything else to run; the rest
+   * only lose ties.
+   */
+  recentCampaignIds?: readonly string[];
+  /** Varies the pick between requests while keeping each request reproducible. */
+  seed?: string;
+}
+
+/**
+ * Chooses among candidates the ranking already judged equivalent.
+ *
+ * Relevance still decides the band — nothing outside `ROTATION_BAND` of the
+ * leader can win here, so a weak ad never displaces a strong one. Within it,
+ * two rules apply in order: an advertiser is not repeated immediately if there
+ * is any alternative, and among what is left the seed decides. That is enough
+ * to stop the same card appearing on three consecutive turns without making the
+ * result unexplainable.
+ */
+export function rotateWinner(
+  ranked: readonly RankedCandidate[],
+  options: RotationOptions = {},
+): RankedCandidate | null {
+  if (ranked.length === 0) return null;
+
+  /**
+   * No campaign runs twice in a row while anything else cleared the floor.
+   *
+   * This is applied to the whole ranked list rather than inside the band, and
+   * that is the deliberate part. A campaign that leads by more than
+   * `ROTATION_BAND` would otherwise win every turn of a conversation about the
+   * subject it targets — which is exactly what the auction says *should*
+   * happen, and exactly what reads to a developer as the product being stuck.
+   * The runner-up still had to clear the relevance floor to be here at all, so
+   * standing it in for one turn costs relevance that was already good enough to
+   * show, and buys a session that does not look broken.
+   */
+  const justShown = options.recentCampaignIds?.[0];
+  const running =
+    justShown === undefined
+      ? ranked
+      : (() => {
+          const without = ranked.filter((r) => r.campaign.campaignId !== justShown);
+          // An empty slot is a worse outcome than a repeat.
+          return without.length > 0 ? without : ranked;
+        })();
+
+  const leader = running[0]!;
+  const band = running.filter((r) => leader.score.total - r.score.total <= ROTATION_BAND);
+  if (band.length === 1) return leader;
+
+  // Everything else seen earlier in the conversation is deprioritised but never
+  // excluded — with a small pool that would empty the slot.
+  const seen = new Set(options.recentCampaignIds ?? []);
+  const fresh = band.filter((r) => !seen.has(r.campaign.campaignId));
+  const choices = fresh.length > 0 ? fresh : band;
+
+  const roll = options.seed === undefined ? 0 : seededUnitInterval(options.seed);
+  return choices[Math.min(choices.length - 1, Math.floor(roll * choices.length))] ?? leader;
 }
 
 /** Convenience for the ad module: the winner, or null when nothing is relevant enough. */
