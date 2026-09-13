@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isCreativeImageRef, resolveCreativeImageUrl } from './creative';
+import { creativeImageFit, isCreativeImageRef, resolveCreativeImageUrl } from './creative';
 
 describe('isCreativeImageRef', () => {
   it('accepts artwork the advertiser hosts', () => {
@@ -43,5 +43,25 @@ describe('resolveCreativeImageUrl', () => {
 
   it('is null rather than throwing when the stored value is junk', () => {
     expect(resolveCreativeImageUrl('/ok.svg', 'not-an-origin')).toBeNull();
+  });
+});
+
+describe('creativeImageFit', () => {
+  it('fills the square with artwork that is close enough to square', () => {
+    expect(creativeImageFit(400, 400)).toBe('cover');
+    expect(creativeImageFit(500, 400)).toBe('cover');
+    expect(creativeImageFit(400, 500)).toBe('cover');
+  });
+
+  it('letterboxes wide artwork rather than widening the card for it', () => {
+    // The card has one silhouette. A 1200x400 creative used to take the full
+    // width of the panel; now it is shown whole inside the same 76px square.
+    expect(creativeImageFit(1200, 400)).toBe('contain');
+    expect(creativeImageFit(400, 1200)).toBe('contain');
+  });
+
+  it('letterboxes artwork it cannot measure, because cropping is the lossy guess', () => {
+    expect(creativeImageFit(0, 0)).toBe('contain');
+    expect(creativeImageFit(-1, 400)).toBe('contain');
   });
 });

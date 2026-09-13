@@ -162,7 +162,7 @@ const BRANDS: BrandSpec[] = [
           body: 'A dedicated Postgres database behind one client library, with row level security, file storage, edge functions and realtime subscriptions. The free plan covers 500 MB of database and 50,000 monthly active users.',
           ctaText: 'Start a free project',
           ctaUrl: 'https://supabase.com/dashboard/sign-up',
-          image: art('supabase-wide'),
+          image: art('supabase'),
         },
         inline: {
           headline: 'Free Postgres with auth and storage attached',
@@ -277,7 +277,7 @@ const BRANDS: BrandSpec[] = [
           body: 'Text to speech across 70+ languages, Scribe speech to text across 90+, and a realtime speech engine for conversational agents. The Flash model returns audio in roughly 75 ms.',
           ctaText: 'Open the API docs',
           ctaUrl: 'https://elevenlabs.io/docs',
-          image: art('elevenlabs-wide'),
+          image: art('elevenlabs'),
         },
         inline: {
           headline: 'Realtime text to speech in 70+ languages',
@@ -308,7 +308,7 @@ const BRANDS: BrandSpec[] = [
           body: 'Git-connected builds, a preview URL for each pull request, and a global edge network with automatic routing. Hobby is free for personal projects; Pro is $20 per seat per month.',
           ctaText: 'Deploy your project',
           ctaUrl: 'https://vercel.com/new',
-          image: art('vercel-wide'),
+          image: art('vercel'),
         },
         inline: {
           headline: 'A preview URL for every pull request',

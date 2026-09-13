@@ -1,50 +1,49 @@
 /**
- * Where a creative's artwork sits on the sponsored card.
+ * How a creative's artwork sits in the sponsored card's thumbnail.
  *
- * A campaign carries one `imageUrl`, and the card works out from the artwork's
- * own proportions how to show it: art drawn as a wide strip becomes a banner
- * across the top of the card, and anything squarer stays the small thumbnail
- * beside the copy. The advertiser is not asked to declare a layout, because a
- * declared layout is a promise about a file they can swap at any time — the
- * pixels cannot lie about their own shape, so the pixels decide.
+ * A campaign carries one `imageUrl`, and the card always draws it in the same
+ * place: a 76px square beside the copy. The card never reshapes itself around
+ * the artwork. A creative that spans the full width of the panel reads as a
+ * display ad dropped into an editor, and the slot's whole argument is that it
+ * is the size of a chat message rather than the size of a billboard.
+ *
+ * What the artwork's proportions still decide is how it is fitted into that
+ * square, because the square is fixed and the artwork is not. Near-square art
+ * fills it and is cropped a little at the edges; anything longer than that is
+ * letterboxed whole, so a wide wordmark keeps both of its ends. The advertiser
+ * is not asked to declare which — a declared shape is a promise about a file
+ * they can swap at any time, and the pixels cannot lie about their own shape.
  *
  * Both renderers — `apps/vscode-extension/webview/AdCard.tsx` and the
  * advertiser-facing `apps/web/src/components/app/sponsored-preview.tsx` —
- * import this, so the preview cannot promise a banner the editor would draw as
- * a thumbnail.
+ * import this, so the preview cannot promise a framing the editor would not
+ * draw.
  */
-
-/** At least twice as wide as it is tall was drawn as a banner. */
-export const BANNER_MIN_ASPECT = 2;
 
 /**
- * The widest the banner is drawn. Past this the artwork is cropped at the
- * sides instead of being allowed to become a letterbox sliver, which keeps one
- * unusually long creative from deciding how tall every card is.
+ * How far from square artwork may be and still be cropped to fill the slot.
+ *
+ * At 1.25 the crop takes a fifth off the long side, which is the margin most
+ * logo art carries anyway. Past it the loss starts eating content — the point
+ * where a 2:1 wordmark would lose half of itself — so the artwork is
+ * letterboxed instead.
  */
-export const BANNER_MAX_ASPECT = 4;
+export const SQUARE_FIT_MAX_ASPECT = 1.25;
 
-export type CreativeImageLayout = 'thumbnail' | 'banner';
-
-/** Decided from an image's `naturalWidth`/`naturalHeight` once it has loaded. */
-export function creativeImageLayout(
-  naturalWidth: number,
-  naturalHeight: number,
-): CreativeImageLayout {
-  if (naturalWidth <= 0 || naturalHeight <= 0) return 'thumbnail';
-  return naturalWidth / naturalHeight >= BANNER_MIN_ASPECT ? 'banner' : 'thumbnail';
-}
+export type CreativeImageFit = 'cover' | 'contain';
 
 /**
- * The aspect the banner slot is drawn at: the artwork's own, clamped. Applied
- * to the slot rather than the image so the image can `object-fit: cover` into
- * it, which crops only in the clamped case and leaves every ordinary banner
- * uncropped.
+ * Decided from an image's `naturalWidth`/`naturalHeight` once it has loaded.
+ *
+ * Unmeasurable artwork gets `contain`, which is the lossless answer: showing
+ * all of an image in the wrong proportions is recoverable, cropping away a
+ * brand's name is not.
  */
-export function bannerAspectRatio(naturalWidth: number, naturalHeight: number): number {
-  if (naturalWidth <= 0 || naturalHeight <= 0) return BANNER_MIN_ASPECT;
-  const aspect = naturalWidth / naturalHeight;
-  return Math.min(Math.max(aspect, BANNER_MIN_ASPECT), BANNER_MAX_ASPECT);
+export function creativeImageFit(naturalWidth: number, naturalHeight: number): CreativeImageFit {
+  if (naturalWidth <= 0 || naturalHeight <= 0) return 'contain';
+  const longest = Math.max(naturalWidth, naturalHeight);
+  const shortest = Math.min(naturalWidth, naturalHeight);
+  return longest / shortest <= SQUARE_FIT_MAX_ASPECT ? 'cover' : 'contain';
 }
 
 /**

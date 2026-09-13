@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  bannerAspectRatio,
-  creativeImageLayout,
-  type CreativeImageLayout,
-  type SponsoredAd,
-} from '@aam/shared';
+import { creativeImageFit, type CreativeImageFit, type SponsoredAd } from '@aam/shared';
 
 /**
  * The sponsored card.
@@ -19,10 +14,9 @@ import {
  * genuinely on screen for a full second before it is acknowledged, so scrolling
  * past earns nothing.
  *
- * Artwork comes in two shapes and the card sorts them out itself: a wide
- * creative is drawn as a banner across the top, anything squarer stays the
- * thumbnail beside the copy. See `creativeImageLayout` for why the image is
- * asked rather than the advertiser.
+ * Artwork always sits in the same 76px square, whatever shape it arrives in —
+ * the card has one silhouette, and it is the size of a chat message. Only the
+ * fit inside that square varies; see `creativeImageFit`.
  */
 
 const DWELL_MS = 1000;
@@ -84,19 +78,16 @@ export function AdCard({
   const measured = useRef(false);
   /**
    * Null until the artwork has loaded and reported its own proportions. The
-   * slot stays out of the layout until then: reserving a 76px square and then
-   * growing it into a full-width banner is a visible lurch in a card that has
-   * only just animated in.
+   * slot stays out of the layout until then: the square never changes size, but
+   * a creative that snapped from cropped to letterboxed once measured would
+   * still flicker in a card that has only just animated in.
    */
-  const [artwork, setArtwork] = useState<{
-    layout: CreativeImageLayout;
-    aspect: number;
-  } | null>(null);
+  const [fit, setFit] = useState<CreativeImageFit | null>(null);
 
   // A reused instance must not keep the previous creative's measurements.
   useEffect(() => {
     measured.current = false;
-    setArtwork(null);
+    setFit(null);
     setImageFailed(false);
     if (!ad.imageUrl) return;
 
@@ -146,12 +137,8 @@ export function AdCard({
   }, [menuOpen]);
 
   const measure = (image: HTMLImageElement) => {
-    const { naturalWidth, naturalHeight } = image;
     measured.current = true;
-    setArtwork({
-      layout: creativeImageLayout(naturalWidth, naturalHeight),
-      aspect: bannerAspectRatio(naturalWidth, naturalHeight),
-    });
+    setFit(creativeImageFit(image.naturalWidth, image.naturalHeight));
   };
 
   /**
@@ -178,18 +165,14 @@ export function AdCard({
   };
 
   const showImage = Boolean(ad.imageUrl) && !imageFailed;
-  const isBanner = showImage && artwork?.layout === 'banner';
 
   return (
     <div className="ad-slot" ref={ref}>
       <div className="ad-rule" />
 
-      <div className={isBanner ? 'ad-card ad-card-banner' : 'ad-card'}>
+      <div className="ad-card">
         {showImage ? (
-          <div
-            className={`ad-media ad-media-${artwork?.layout ?? 'pending'}`}
-            style={isBanner ? { aspectRatio: String(artwork?.aspect) } : undefined}
-          >
+          <div className={`ad-media ad-media-${fit ?? 'pending'}`}>
             <img
               ref={attachImage}
               src={ad.imageUrl ?? ''}
@@ -200,7 +183,7 @@ export function AdCard({
             />
           </div>
         ) : (
-          <div className="ad-media ad-media-thumbnail">
+          <div className="ad-media ad-media-cover">
             <div className="ad-media-fallback" onClick={() => onClick(ad.impressionId, ad.ctaUrl)}>
               <AdvertiserMark name={ad.advertiserName} />
             </div>

@@ -19,10 +19,7 @@ import {
 import { AI_INTENT_GROUPS } from '@aam/shared';
 import { ChipSelect } from '@/components/app/chip-select';
 import { Eyebrow, Shell, Stamp } from '@/components/app/section';
-import {
-  InlineSponsoredPreview,
-  SponsoredPreview,
-} from '@/components/app/sponsored-preview';
+import { InlineSponsoredPreview, SponsoredPreview } from '@/components/app/sponsored-preview';
 import { api } from '@/lib/api';
 import { usePublicConfig } from '@/hooks/use-public-config';
 import { useMe } from '@/hooks/use-session';
@@ -167,15 +164,7 @@ export default function NewCampaignPage() {
         chains: ['mainnet'],
       },
     }),
-    [
-      countries,
-      personas,
-      interests,
-      aiIntents,
-      onchainMode,
-      protocolTypes,
-      requireWalletActivity,
-    ],
+    [countries, personas, interests, aiIntents, onchainMode, protocolTypes, requireWalletActivity],
   );
 
   // Debounced so dragging through options does not hammer the API.
@@ -622,10 +611,11 @@ export default function NewCampaignPage() {
                     onChange={(e) => setImageUrl(e.target.value)}
                   />
                   <p className="text-graphite mt-2 text-xs">
-                    The card reads the shape of your artwork rather than asking you to pick a
-                    layout. Anything at least twice as wide as it is tall — 1200×400 is a good
-                    target — runs as a banner across the top of the card; squarer art stays a 76px
-                    thumbnail beside the copy. Leave it empty and the card falls back to your
+                    Artwork always sits in a 76px square beside your copy — the card is the size of
+                    a chat message and never widens for a creative. Square art is what the slot is
+                    built for; 400×400 is a good target. Anything much longer than square is shown
+                    whole and letterboxed rather than cropped, so a wide wordmark survives, but it
+                    gets less of the square. Leave it empty and the card falls back to your
                     initials. The preview below updates either way.
                   </p>
                 </div>
@@ -636,9 +626,9 @@ export default function NewCampaignPage() {
               <div className="grid gap-4">
                 <p className="text-steel text-sm leading-relaxed">
                   One line shown while the answer is still being written — the moment the developer
-                  is waiting. It is a separate auction from the card, billed at 30% of your bid.
-                  The two never appear at once: the line is retired the moment the answer is
-                  finished, and the card takes its place.
+                  is waiting. It is a separate auction from the card, billed at 30% of your bid. The
+                  two never appear at once: the line is retired the moment the answer is finished,
+                  and the card takes its place.
                 </p>
 
                 <label className="text-almost-white flex items-center gap-2.5 text-sm">
@@ -664,8 +654,8 @@ export default function NewCampaignPage() {
                       />
                       <p className="text-graphite mt-2 text-xs">
                         {inlineHeadline.length}/70. Write it as a useful aside, not a pitch — it
-                        sits next to an answer the developer asked for, and is truncated rather
-                        than wrapped.
+                        sits next to an answer the developer asked for, and is truncated rather than
+                        wrapped.
                       </p>
                     </div>
                     <div className="space-y-2.5">
@@ -691,10 +681,7 @@ export default function NewCampaignPage() {
                 <Summary label="Campaign" onEdit={() => goTo(0)}>
                   <SummaryRow label="Name" value={name} />
                   <SummaryRow label="Budget" value={`$${budget.toFixed(2)}`} />
-                  <SummaryRow
-                    label="Bid"
-                    value={`$${bid.toFixed(4)} per qualified impression`}
-                  />
+                  <SummaryRow label="Bid" value={`$${bid.toFixed(4)} per qualified impression`} />
                   <SummaryRow label="Runs for" value={`${days} days`} />
                 </Summary>
 
@@ -841,37 +828,34 @@ export default function NewCampaignPage() {
         </Panel>
 
         <Panel label="Preview">
-            {/* Whichever slot the current step is about, shown on its own —
+          {/* Whichever slot the current step is about, shown on its own —
                 exactly as the developer sees it, one ad at a time. */}
-            {current.id === 'inline' && runInline ? (
-              <>
-                <InlineSponsoredPreview
-                  headline={inlineHeadline}
-                  ctaText={inlineCta}
-                  advertiserName={me?.user.displayName ?? 'Your company'}
-                />
-                <p className="text-graphite mt-4 text-xs leading-relaxed">
-                  Shown while the answer is still being written, and retired the moment it
-                  finishes.
-                </p>
-              </>
-            ) : (
-              <>
-                <SponsoredPreview
-                  headline={headline}
-                  body={body}
-                  ctaText={ctaText}
-                  imageUrl={imageUrl.trim() || null}
-                  advertiserName={me?.user.displayName ?? 'Your company'}
-                  rewardMicro={
-                    config ? Math.round(bid * config.allocation.reward * 1_000_000) : null
-                  }
-                />
-                <p className="text-graphite mt-4 text-xs leading-relaxed">
-                  This is exactly how it appears under a finished answer, never inside it.
-                </p>
-              </>
-            )}
+          {current.id === 'inline' && runInline ? (
+            <>
+              <InlineSponsoredPreview
+                headline={inlineHeadline}
+                ctaText={inlineCta}
+                advertiserName={me?.user.displayName ?? 'Your company'}
+              />
+              <p className="text-graphite mt-4 text-xs leading-relaxed">
+                Shown while the answer is still being written, and retired the moment it finishes.
+              </p>
+            </>
+          ) : (
+            <>
+              <SponsoredPreview
+                headline={headline}
+                body={body}
+                ctaText={ctaText}
+                imageUrl={imageUrl.trim() || null}
+                advertiserName={me?.user.displayName ?? 'Your company'}
+                rewardMicro={config ? Math.round(bid * config.allocation.reward * 1_000_000) : null}
+              />
+              <p className="text-graphite mt-4 text-xs leading-relaxed">
+                This is exactly how it appears under a finished answer, never inside it.
+              </p>
+            </>
+          )}
         </Panel>
       </aside>
     </Shell>
@@ -947,15 +931,7 @@ function Stepper({
 }
 
 /** A labelled block of controls, so every step reads the same way. */
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div>
       <Label>{label}</Label>
@@ -1136,7 +1112,9 @@ function Row({
       </div>
       {/* The developer's share is the number this whole rail exists to show, so
           it is the one figure allowed the accent. */}
-      <div className={`shrink-0 text-sm tabular-nums ${accent ? 'text-signal-violet' : 'text-almost-white'}`}>
+      <div
+        className={`shrink-0 text-sm tabular-nums ${accent ? 'text-signal-violet' : 'text-almost-white'}`}
+      >
         {value}
       </div>
     </div>

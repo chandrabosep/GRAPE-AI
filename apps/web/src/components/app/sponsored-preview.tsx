@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { bannerAspectRatio, creativeImageLayout, type CreativeImageLayout } from '@aam/shared';
+import { creativeImageFit, type CreativeImageFit } from '@aam/shared';
 
 /**
  * The sponsored card as the developer actually sees it in VS Code.
@@ -19,10 +19,10 @@ import { bannerAspectRatio, creativeImageLayout, type CreativeImageLayout } from
  * What the advertiser needs from this is how little room their copy gets and
  * what sits in front of it, and both survive the recolouring.
  *
- * The artwork layout is not mirrored by hand either: the same
- * `creativeImageLayout` the card uses decides here whether the image they
- * pasted is a banner or a thumbnail, so the preview cannot promise a banner the
- * editor would draw as a 76px square.
+ * The artwork framing is not mirrored by hand either: the same
+ * `creativeImageFit` the card uses decides here whether the image they pasted
+ * fills the square or is letterboxed into it, so the preview cannot promise a
+ * framing the editor would not draw.
  */
 
 /**
@@ -61,10 +61,7 @@ export function SponsoredPreview({
 }: Props) {
   const mark = monogram(advertiserName || 'Advertiser');
 
-  const [artwork, setArtwork] = useState<{
-    layout: CreativeImageLayout;
-    aspect: number;
-  } | null>(null);
+  const [fit, setFit] = useState<CreativeImageFit | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
   /** Set the moment the artwork reports dimensions, so the timeout can stand down. */
   const measured = useRef(false);
@@ -72,7 +69,7 @@ export function SponsoredPreview({
   // The advertiser is typing this URL, so every keystroke is a different image.
   useEffect(() => {
     measured.current = false;
-    setArtwork(null);
+    setFit(null);
     setImageFailed(false);
     if (!imageUrl) return;
 
@@ -83,12 +80,8 @@ export function SponsoredPreview({
   }, [imageUrl]);
 
   const measure = (image: HTMLImageElement) => {
-    const { naturalWidth, naturalHeight } = image;
     measured.current = true;
-    setArtwork({
-      layout: creativeImageLayout(naturalWidth, naturalHeight),
-      aspect: bannerAspectRatio(naturalWidth, naturalHeight),
-    });
+    setFit(creativeImageFit(image.naturalWidth, image.naturalHeight));
   };
 
   /**
@@ -109,29 +102,20 @@ export function SponsoredPreview({
   };
 
   const showImage = Boolean(imageUrl) && !imageFailed;
-  const isBanner = showImage && artwork?.layout === 'banner';
-
-  // Kept out of the layout until the image has reported its proportions, so a
-  // banner does not first appear as a square and then jump.
-  const mediaClass = !artwork
-    ? 'hidden'
-    : artwork.layout === 'banner'
-      ? 'bg-wash-strong w-full overflow-hidden rounded-lg'
-      : 'bg-wash-strong size-19 shrink-0 overflow-hidden rounded-lg';
 
   return (
     <div className="max-w-md space-y-3">
       <div className="bg-hairline h-px" />
 
-      <div
-        className={`border-hairline bg-wash flex rounded-[10.8px] border p-3 ${
-          isBanner ? 'flex-col gap-2.5' : 'items-start gap-3'
-        }`}
-      >
+      <div className="border-hairline bg-wash flex items-start gap-3 rounded-[10.8px] border p-3">
         {showImage ? (
+          // Kept out of the layout until the image has reported its
+          // proportions, so artwork does not snap from cropped to letterboxed
+          // the moment it is measured.
           <div
-            className={mediaClass}
-            style={isBanner ? { aspectRatio: String(artwork?.aspect) } : undefined}
+            className={`bg-wash-strong size-19 shrink-0 overflow-hidden rounded-lg ${
+              fit ? '' : 'hidden'
+            }`}
           >
             {/* Creative artwork is advertiser-supplied, so it stays a plain img
                 rather than going through the image optimiser. */}
@@ -142,7 +126,9 @@ export function SponsoredPreview({
               alt=""
               onLoad={(event) => measure(event.currentTarget)}
               onError={() => setImageFailed(true)}
-              className="size-full object-cover"
+              className={
+                fit === 'contain' ? 'size-full object-contain p-2' : 'size-full object-cover'
+              }
             />
           </div>
         ) : (
