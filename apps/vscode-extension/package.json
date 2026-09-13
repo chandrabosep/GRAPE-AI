@@ -2,7 +2,7 @@
   "name": "grape-ai",
   "displayName": "GRAPE AI",
   "description": "AI coding assistant where relevant sponsored content pays for your inference.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "icon": "media/icon.png",
   "galleryBanner": {
     "color": "#1A0F22",
