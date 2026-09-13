@@ -53,7 +53,7 @@ Foundation is in place and tested. Product surfaces are not built yet.
 | Advertiser onboarding and campaign lifecycle | Done, 11 tests |
 | The Graph audience service | Done, 15 tests, needs a gateway key to run live |
 | Wallet linking with signature proof | Done, 6 tests |
-| Smart contracts | Done, 21 Foundry tests. Written and dry-run, **not deployed** |
+| Smart contracts | Done, 21 Foundry tests, **deployed to Hedera testnet** and exercised end to end |
 | VS Code extension | Chat, markdown answers, sponsored card, dwell ack, reward and cost readout |
 | Abuse rules (dwell, duplicates, caps, velocity) | Done, untested against a database |
 | API routes (31) | Done, build and 401/CORS verified |
@@ -246,21 +246,35 @@ payment has already settled on Hedera by the time they run, so a database that i
 not turn a completed purchase into a 500 the agent retries and pays for twice. The chain is
 the ledger of record; the rows are a local index of it.
 
-## Onchain settlement (not deployed)
+## Onchain settlement
 
-`CampaignVault` and `RewardPool` are written and tested (21 Foundry tests) and
-target **Hedera testnet (296)** — the same chain the x402 payments settle on, so
-the project has one chain rather than two. The token is HTS USDC `0.0.429274`,
-which the EVM reaches at `0x…68cda` with 6 decimals, matching the ledger's
-micro-USD precision exactly. Real testnet USDC comes from
+`CampaignVault` and `RewardPool` are deployed to **Hedera testnet (296)** — the
+same chain the x402 payments settle on, so the project has one chain rather than
+two.
+
+| Contract | Hedera id | EVM address |
+|---|---|---|
+| CampaignVault | [`0.0.10502346`](https://hashscan.io/testnet/contract/0.0.10502346) | `0x4F160b39EbB23DBA8650f50aD5fc95964e085c42` |
+| RewardPool | [`0.0.10502343`](https://hashscan.io/testnet/contract/0.0.10502343) | `0x1E0724300F61bbF03caFB9D0fE52A039108B784B` |
+
+The token is HTS USDC [`0.0.5449`](https://hashscan.io/testnet/token/0.0.5449),
+which the EVM reaches at `0x…1549` with 6 decimals, matching the ledger's
+micro-USD precision exactly — so a USDC base unit and a credit micro are the
+same number, with no conversion step to get wrong. Real testnet USDC comes from
 [Circle's faucet](https://faucet.circle.com) with Hedera Testnet selected;
 there is no mock token in the deployable path.
 
-They are **not deployed**, and nothing that runs today needs them: campaign
-budgets and rewards move through the credit ledger, which is integer micro-USD
-and append-only. Deploying them is the next step for real advertiser money, not
-a gap in the demo. See [`contracts/README.md`](contracts/README.md), which also
-covers the HTS association caveat that has no equivalent on other EVM chains.
+The whole loop has run on chain: 100 USDC funded into a campaign, settled
+70 / 20 / 10, and withdrawn from the pool — including a replayed withdrawal the
+contract refused. Every transaction, with balance changes:
+[`docs/evidence/onchain.md`](docs/evidence/onchain.md).
+
+High-volume events never touch either contract. An impression, and an individual
+reward worth a few thousandths of a cent, would cost more in gas than the reward
+is worth and would publish exactly the behavioural trail the product promises not
+to expose; both contracts see only funding and aggregate settlement. See
+[`contracts/README.md`](contracts/README.md), which also covers the HTS
+association caveat that has no equivalent on other EVM chains.
 
 ## Money
 
