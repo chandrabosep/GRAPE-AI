@@ -57,6 +57,9 @@ export function SiteFooter() {
           <Link href="/advertise" className="hover:text-almost-white transition-colors">
             Advertise
           </Link>
+          <Link href="/agents" className="hover:text-almost-white transition-colors">
+            For agents
+          </Link>
         </nav>
 
         <div className="text-steel ml-auto flex items-center gap-2.5 text-sm">

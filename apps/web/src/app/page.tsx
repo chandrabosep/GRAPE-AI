@@ -22,8 +22,8 @@ const ACTORS = [
     index: '03',
     title: 'AI agents',
     body: 'Pay per call over x402 on Hedera. No account, no subscription, no API key.',
-    href: '/app',
-    cta: 'See the ledger',
+    href: '/agents',
+    cta: 'Read the docs',
   },
 ];
 

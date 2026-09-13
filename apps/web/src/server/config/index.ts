@@ -73,6 +73,16 @@ const envSchema = z.object({
   TREASURY_ACCOUNT_ID: z.string().regex(/^\d+\.\d+\.\d+$/).optional(),
   USDC_TOKEN_ID: z.string().regex(/^\d+\.\d+\.\d+$/).default('0.0.5449'),
 
+  // The agent-facing x402 service, as described on /agents. The web app never
+  // pays it — agents do that directly — but the docs page reads its discovery
+  // document so the prices it quotes are the live ones. These values address
+  // that service and stand in for its terms when it cannot be reached.
+  X402_API_URL: z.string().default('http://localhost:4402'),
+  X402_NETWORK: z.string().default('hedera:testnet'),
+  X402_FACILITATOR_URL: z.string().default('https://api.testnet.blocky402.com'),
+  X402_PRICE_HBAR_TINYBARS: z.coerce.bigint().positive().default(1_000_000n),
+  HEDERA_SERVICE_ACCOUNT_ID: z.string().regex(/^\d+\.\d+\.\d+$/).optional(),
+
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3001'),
 });
 

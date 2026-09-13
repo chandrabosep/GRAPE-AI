@@ -24,6 +24,7 @@ import { signInWithWallet, WalletError, type Eip1193Provider } from '@/lib/walle
 const NAV = [
   { href: '/app', label: 'Dashboard' },
   { href: '/advertise', label: 'Advertise' },
+  { href: '/agents', label: 'For agents' },
 ];
 
 const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
