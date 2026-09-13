@@ -376,6 +376,69 @@ export const STYLES = `
     color: var(--vscode-descriptionForeground);
     border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.3));
   }
+
+  /* What travels with the next message, sitting directly above the box it will
+     be sent from. Wraps rather than truncating the row, because a long path is
+     still readable on a second line and a clipped one is not. */
+  .context-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+  .context-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    max-width: 100%; padding: 2px 8px;
+    font-size: 11px; line-height: 18px;
+    border-radius: 999px;
+    color: var(--vscode-descriptionForeground);
+    background: var(--vscode-badge-background);
+    border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25));
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .context-chip svg { width: 12px; height: 12px; flex: 0 0 auto; opacity: .75; }
+
+  /* The plus button and its menu. Anchored to the button so the menu opens
+     upward: the composer sits at the bottom of the panel, and a downward menu
+     would open off-screen. */
+  .composer-context { position: relative; display: inline-flex; }
+  .composer-plus {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; padding: 0; border-radius: 6px;
+    color: var(--vscode-descriptionForeground);
+  }
+  .composer-plus svg { width: 15px; height: 15px; }
+  .composer-plus:hover:not(:disabled) {
+    background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.2));
+    color: var(--vscode-foreground);
+  }
+  .composer-plus:disabled { opacity: .4; cursor: default; }
+
+  .composer-menu {
+    position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 20;
+    min-width: 208px; padding: 4px;
+    border-radius: 8px;
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+    border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.3));
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+  .composer-menu button {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 5px 8px;
+    background: none; border: 0; border-radius: 5px;
+    font-size: 12px; text-align: left; cursor: pointer;
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+  }
+  .composer-menu button:hover:not(:disabled) {
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+  }
+  .composer-menu button:disabled { opacity: .45; cursor: default; }
+  /* A fixed gutter, so the label does not shift when the tick appears. */
+  .composer-menu-check {
+    flex: 0 0 auto; width: 14px; height: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .composer-menu-check svg { width: 12px; height: 12px; }
+  .composer-menu-rule {
+    height: 1px; margin: 4px 2px;
+    background: var(--vscode-widget-border, rgba(128,128,128,.25));
+  }
   .composer-box {
     display: flex; flex-direction: column; gap: 4px;
     padding: 6px 6px 6px 4px;
@@ -394,10 +457,15 @@ export const STYLES = `
   }
   .composer-box textarea::placeholder { color: var(--vscode-input-placeholderForeground); }
   .composer-box button { flex: 0 0 auto; }
+  /* Three children now, not two: the plus button and the model pill group at
+     the left and the send button holds the right edge. space-between would have
+     strung all three evenly across the bar and left the model pill floating in
+     the middle of nothing. */
   .composer-bar {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    display: flex; align-items: center; gap: 6px;
     padding-left: 2px;
   }
+  .composer-bar .send, .composer-bar .stop { margin-left: auto; }
   .composer-hint {
     margin-top: 6px; font-size: 10px;
     color: var(--vscode-descriptionForeground); opacity: .7;

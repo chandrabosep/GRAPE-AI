@@ -29,6 +29,13 @@ export function collectEditorContext(includeSelection: boolean): EditorContext |
   return context;
 }
 
+/** The active file as the workspace sees it, for the composer's context chip. */
+export function activeFileName(): string | null {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return null;
+  return vscode.workspace.asRelativePath(editor.document.uri);
+}
+
 export function hasSelection(): boolean {
   const editor = vscode.window.activeTextEditor;
   return editor !== undefined && !editor.selection.isEmpty;

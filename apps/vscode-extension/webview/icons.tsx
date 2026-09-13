@@ -67,3 +67,32 @@ export function RegenerateIcon(props: Props) {
     </Svg>
   );
 }
+
+/** The composer's context button. A plus is the one glyph every chat app uses for "add". */
+export function PlusIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M8 3.25v9.5M3.25 8h9.5" />
+    </Svg>
+  );
+}
+
+/** Marks the chip naming the file a question will be asked about. */
+export function FileIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M9 2.25H4.75a1.5 1.5 0 0 0-1.5 1.5v8.5a1.5 1.5 0 0 0 1.5 1.5h6.5a1.5 1.5 0 0 0 1.5-1.5V5.75z" />
+      <path d="M9 2.25v3.5h3.75" />
+    </Svg>
+  );
+}
+
+/** Marks the chip for an attached editor selection. */
+export function SelectionIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4.75 2.75h-2v10.5h2M11.25 2.75h2v10.5h-2" />
+      <path d="M6.5 5.75h3M6.5 8h3M6.5 10.25h3" />
+    </Svg>
+  );
+}

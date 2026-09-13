@@ -106,6 +106,13 @@ export type WebviewToHost =
   | { type: 'renameSession'; sessionId: string; title: string }
   | { type: 'deleteSession'; sessionId: string }
   | { type: 'selectModel'; modelId: string }
+  /**
+   * Turns the editor selection on or off for future questions.
+   *
+   * Writes `grapeAi.includeSelection`, so the composer toggle and the settings
+   * checkbox are the same switch rather than two that disagree.
+   */
+  | { type: 'setIncludeSelection'; value: boolean }
   /** Saves a proposed write and lets the assistant continue. */
   | { type: 'approveWrite'; toolUseId: string }
   /** Refuses it. The assistant is told, so it can adapt rather than retry. */
@@ -121,6 +128,12 @@ export interface HostState {
   creditBalanceMicro: string | null;
   hasSelection: boolean;
   includeSelection: boolean;
+  /**
+   * The file the question will be asked about, workspace-relative, or null when
+   * no editor is open. Shown in the composer so what is being sent is visible
+   * before sending rather than inferred afterwards.
+   */
+  activeFileName: string | null;
   models: ModelChoice[];
   selectedModel: string | null;
   sessions: SessionSummary[];

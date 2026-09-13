@@ -4,8 +4,9 @@ import type { SponsoredAd } from '@aam/shared';
 import type { HostState, PersistedTurn, ToolActivity } from '../src/protocol';
 import { AdCard } from './AdCard';
 import { InlineAd } from './InlineAd';
+import { ContextMenu } from './ContextMenu';
 import { CopyButton, IconButton } from './IconButton';
-import { InsertIcon, RegenerateIcon } from './icons';
+import { FileIcon, InsertIcon, RegenerateIcon, SelectionIcon } from './icons';
 import { Markdown } from './markdown';
 import { ToolTrail } from './ToolTrail';
 import { ModelMenu } from './ModelMenu';
@@ -148,6 +149,7 @@ function App() {
     creditBalanceMicro: null,
     hasSelection: false,
     includeSelection: true,
+    activeFileName: null,
     models: [],
     selectedModel: null,
     sessions: [],
@@ -525,8 +527,25 @@ function App() {
       {notice && <div className="toast">{notice}</div>}
 
       <div className="composer">
-        {state.hasSelection && state.includeSelection && (
-          <div className="selection-chip">Editor selection included</div>
+        {/* What is actually going with the message, named before it is sent
+            rather than described afterwards. The file is what the assistant is
+            told about; the selection chip only appears when code is genuinely
+            attached, so an empty selection never claims otherwise. */}
+        {(state.activeFileName || (state.hasSelection && state.includeSelection)) && (
+          <div className="context-chips">
+            {state.activeFileName && (
+              <span className="context-chip" title={state.activeFileName}>
+                <FileIcon />
+                {state.activeFileName.split('/').pop()}
+              </span>
+            )}
+            {state.hasSelection && state.includeSelection && (
+              <span className="context-chip">
+                <SelectionIcon />
+                Selection
+              </span>
+            )}
+          </div>
         )}
         <div className="composer-box">
           <textarea
@@ -543,6 +562,15 @@ function App() {
             }}
           />
           <div className="composer-bar">
+            <ContextMenu
+              hasSelection={state.hasSelection}
+              includeSelection={state.includeSelection}
+              disabled={streaming}
+              onToggleSelection={(value) =>
+                vscode.postMessage({ type: 'setIncludeSelection', value })
+              }
+              onNewChat={() => vscode.postMessage({ type: 'newSession' })}
+            />
             <ModelMenu
               models={state.models}
               selectedId={state.selectedModel}

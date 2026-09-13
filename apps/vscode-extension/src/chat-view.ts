@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import type { ContentBlock } from '@aam/shared';
 import type { ApiClient, ChatMessage } from './api';
 import type { AuthManager } from './auth';
-import { collectEditorContext, hasSelection } from './editor-context';
+import { activeFileName, collectEditorContext, hasSelection } from './editor-context';
 import type {
   ChatSession,
   HostState,
@@ -29,6 +29,9 @@ import { applyWrite, diffSummary, runTool, type PendingWrite } from './tools';
  */
 
 /** How long an account summary is reused before it is fetched again. */
+/** Cursor moves fire continuously; one state push per settled selection is enough. */
+const EDITOR_DEBOUNCE_MS = 150;
+
 const ACCOUNT_TTL_MS = 10_000;
 
 const MODEL_KEY = 'grapeAi.model';
@@ -69,6 +72,28 @@ export class ChatViewProvider {
     // reacts to whatever came out of it — including its own writes, which
     // reconcile to a no-op.
     context.subscriptions.push(this.sessions.onDidChange(() => void this.reconcile()));
+
+    /**
+     * Keeps the composer's context chips honest.
+     *
+     * `hasSelection` and the active file were only ever recomputed when
+     * something else happened to push state, so the composer could claim a
+     * selection was attached long after it was cleared, or name a file the
+     * developer had navigated away from. Selection events fire on every cursor
+     * move, so they are coalesced rather than pushed one for one.
+     */
+    let editorChange: ReturnType<typeof setTimeout> | undefined;
+    const refreshEditorContext = () => {
+      if (editorChange) clearTimeout(editorChange);
+      editorChange = setTimeout(() => void this.pushState(), EDITOR_DEBOUNCE_MS);
+    };
+    context.subscriptions.push(
+      vscode.window.onDidChangeActiveTextEditor(refreshEditorContext),
+      vscode.window.onDidChangeTextEditorSelection(refreshEditorContext),
+      new vscode.Disposable(() => {
+        if (editorChange) clearTimeout(editorChange);
+      }),
+    );
 
     auth.onDidChange(() => {
       // A sign-in or sign-out changes what the account shows; the cache must not
@@ -207,6 +232,15 @@ export class ChatViewProvider {
 
       case 'selectModel':
         await this.context.globalState.update(MODEL_KEY, message.modelId);
+        await this.pushState();
+        return;
+
+      case 'setIncludeSelection':
+        // Global rather than workspace-scoped: "do not send my selection" is a
+        // statement about the person, not about one project.
+        await vscode.workspace
+          .getConfiguration('grapeAi')
+          .update('includeSelection', message.value, vscode.ConfigurationTarget.Global);
         await this.pushState();
         return;
 
@@ -405,9 +439,7 @@ export class ChatViewProvider {
       .getConfiguration('grapeAi')
       .get<boolean>('includeSelection', true);
 
-    const maxHops = vscode.workspace
-      .getConfiguration('grapeAi')
-      .get<number>('maxToolSteps', 12);
+    const maxHops = vscode.workspace.getConfiguration('grapeAi').get<number>('maxToolSteps', 12);
 
     for (let hop = 0; hop < maxHops; hop += 1) {
       if (controller.signal.aborted) return;
@@ -518,18 +550,15 @@ export class ChatViewProvider {
       // Server-side tools (query_blockchain) are already resolved — only run
       // the client-side ones (read_file, write_file, …) locally.
       const clientCalls = calls.filter(
-        (c) => !serverToolResults.some((r) => r.type === 'tool_result' && r.toolUseId === c.toolUseId),
+        (c) =>
+          !serverToolResults.some((r) => r.type === 'tool_result' && r.toolUseId === c.toolUseId),
       );
 
-      const clientResults = clientCalls.length > 0
-        ? await this.executeCalls(id, clientCalls, controller)
-        : [];
+      const clientResults =
+        clientCalls.length > 0 ? await this.executeCalls(id, clientCalls, controller) : [];
       if (controller.signal.aborted) return;
 
-      const results = [
-        ...serverToolResults,
-        ...clientResults,
-      ];
+      const results = [...serverToolResults, ...clientResults];
 
       this.history.push({ role: 'user', content: results });
     }
@@ -715,8 +744,7 @@ export class ChatViewProvider {
       const last = this.history[this.history.length - 1]!;
       const isHumanQuestion =
         last.role === 'user' &&
-        (typeof last.content === 'string' ||
-          last.content.some((block) => block.type === 'text'));
+        (typeof last.content === 'string' || last.content.some((block) => block.type === 'text'));
 
       this.history.pop();
       if (isHumanQuestion) return;
@@ -752,9 +780,9 @@ export class ChatViewProvider {
       includeSelection: vscode.workspace
         .getConfiguration('grapeAi')
         .get<boolean>('includeSelection', true),
+      activeFileName: activeFileName(),
       models: this.models,
-      selectedModel:
-        this.selectedModel() ?? this.models.find((model) => model.default)?.id ?? null,
+      selectedModel: this.selectedModel() ?? this.models.find((model) => model.default)?.id ?? null,
       sessions: this.sessions.summaries(),
       activeSessionId: this.session?.id ?? null,
     };
@@ -885,9 +913,7 @@ async function showProposedDiff(write: PendingWrite): Promise<void> {
     ? vscode.Uri.joinPath(root, write.path)
     : vscode.Uri.parse(`untitled:${write.path}`);
 
-  const proposed = vscode.Uri.parse(
-    `${PROPOSED_SCHEME}:/${write.path}?${Date.now()}`,
-  );
+  const proposed = vscode.Uri.parse(`${PROPOSED_SCHEME}:/${write.path}?${Date.now()}`);
   proposedContents.set(proposed.path, write.content);
 
   const left = write.previous === null ? vscode.Uri.parse('untitled:empty') : current;
