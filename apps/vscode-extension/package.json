@@ -2,7 +2,7 @@
   "name": "grape-ai",
   "displayName": "GRAPE AI",
   "description": "AI coding assistant where relevant sponsored content pays for your inference.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "icon": "media/icon.png",
   "galleryBanner": {
     "color": "#1A0F22",
@@ -133,6 +133,8 @@
     "dev": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "package": "node esbuild.mjs --production && vsce package --no-dependencies",
+    "publish:vscode": "vsce publish --no-dependencies --packagePath grape-ai-$npm_package_version.vsix",
+    "publish:openvsx": "ovsx publish grape-ai-$npm_package_version.vsix",
     "test": "vitest run",
     "reinstall": "node scripts/reinstall.mjs"
   },
@@ -145,6 +147,7 @@
     "@types/vscode": "^1.100.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
+    "ovsx": "^1.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "typescript": "^7.0.2",
